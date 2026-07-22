@@ -81,6 +81,7 @@ export default function App() {
   const sessionsRef = useRef({}) // role → sessionId (para historial/--resume)
   const convIdRef = useRef(null)
   const logRef = useRef(null)
+  const inputRef = useRef(null)
 
   const projects = cfg?.projectsByProfile?.[profile] || []
   const running = Object.keys(roleStates)
@@ -160,6 +161,31 @@ export default function App() {
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
+
+  // Atajos: ⌘K nueva · ⌘1-4 hablarle a un tripulante · ⌘Y historial · Esc cierra panel
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setHistOpen(false)
+        return
+      }
+      if (!e.metaKey) return
+      if (e.key === 'k') {
+        e.preventDefault()
+        newChat()
+      } else if (e.key === 'y') {
+        e.preventDefault()
+        toggleHist()
+      } else if (['1', '2', '3', '4'].includes(e.key)) {
+        e.preventDefault()
+        const id = ROLE_IDS[Number(e.key) - 1]
+        setInput((v) => `${ROLES[id].name}, ${v.replace(/^\S+,\s*/, '')}`)
+        inputRef.current?.focus()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  })
 
   const addSystem = (text) => setMessages((ms) => [...ms, { role: 'system', text }])
 
@@ -395,6 +421,7 @@ export default function App() {
 
       <form className="composer" onSubmit={send}>
         <input
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={

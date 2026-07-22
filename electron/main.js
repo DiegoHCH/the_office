@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net, Notification } = require('electron')
 const { spawn } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -33,6 +33,25 @@ const ROLE_PROMPTS = {
   design:
     'Eres Sanji, diseñador UI/UX del squad. Tu foco: diseño de interfaces, experiencia de usuario, estilos, accesibilidad y propuestas visuales concretas. Preséntate como Sanji cuando te saluden.',
   qa: 'Eres Zoro, QA del squad. Tu foco: calidad — escribir tests, ejecutarlos, reproducir bugs y reportar resultados con claridad. Preséntate como Zoro cuando te saluden.',
+}
+
+const ROLE_NAMES = { dev: '⌨️ Luffy', research: '🔍 Nami', design: '🎨 Sanji', qa: '🧪 Zoro' }
+
+// Notifica solo si la ventana no está al frente (tareas largas en background).
+function notify(role, body) {
+  if (!Notification.isSupported() || !win || win.isDestroyed() || win.isFocused()) return
+  const n = new Notification({
+    title: `${ROLE_NAMES[role] || role} terminó`,
+    body: (body || '').replace(/\s+/g, ' ').slice(0, 140) || 'Tarea completada',
+    silent: true, // ya tenemos nuestro "ding" dentro de la app
+  })
+  n.on('click', () => {
+    if (win && !win.isDestroyed()) {
+      win.show()
+      win.focus()
+    }
+  })
+  n.show()
 }
 
 // Herramientas por modo. Lectura: investigar sin tocar nada.
@@ -112,6 +131,7 @@ function makeLineHandler(role, sessionKey) {
       if (msg.session_id) sessions.set(sessionKey, msg.session_id)
       console.log('[claude:result]', role, JSON.stringify({ cost: msg.total_cost_usd, session: msg.session_id }))
       emit({ kind: 'done', role, result: msg.result ?? '', cost: msg.total_cost_usd ?? null })
+      notify(role, msg.result)
     }
   }
 }
@@ -216,6 +236,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   child.on('close', (code) => {
     if (code !== 0 && code !== null) {
       emit({ kind: 'error', role, message: `claude terminó con código ${code} (mira la terminal)` })
+      notify(role, `⚠️ terminó con error (código ${code})`)
     }
     children.delete(role)
   })
