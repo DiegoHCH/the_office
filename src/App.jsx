@@ -210,6 +210,12 @@ const FALLBACK_MODEL = 'claude-sonnet-5'
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
+1) ¿En qué trabajamos la última vez?
+2) ¿Quedó algo pendiente o bloqueado?
+3) ¿Qué sugieres hacer hoy?
+Si no tienes contexto previo conmigo en este proyecto, dilo en una línea y sugiere en qué puedes ayudar según tu rol. No uses herramientas salvo que sea imprescindible.`
+
 // A qué miembro va el mensaje: nombre al inicio / @nombre / keywords / principal.
 function routeMessage(text, squad, principal) {
   const t = norm(text)
@@ -584,6 +590,28 @@ export default function App() {
     }
     if (cmd === '/squad') {
       showToast(squad.map((m) => `${m.emoji} ${m.name} — ${m.label}`).join('  ·  '))
+      return true
+    }
+    if (cmd === '/standup') {
+      const free = squad.filter((m) => !roleStates[m.id])
+      if (!free.length) {
+        showToast('todo el squad está ocupado — intenta en un momento')
+        return true
+      }
+      if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+      setMessages((ms) => [...ms, { role: 'system', text: `📋 Standup diario — reporta el squad (${free.map((m) => m.name).join(', ')})` }])
+      popSound()
+      // cada uno retoma su última sesión en este proyecto y reporta (en paralelo)
+      free.forEach((m, i) => {
+        setTimeout(() => {
+          setRS(m.id, 'listening')
+          window.oficina
+            ?.ask({ prompt: STANDUP_PROMPT, profile, cwd: project, writeMode: false, model, role: m.id, standup: true })
+            .then((res) => {
+              if (!res?.ok) setRS(m.id, 'idle')
+            })
+        }, i * 600)
+      })
       return true
     }
     return false

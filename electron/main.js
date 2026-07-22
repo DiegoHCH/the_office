@@ -27,6 +27,31 @@ const children = new Map() // role → child process
 // Sesión por rol+perfil+proyecto → cada personaje tiene su propio contexto.
 const sessions = new Map() // `${role}::${profile}::${workdir}` → sessionId
 
+// Última sesión conocida de cada rol (persistida): la memoria del standup.
+// A diferencia de `sessions`, NO se borra con "conversación nueva".
+let lastSessions = null
+const lastSessionsFile = () => path.join(app.getPath('userData'), 'last-sessions.json')
+function getLastSessions() {
+  if (!lastSessions) {
+    lastSessions = new Map()
+    try {
+      for (const [k, v] of Object.entries(JSON.parse(fs.readFileSync(lastSessionsFile(), 'utf8')))) {
+        lastSessions.set(k, v)
+      }
+    } catch {}
+  }
+  return lastSessions
+}
+function rememberSession(key, sid) {
+  if (!sid) return
+  const m = getLastSessions()
+  if (m.get(key) === sid) return
+  m.set(key, sid)
+  try {
+    fs.writeFileSync(lastSessionsFile(), JSON.stringify(Object.fromEntries(m), null, 2))
+  } catch {}
+}
+
 // Catálogo de roles: plantilla de persona por rol, con el nombre configurable.
 const ROLE_TEMPLATES = {
   dev: (n) =>
@@ -141,7 +166,10 @@ function makeLineHandler(role, sessionKey, displayName) {
     }
 
     if (msg.type === 'system' && msg.subtype === 'init') {
-      if (msg.session_id) sessions.set(sessionKey, msg.session_id)
+      if (msg.session_id) {
+        sessions.set(sessionKey, msg.session_id)
+        rememberSession(sessionKey, msg.session_id)
+      }
       emit({ kind: 'init', role, sessionId: msg.session_id })
       return
     }
@@ -164,7 +192,10 @@ function makeLineHandler(role, sessionKey, displayName) {
     }
 
     if (msg.type === 'result') {
-      if (msg.session_id) sessions.set(sessionKey, msg.session_id)
+      if (msg.session_id) {
+        sessions.set(sessionKey, msg.session_id)
+        rememberSession(sessionKey, msg.session_id)
+      }
       console.log('[claude:result]', role, JSON.stringify({ cost: msg.total_cost_usd, session: msg.session_id }))
       emit({ kind: 'done', role, result: msg.result ?? '', cost: msg.total_cost_usd ?? null })
       notify(displayName, msg.result)
@@ -241,14 +272,15 @@ ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd })
 })
 
 ipcMain.handle('claude:ask', (_e, payload) => {
-  const { prompt, profile = 'work', cwd, writeMode = false, model = '', role = 'dev' } =
+  const { prompt, profile = 'work', cwd, writeMode = false, model = '', role = 'dev', standup = false } =
     typeof payload === 'string' ? { prompt: payload } : payload
 
   if (children.has(role)) return { ok: false, error: `${role} ya está trabajando en algo` }
 
   const workdir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
   const sessionKey = `${role}::${profile}::${workdir}`
-  const sid = sessions.get(sessionKey)
+  // standup: si no hay conversación activa, retoma la ÚLTIMA sesión conocida
+  const sid = sessions.get(sessionKey) || (standup ? getLastSessions().get(sessionKey) : undefined)
 
   const member = getSquad(profile).find((r) => r.id === role)
   const displayName = member?.name || role
