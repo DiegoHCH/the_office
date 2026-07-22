@@ -579,6 +579,26 @@ ipcMain.handle('image:save', (_e, { name, data }) => {
   }
 })
 
+// Abre la terminal (Warp si está, si no la predeterminada) en el proyecto actual.
+ipcMain.handle('terminal:open', (_e, cwd) => {
+  const dir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
+  const hasWarp = fs.existsSync('/Applications/Warp.app')
+  return new Promise((resolve) => {
+    // `open -a X <dir>` abre esa app con la carpeta como argumento
+    const args = hasWarp ? ['-a', 'Warp', dir] : ['-a', 'Terminal', dir]
+    execFile('open', args, (err) => {
+      if (err) {
+        // último recurso: Terminal.app
+        execFile('open', ['-a', 'Terminal', dir], (e2) =>
+          resolve(e2 ? { ok: false, error: e2.message } : { ok: true, app: 'Terminal' })
+        )
+      } else {
+        resolve({ ok: true, app: hasWarp ? 'Warp' : 'Terminal' })
+      }
+    })
+  })
+})
+
 ipcMain.handle('app:version', () => app.getVersion())
 
 app.whenReady().then(() => {

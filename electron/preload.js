@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('oficina', {
   reset: () => ipcRenderer.invoke('claude:reset'),
   // Restaura una sesión guardada para continuarla (--resume).
   setSession: (data) => ipcRenderer.invoke('claude:setSession', data),
+  // Abre la terminal (Warp o la predeterminada) en la carpeta indicada.
+  openTerminal: (cwd) => ipcRenderer.invoke('terminal:open', cwd),
   // Guarda una imagen adjunta y devuelve su ruta local.
   saveImage: (name, data) => ipcRenderer.invoke('image:save', { name, data }),
   // Abre la guía de uso en su propia ventana.

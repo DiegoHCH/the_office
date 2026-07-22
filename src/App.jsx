@@ -861,9 +861,19 @@ export default function App() {
               <button onClick={() => setSquadOpen(false)}>✕</button>
             </div>
 
-            {/* guía de uso */}
+            {/* guía de uso + terminal */}
             <button type="button" className="squad-save help-btn" onClick={() => window.oficina?.openHelp?.()}>
               📖 Guía de uso — cómo funciona La Oficina
+            </button>
+            <button
+              type="button"
+              className="squad-save help-btn"
+              onClick={async () => {
+                const res = await window.oficina?.openTerminal?.(project)
+                showToast(res?.ok ? `🖥 abriendo ${res.app}…` : '⚠️ no pude abrir la terminal')
+              }}
+            >
+              🖥 Abrir terminal en el proyecto
             </button>
 
             {/* preferencias — aplican al instante */}
