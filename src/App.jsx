@@ -5,6 +5,91 @@ import Office from './Office.jsx'
 import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { getAvatarThumb, NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 
+// ── Monitor de recursos (esquina superior izquierda de la escena) ───────────
+const fmtReset = (iso) => {
+  const ms = new Date(iso) - Date.now()
+  if (!iso || ms <= 0) return 'ya'
+  const m = Math.floor(ms / 60000)
+  const d = Math.floor(m / 1440)
+  const h = Math.floor((m % 1440) / 60)
+  return d > 0 ? `${d}d ${h}h` : h > 0 ? `${h}h ${m % 60}m` : `${m % 60}m`
+}
+
+function Bar({ pct }) {
+  const p = Math.min(100, Math.max(0, pct || 0))
+  return (
+    <div className="mon-bar">
+      <div className={p > 80 ? 'hot' : ''} style={{ width: `${p}%` }} />
+    </div>
+  )
+}
+
+function SysMonitor() {
+  const [s, setS] = useState(null)
+  useEffect(() => {
+    let on = true
+    const tick = async () => {
+      const d = await window.oficina?.stats?.()
+      if (on && d) setS(d)
+    }
+    tick()
+    const iv = setInterval(tick, 3000)
+    return () => {
+      on = false
+      clearInterval(iv)
+    }
+  }, [])
+  if (!s) return null
+  const gb = (b) => (b / 1073741824).toFixed(1)
+  const ramPct = (s.ramUsed / s.ramTotal) * 100
+  return (
+    <div className="sysmon">
+      <div className="mon-title">⚡ sistema</div>
+      <div className="mon-row">
+        <span>CPU</span>
+        <Bar pct={s.cpu} />
+        <b>{s.cpu}%</b>
+      </div>
+      <div className="mon-row">
+        <span>RAM</span>
+        <Bar pct={ramPct} />
+        <b>
+          {gb(s.ramUsed)}/{gb(s.ramTotal)}G
+        </b>
+      </div>
+      <div className="mon-row">
+        <span>App</span>
+        <span className="mon-app">{s.appMB} MB</span>
+      </div>
+      {s.claude && (s.claude.session || s.claude.weekly) && (
+        <>
+          <div className="mon-title">🤖 claude</div>
+          {s.claude.session && (
+            <>
+              <div className="mon-row">
+                <span>Sesión</span>
+                <Bar pct={s.claude.session.pct} />
+                <b>{Math.round(s.claude.session.pct)}%</b>
+              </div>
+              <div className="mon-sub">resetea en {fmtReset(s.claude.session.resetsAt)}</div>
+            </>
+          )}
+          {s.claude.weekly && (
+            <>
+              <div className="mon-row">
+                <span>Semana</span>
+                <Bar pct={s.claude.weekly.pct} />
+                <b>{Math.round(s.claude.weekly.pct)}%</b>
+              </div>
+              <div className="mon-sub">resetea en {fmtReset(s.claude.weekly.resetsAt)}</div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 // Miniatura 3D de un avatar (se genera una vez y queda en caché).
 function AvatarThumb({ file }) {
   const [src, setSrc] = useState(null)
@@ -582,6 +667,7 @@ export default function App() {
       </header>
 
       <div className="stage">
+        <SysMonitor />
         <Office
           roleStates={roleStates}
           status={status}

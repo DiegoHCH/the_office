@@ -11,6 +11,8 @@ contextBridge.exposeInMainWorld('oficina', {
   reset: () => ipcRenderer.invoke('claude:reset'),
   // Restaura una sesión guardada para continuarla (--resume).
   setSession: (data) => ipcRenderer.invoke('claude:setSession', data),
+  // Monitor: recursos del sistema + % de uso de la suscripción de Claude.
+  stats: () => ipcRenderer.invoke('stats:get'),
   // Preferencias: activar/desactivar notificaciones del sistema.
   setNotify: (v) => ipcRenderer.invoke('prefs:notify', v),
   // Configuración del squad (roster por perfil: nombres y activos).

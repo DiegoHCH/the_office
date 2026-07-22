@@ -1,7 +1,9 @@
 const { app, BrowserWindow, ipcMain, protocol, net, Notification } = require('electron')
-const { spawn } = require('node:child_process')
+const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
+const os = require('node:os')
+const https = require('node:https')
 const { pathToFileURL } = require('node:url')
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -362,6 +364,108 @@ ipcMain.handle('history:delete', (_e, id) => {
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
+  }
+})
+
+// ── Monitor de recursos + uso de Claude ──────────────────────────────────────
+let lastCpus = os.cpus()
+function cpuPercent() {
+  const cur = os.cpus()
+  let idle = 0
+  let total = 0
+  cur.forEach((c, i) => {
+    const p = lastCpus[i]?.times || c.times
+    for (const k of Object.keys(c.times)) total += c.times[k] - p[k]
+    idle += c.times.idle - p.idle
+  })
+  lastCpus = cur
+  return total > 0 ? Math.round((1 - idle / total) * 100) : 0
+}
+
+// Token OAuth desde el Keychain (se queda en el main, nunca va al renderer).
+function getOAuthToken() {
+  return new Promise((resolve) => {
+    execFile('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], (err, out) => {
+      if (err) return resolve(null)
+      try {
+        resolve(JSON.parse(out).claudeAiOauth?.accessToken || null)
+      } catch {
+        resolve(null)
+      }
+    })
+  })
+}
+
+// % de uso de la suscripción (mismo endpoint que usa la app de la barra de menú).
+function fetchClaudeUsage() {
+  return getOAuthToken().then((token) => {
+    if (!token) return null
+    return new Promise((resolve) => {
+      const req = https.get(
+        {
+          hostname: 'api.anthropic.com',
+          path: '/api/oauth/usage',
+          headers: { Authorization: `Bearer ${token}`, 'anthropic-beta': 'oauth-2025-04-20' },
+          timeout: 10000,
+        },
+        (res) => {
+          let body = ''
+          res.on('data', (c) => (body += c))
+          res.on('end', () => {
+            try {
+              const j = JSON.parse(body)
+              resolve({
+                session: j.five_hour ? { pct: j.five_hour.utilization ?? 0, resetsAt: j.five_hour.resets_at } : null,
+                weekly: j.seven_day ? { pct: j.seven_day.utilization ?? 0, resetsAt: j.seven_day.resets_at } : null,
+              })
+            } catch {
+              resolve(null)
+            }
+          })
+        }
+      )
+      req.on('error', () => resolve(null))
+      req.on('timeout', () => {
+        req.destroy()
+        resolve(null)
+      })
+    })
+  })
+}
+
+// RAM realmente usada (como el Activity Monitor: activa + wired + comprimida).
+// os.freemem() engaña en macOS: el caché de archivos "llena" la RAM a propósito.
+function realRamUsed() {
+  return new Promise((resolve) => {
+    execFile('vm_stat', (err, out) => {
+      if (err) return resolve(os.totalmem() - os.freemem())
+      try {
+        const page = Number(out.match(/page size of (\d+)/)?.[1] || 16384)
+        const grab = (label) => Number(out.match(new RegExp(`${label}:\\s+(\\d+)`))?.[1] || 0)
+        const used = (grab('Pages active') + grab('Pages wired down') + grab('Pages occupied by compressor')) * page
+        resolve(used || os.totalmem() - os.freemem())
+      } catch {
+        resolve(os.totalmem() - os.freemem())
+      }
+    })
+  })
+}
+
+const usageCache = { at: 0, data: null }
+ipcMain.handle('stats:get', async () => {
+  if (Date.now() - usageCache.at > 5 * 60_000) {
+    usageCache.at = Date.now()
+    fetchClaudeUsage().then((d) => {
+      if (d) usageCache.data = d
+    })
+  }
+  const appMB = Math.round(app.getAppMetrics().reduce((s, p) => s + (p.memory?.workingSetSize || 0), 0) / 1024)
+  return {
+    cpu: cpuPercent(),
+    ramUsed: await realRamUsed(),
+    ramTotal: os.totalmem(),
+    appMB,
+    claude: usageCache.data,
   }
 })
 
