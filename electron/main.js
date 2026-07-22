@@ -4,6 +4,7 @@ const path = require('node:path')
 const fs = require('node:fs')
 const os = require('node:os')
 const https = require('node:https')
+const crypto = require('node:crypto')
 const { pathToFileURL } = require('node:url')
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -458,23 +459,40 @@ function cpuPercent() {
   return total > 0 ? Math.round((1 - idle / total) * 100) : 0
 }
 
-// Token OAuth desde el Keychain (se queda en el main, nunca va al renderer).
-function getOAuthToken() {
+// Nombre del "service" del Keychain para cada perfil. Claude Code guarda el
+// token OAuth en `Claude Code-credentials-<sha256(configDir)[:8]>` por perfil
+// (y `Claude Code-credentials` a secas para la cuenta default ~/.claude).
+function keychainService(profile) {
+  const dir = PROFILE_DIRS[profile] ? PROFILE_DIRS[profile]() : null
+  if (!dir) return 'Claude Code-credentials'
+  const hash = crypto.createHash('sha256').update(dir).digest('hex').slice(0, 8)
+  return `Claude Code-credentials-${hash}`
+}
+
+// Token OAuth de un perfil desde el Keychain (se queda en el main, nunca va al renderer).
+function getOAuthToken(profile) {
   return new Promise((resolve) => {
-    execFile('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], (err, out) => {
-      if (err) return resolve(null)
-      try {
-        resolve(JSON.parse(out).claudeAiOauth?.accessToken || null)
-      } catch {
-        resolve(null)
+    const svc = keychainService(profile)
+    execFile('security', ['find-generic-password', '-s', svc, '-w'], (err, out) => {
+      const parse = (o) => {
+        try {
+          return JSON.parse(o).claudeAiOauth?.accessToken || null
+        } catch {
+          return null
+        }
       }
+      if (!err) return resolve(parse(out))
+      // fallback a la credencial default por si el perfil no tiene sufijo
+      execFile('security', ['find-generic-password', '-s', 'Claude Code-credentials', '-w'], (e2, o2) =>
+        resolve(e2 ? null : parse(o2))
+      )
     })
   })
 }
 
 // % de uso de la suscripción (mismo endpoint que usa la app de la barra de menú).
-function fetchClaudeUsage() {
-  return getOAuthToken().then((token) => {
+function fetchClaudeUsage(profile) {
+  return getOAuthToken(profile).then((token) => {
     if (!token) return null
     return new Promise((resolve) => {
       const req = https.get(
@@ -527,12 +545,18 @@ function realRamUsed() {
   })
 }
 
-const usageCache = { at: 0, data: null }
-ipcMain.handle('stats:get', async () => {
-  if (Date.now() - usageCache.at > 5 * 60_000) {
-    usageCache.at = Date.now()
-    fetchClaudeUsage().then((d) => {
-      if (d) usageCache.data = d
+// Caché de uso por perfil (cada cuenta tiene su token y sus %).
+const usageCache = {} // profile → { at, data }
+ipcMain.handle('stats:refreshUsage', () => {
+  for (const k of Object.keys(usageCache)) usageCache[k].at = 0
+  return { ok: true }
+})
+ipcMain.handle('stats:get', async (_e, profile = 'work') => {
+  const c = (usageCache[profile] ||= { at: 0, data: null })
+  if (Date.now() - c.at > 5 * 60_000) {
+    c.at = Date.now()
+    fetchClaudeUsage(profile).then((d) => {
+      c.data = d // null si no hay token → el renderer oculta la sección
     })
   }
   const appMB = Math.round(app.getAppMetrics().reduce((s, p) => s + (p.memory?.workingSetSize || 0), 0) / 1024)
@@ -541,7 +565,7 @@ ipcMain.handle('stats:get', async () => {
     ramUsed: await realRamUsed(),
     ramTotal: os.totalmem(),
     appMB,
-    claude: usageCache.data,
+    claude: c.data,
   }
 })
 

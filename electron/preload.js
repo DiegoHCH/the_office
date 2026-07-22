@@ -20,7 +20,8 @@ contextBridge.exposeInMainWorld('oficina', {
   // Abre la guía de uso en su propia ventana.
   openHelp: () => ipcRenderer.invoke('help:open'),
   // Monitor: recursos del sistema + % de uso de la suscripción de Claude.
-  stats: () => ipcRenderer.invoke('stats:get'),
+  stats: (profile) => ipcRenderer.invoke('stats:get', profile),
+  refreshUsage: () => ipcRenderer.invoke('stats:refreshUsage'),
   // Preferencias: activar/desactivar notificaciones del sistema.
   setNotify: (v) => ipcRenderer.invoke('prefs:notify', v),
   // Configuración del squad (roster por perfil: nombres y activos).

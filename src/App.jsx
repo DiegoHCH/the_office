@@ -43,12 +43,12 @@ function Bar({ pct }) {
   )
 }
 
-function SysMonitor({ modelLabel }) {
+function SysMonitor({ modelLabel, profile }) {
   const [s, setS] = useState(null)
   useEffect(() => {
     let on = true
     const tick = async () => {
-      const d = await window.oficina?.stats?.()
+      const d = await window.oficina?.stats?.(profile)
       if (on && d) setS(d)
     }
     tick()
@@ -57,7 +57,7 @@ function SysMonitor({ modelLabel }) {
       on = false
       clearInterval(iv)
     }
-  }, [])
+  }, [profile])
   if (!s) return null
   const gb = (b) => (b / 1073741824).toFixed(1)
   const ramPct = (s.ramUsed / s.ramTotal) * 100
@@ -426,6 +426,7 @@ export default function App() {
         if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
         setTool((t) => (t?.role === who ? null : t))
         dingSound()
+        window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
         // chip transitorio anunciando la respuesta final
         const doneName = squadRef.current.find((m) => m.id === who)?.name || who
         setDoneChip(`✅ ${doneName} respondió`)
@@ -569,6 +570,7 @@ export default function App() {
     convIdRef.current = null
     sessionsRef.current = {}
     window.oficina?.reset?.()
+    window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
   }
   const changeProject = (e) => {
@@ -831,6 +833,7 @@ export default function App() {
 
       <div className="stage">
         <SysMonitor
+          profile={profile}
           modelLabel={(() => {
             // solo la familia del modelo: Fable, Sonnet, Opus, Haiku…
             const fam = model.match(/fable|opus|sonnet|haiku/i)?.[0]
