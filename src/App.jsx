@@ -514,6 +514,12 @@ export default function App() {
 
   // ── Config del squad (⚙️) ────────────────────────────────────────────────
   const openSquad = () => {
+    // toggle: si ya está abierta, se cierra
+    if (squadOpen) {
+      setSquadOpen(false)
+      setAvatarPicker(null)
+      return
+    }
     setDraft(roster.map((r) => ({ ...r })))
     setSquadOpen(true)
     setAvatarPicker(null)
