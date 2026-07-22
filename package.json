@@ -10,7 +10,26 @@
     "dev:electron": "wait-on http://127.0.0.1:5173 && NODE_ENV=development electron .",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "NODE_ENV=production electron ."
+    "start": "NODE_ENV=production electron .",
+    "dist:app": "vite build && electron-builder --mac dir"
+  },
+  "build": {
+    "appId": "com.diegohoyos.laoficina",
+    "productName": "La Oficina",
+    "directories": {
+      "output": "release"
+    },
+    "asar": false,
+    "files": [
+      "electron/**/*",
+      "dist/**/*",
+      "package.json",
+      "!node_modules/**/*"
+    ],
+    "mac": {
+      "target": "dir",
+      "identity": null
+    }
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
@@ -25,6 +44,7 @@
     "@vitejs/plugin-react": "^4.3.3",
     "concurrently": "^9.1.0",
     "electron": "^33.2.0",
+    "electron-builder": "^26.15.3",
     "vite": "^5.4.11",
     "wait-on": "^8.0.1"
   }

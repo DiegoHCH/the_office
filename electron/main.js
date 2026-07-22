@@ -1,9 +1,15 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net } = require('electron')
 const { spawn } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
+const { pathToFileURL } = require('node:url')
 
 const isDev = process.env.NODE_ENV === 'development'
+
+// En producción el bundle se sirve por app:// (fetch de glTF no funciona con file://).
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true } },
+])
 
 // Ruta absoluta del binario: Electron NO hereda el PATH del shell interactivo.
 const CLAUDE_CANDIDATES = [
@@ -48,7 +54,7 @@ function createWindow() {
   if (isDev) {
     win.loadURL('http://localhost:5173')
   } else {
-    win.loadFile(path.join(__dirname, '..', 'dist', 'index.html'))
+    win.loadURL('app://bundle/')
   }
   win.on('closed', () => {
     win = null
@@ -277,6 +283,13 @@ ipcMain.handle('claude:ask', (_e, payload) => {
 ipcMain.handle('app:version', () => app.getVersion())
 
 app.whenReady().then(() => {
+  if (!isDev) {
+    protocol.handle('app', (req) => {
+      let p = decodeURIComponent(new URL(req.url).pathname)
+      if (p === '/' || p === '') p = '/index.html'
+      return net.fetch(pathToFileURL(path.join(__dirname, '..', 'dist', p)).toString())
+    })
+  }
   console.log('[oficina] usando binario claude en:', CLAUDE_BIN)
   createWindow()
   app.on('activate', () => {
