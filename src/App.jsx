@@ -85,7 +85,7 @@ export default function App() {
     convIdRef.current = null
     setSessionId(null)
     window.oficina?.reset?.()
-    setStatus('conversación nueva')
+    flashStatus('conversación nueva ✨')
   }
 
   // ── Historial ──────────────────────────────────────────────────────────────
@@ -123,7 +123,7 @@ export default function App() {
     // restaurar la sesión en el main → el próximo mensaje hace --resume
     await window.oficina?.setSession?.({ sessionId: c.sessionId, profile: c.profile, cwd: c.project })
     setHistOpen(false)
-    setStatus(c.sessionId ? 'conversación retomada — Claude recuerda el contexto' : 'conversación cargada')
+    flashStatus(c.sessionId ? 'retomada — recuerdo todo 🧠' : 'conversación cargada', 3000)
   }
 
   const deleteConvo = async (e, id) => {
@@ -180,6 +180,13 @@ export default function App() {
   }, [messages])
 
   const addSystem = (text) => setMessages((ms) => [...ms, { role: 'system', text }])
+
+  // status transitorio: se muestra un momento y vuelve a "esperándote"
+  // (solo si nadie lo cambió mientras tanto)
+  const flashStatus = (text, ms = 2500) => {
+    setStatus(text)
+    setTimeout(() => setStatus((s) => (s === text ? 'esperándote' : s)), ms)
+  }
 
   // Comandos locales (los interactivos de la CLI no existen en headless).
   // Cualquier otro /comando pasa directo a Claude → tus skills funcionan.
