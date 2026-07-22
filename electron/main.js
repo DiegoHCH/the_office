@@ -501,6 +501,26 @@ ipcMain.handle('stats:get', async () => {
   }
 })
 
+// Ventana de la guía de uso (ayuda.html empaquetada con la app).
+let helpWin = null
+ipcMain.handle('help:open', () => {
+  if (helpWin && !helpWin.isDestroyed()) {
+    helpWin.focus()
+    return { ok: true }
+  }
+  helpWin = new BrowserWindow({
+    width: 860,
+    height: 760,
+    backgroundColor: '#0e1417',
+    title: 'La Oficina · Guía de uso',
+  })
+  helpWin.loadURL(isDev ? 'http://localhost:5173/ayuda.html' : 'app://bundle/ayuda.html')
+  helpWin.on('closed', () => {
+    helpWin = null
+  })
+  return { ok: true }
+})
+
 ipcMain.handle('app:version', () => app.getVersion())
 
 app.whenReady().then(() => {

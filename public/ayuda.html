@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>La Oficina · Guía de uso</title>
+<style>
+  :root {
+    --bg: #0e1417; --surface: #151d21; --surface2: #1b252a; --ink: #e9f1ee;
+    --muted: #93a6a1; --line: #28353a; --accent: #2dd4bf; --accent-soft: #0f3b35;
+    --warn: #f5a524; --orange: #da7756;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 780px; margin: 0 auto; padding: 48px 28px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  h1 { font-size: 38px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); font-size: 17px; margin: 0 0 8px; }
+  .badge {
+    display: inline-block; font-size: 12px; padding: 4px 12px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 600; margin: 10px 6px 0 0;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  h2 {
+    font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+    margin: 44px 0 16px; display: flex; align-items: center; gap: 10px;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  h2::before { content: ""; width: 22px; height: 2px; background: var(--accent); border-radius: 2px; }
+  p { margin: 0 0 12px; font-size: 15px; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px;
+    background: var(--surface2); padding: 2px 7px; border-radius: 6px; color: var(--accent);
+  }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .card b { color: var(--ink); }
+  .card p:last-child { margin-bottom: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); background: var(--surface2);
+  }
+  tr:last-child td { border-bottom: none; }
+  .tablewrap { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+  ul { margin: 0 0 12px; padding-left: 22px; font-size: 15px; }
+  li { margin: 6px 0; }
+  .tip {
+    border-left: 3px solid var(--warn); background: var(--surface); border-radius: 8px;
+    padding: 10px 14px; font-size: 14px; margin: 10px 0;
+  }
+  .ok { color: var(--accent); font-weight: 700; }
+  kbd {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--surface2);
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px;
+  }
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>La Oficina 🏢</h1>
+  <p class="lede">Tu squad de IA en una oficina 3D. Escribes aquí en vez de la terminal: cada tripulante es una sesión real de <b>Claude Code</b> con su rol, su memoria y sus tareas en paralelo.</p>
+  <span class="badge">$0 de API — usa tu suscripción</span>
+  <span class="badge">Sesión propia por tripulante</span>
+  <span class="badge">Tareas en paralelo</span>
+
+  <h2>Pasos previos (una sola vez)</h2>
+  <div class="card">
+    <p><b>1. Claude Code instalado y con sesión iniciada.</b> En una terminal debe funcionar el comando <code>claude</code> (si no has iniciado sesión, córrelo una vez y haz login con tu cuenta/suscripción).</p>
+    <p><b>2. Nada más.</b> La app encuentra el binario sola y hereda tu login. No necesita API key — de hecho, <b>no debe</b> haber una <code>ANTHROPIC_API_KEY</code> en tu entorno, o pagarías por token en vez de usar tu plan.</p>
+  </div>
+  <div class="card">
+    <p><b>Opcional — dos cuentas (💼 work / 🔒 private):</b> si creas los directorios de configuración <code>~/.claude-work</code> y <code>~/.claude-private</code> (iniciando sesión una vez con cada cuenta usando <code>CLAUDE_CONFIG_DIR</code>), la app te muestra un selector de perfil y cada cuenta tiene su squad, sus proyectos y su historial. Sin ellos, la app usa tu cuenta normal ("🧑 mi cuenta").</p>
+  </div>
+
+  <h2>Cómo funciona</h2>
+  <p>Cada mensaje lanza el binario <code>claude</code> en modo headless con tu login. Cada tripulante mantiene <b>su propia sesión por proyecto</b> (con <code>--resume</code>), así que recuerdan lo que han hecho contigo. Pueden trabajar <b>varios a la vez</b> — un proceso independiente por tripulante.</p>
+
+  <h2>Hablarle al squad</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Escribes…</th><th>Pasa esto</th></tr>
+    <tr><td class="mono">arregla el bug del login</td><td>Va al <b>principal</b> (el del escritorio grande) o a quien matcheen las palabras clave (test → QA, diseño → UI/UX…)</td></tr>
+    <tr><td class="mono">Zoro, corre los tests</td><td>Nombre al inicio → va a ese tripulante</td></tr>
+    <tr><td class="mono">@nami investiga X</td><td>@nombre en cualquier parte → va a ese tripulante</td></tr>
+    <tr><td class="mono">Nami, investiga X y pásaselo a Luffy</td><td><b>Handoff:</b> Nami termina, camina al escritorio de Luffy 🤝 y la sesión de Luffy arranca con el resultado como contexto</td></tr>
+  </table></div>
+  <p>Mientras uno trabaja puedes pedirle cosas a otro — el que está ocupado te lo dice.</p>
+
+  <h2>Comandos y atajos</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Comando</th><th>Qué hace</th></tr>
+    <tr><td class="mono">/standup</td><td>📋 Cada tripulante libre retoma su última sesión del proyecto y reporta: qué hizo, pendientes y sugerencia para hoy</td></tr>
+    <tr><td class="mono">/squad</td><td>Lista el equipo activo</td></tr>
+    <tr><td class="mono">/model sonnet</td><td>Cambia el modelo (opus · sonnet · haiku · fable · fable1m)</td></tr>
+    <tr><td class="mono">/clear</td><td>Conversación nueva</td></tr>
+    <tr><td class="mono">/tu-skill</td><td>Cualquier otro /comando pasa directo a Claude Code — tus skills funcionan</td></tr>
+  </table></div>
+  <p><kbd>⌘K</kbd> nueva conversación · <kbd>⌘Y</kbd> historial · <kbd>⌘1</kbd>–<kbd>⌘4</kbd> dirigirte a cada tripulante · <kbd>Esc</kbd> cierra paneles · <kbd>Enter</kbd> envía.</p>
+
+  <h2>Configuración ⚙️</h2>
+  <ul>
+    <li><b>Modelo</b> — el modelo de Claude para los próximos mensajes.</li>
+    <li><b>Permiso</b> — ✏️ <i>edición</i>: puede modificar archivos y correr comandos (auto-acepta sus ediciones; úsalo en repos con git). 🔒 <i>lectura</i>: solo investiga.</li>
+    <li><b>Tema</b> — Clásico, Noche (con lámparas encendidas 🌙), Playa, Sakura.</li>
+    <li><b>Notificaciones</b> — sonidos + avisos de macOS cuando alguien termina y estás en otra app.</li>
+    <li><b>Squad</b> — activa hasta 4 roles (Dev, Research, UI/UX, QA, Revisor PR, Docs). El <b>1º activo es el principal</b>. Renómbralos a tu gusto y elige su personaje en la galería 3D (46 modelos, sin repetir). Todo se guarda por cuenta.</li>
+  </ul>
+
+  <h2>Historial 🕘</h2>
+  <p>Cada conversación se guarda sola. Al abrir una del historial, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
+
+  <h2>Monitor 📊</h2>
+  <p>Arriba a la izquierda: CPU y RAM del Mac (medida real, como el Activity Monitor), memoria de la app, y tu <b>% de uso de Claude</b> — sesión (5h) y semana con sus tiempos de reset, igual que la app de la barra de menú.</p>
+
+  <h2>La vida de la oficina</h2>
+  <p>Cuando nadie les pide nada: toman café, sueltan frases de su rol, escuchan música 🎧, pasean y se visitan. En cuanto llega trabajo, <span class="ok">vuelven a su puesto</span>. Al terminar una tarea, caminan a entregarla 🙌.</p>
+
+  <h2>Si algo se ve raro</h2>
+  <ul>
+    <li>La primera notificación de macOS puede pedir permiso (Ajustes → Notificaciones).</li>
+    <li>¿Respuestas sin personalidad o personajes "pegados"? Puede haber una instancia vieja corriendo: cierra todas las ventanas de La Oficina y ábrela de nuevo (o <code>pkill -f "la-oficina"</code>).</li>
+    <li>El primer mensaje de cada tripulante tarda unos segundos (arranque de Claude Code).</li>
+  </ul>
+
+  <footer>La Oficina v1.0 · corre Claude Code con tu suscripción · hecha con Electron + React Three Fiber</footer>
+</div>
+</body>
+</html>

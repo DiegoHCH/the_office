@@ -765,6 +765,11 @@ export default function App() {
               <button onClick={() => setSquadOpen(false)}>✕</button>
             </div>
 
+            {/* guía de uso */}
+            <button type="button" className="squad-save help-btn" onClick={() => window.oficina?.openHelp?.()}>
+              📖 Guía de uso — cómo funciona La Oficina
+            </button>
+
             {/* preferencias — aplican al instante */}
             <div className="pref-row">
               <span className="pref-label">Modelo:</span>
