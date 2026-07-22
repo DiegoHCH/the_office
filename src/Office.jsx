@@ -291,22 +291,26 @@ const STATIONS = [
   },
 ]
 
-function Swivel({ working, children }) {
+// Grupo silla+personaje que gira suavemente hacia el yaw objetivo.
+function Turn({ position, yaw, children }) {
   const ref = useRef()
   useFrame((_, dt) => {
     if (!ref.current) return
-    const target = working ? YAW_DESK : YAW_FRONT
-    ref.current.rotation.y = MathUtils.damp(ref.current.rotation.y, target, 3.5, dt)
+    ref.current.rotation.y = MathUtils.damp(ref.current.rotation.y, yaw, 3.5, dt)
   })
   return (
-    <group ref={ref} position={CHAIR_POS} rotation={[0, YAW_FRONT, 0]}>
+    <group ref={ref} position={position} rotation={[0, yaw, 0]}>
       {children}
     </group>
   )
 }
 
-export default function Office({ workingRoles = [], status = '' }) {
-  const working = workingRoles.includes('dev')
+// listening/talking → te mira (cámara); idle/working → mira su pantalla.
+const YAW_CAMERA = Math.PI / 4
+const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
+
+export default function Office({ roleStates = {}, status = '' }) {
+  const devState = roleStates.dev || 'idle'
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={['#b9ccd3']} />
@@ -336,7 +340,7 @@ export default function Office({ workingRoles = [], status = '' }) {
 
       {/* estación principal (dev): L en la esquina trasera-izquierda */}
       <LDesk position={[-HALF + 0.32, 0, -HALF + 0.32]} />
-      <Monitor working={working} position={MONITOR_POS.map((v, i) => (i === 1 ? TOP : v))} />
+      <Monitor working={devState === 'working'} position={MONITOR_POS.map((v, i) => (i === 1 ? TOP : v))} />
       <Laptop position={[-2.3, TOP, -1.3]} rotation={[0, Math.PI / 2, 0]} />
       {/* gabinete y archivadores bajo el ala del fondo */}
       <RB args={[0.35, 0.3, 0.42]} r={0.02} position={[-0.75, 0.15, -2.28]} castShadow>{mat(DARK)}</RB>
@@ -353,7 +357,7 @@ export default function Office({ workingRoles = [], status = '' }) {
           <GltfProp key={i} {...p} />
         ))}
 
-        <Swivel working={working}>
+        <Turn position={CHAIR_POS} yaw={yawFor(devState, YAW_DESK)}>
           <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
           <Character3D
             url="/models/pj/Casual_Male.gltf"
@@ -364,9 +368,9 @@ export default function Office({ workingRoles = [], status = '' }) {
             rotation={[0, 0, 0]}
             sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
             colors={{ Skin: '#e8b890', Face: '#1f2937', Hair: '#1f2937', Shirt: '#2dd4bf' }}
-            sway={working}
+            sway={devState === 'working'}
           />
-        </Swivel>
+        </Turn>
         {/* etiqueta con el nombre del principal (Luffy: pelo negro) */}
         <Html position={[CHAIR_POS[0], 0.82, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
           <div className="nametag" style={{ borderColor: '#2dd4bf' }}>Luffy</div>
@@ -374,34 +378,39 @@ export default function Office({ workingRoles = [], status = '' }) {
 
         {/* squad: research / design / qa — cada uno con su L y su monitor */}
         {STATIONS.map((s) => {
-          const active = workingRoles.includes(s.id)
+          const st = roleStates[s.id] || 'idle'
+          const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
+          const bubble =
+            st === 'working' ? `${s.emoji} trabajando…` : st === 'listening' ? '👂 escuchando…' : st === 'talking' ? '💬' : null
           return (
             <group key={s.id}>
               <LDesk position={s.desk} rotation={s.deskRot} />
-              <Monitor working={active} position={s.monitor} rotation={s.monitorRot} />
-              <Chair position={s.chair} rotation={s.chairRot} />
-              <Character3D
-                url={s.url}
-                clip="SitDown"
-                once
-                scale={0.27}
-                position={s.chair}
-                rotation={s.chairRot}
-                sitAt={[s.chair[0], 0.3, s.chair[2]]}
-                colors={{ Skin: '#e8b890', Face: s.hair, Hair: s.hair, Shirt: s.shirt }}
-                sway={active}
-              />
+              <Monitor working={st === 'working'} position={s.monitor} rotation={s.monitorRot} />
+              <Turn position={s.chair} yaw={yawFor(st, yawScreen)}>
+                <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
+                <Character3D
+                  url={s.url}
+                  clip="SitDown"
+                  once
+                  scale={0.27}
+                  position={[0, 0, 0]}
+                  rotation={[0, 0, 0]}
+                  sitAt={[s.chair[0], 0.3, s.chair[2]]}
+                  colors={{ Skin: '#e8b890', Face: s.hair, Hair: s.hair, Shirt: s.shirt }}
+                  sway={st === 'working'}
+                />
+              </Turn>
               <Html position={[s.chair[0], 0.82, s.chair[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                 <div className="nametag" style={{ borderColor: s.shirt }}>{s.name}</div>
               </Html>
-              {active && (
+              {bubble && (
                 <Html
                   position={[s.chair[0], 1.05, s.chair[2]]}
                   center
                   zIndexRange={[1, 0]}
                   style={{ pointerEvents: 'none' }}
                 >
-                  <div className="bubble3d busy">{s.emoji} trabajando…</div>
+                  <div className="bubble3d busy">{bubble}</div>
                 </Html>
               )}
             </group>
@@ -412,7 +421,7 @@ export default function Office({ workingRoles = [], status = '' }) {
       {/* globo de estado sobre la cabeza del personaje principal */}
       {status && (
         <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-          <div className={working ? 'bubble3d busy' : 'bubble3d'}>{status}</div>
+          <div className={devState !== 'idle' ? 'bubble3d busy' : 'bubble3d'}>{status}</div>
         </Html>
       )}
 

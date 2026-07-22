@@ -64,7 +64,9 @@ function routeMessage(text) {
 export default function App() {
   const [messages, setMessages] = useState([]) // {role:'user'|'assistant'|'system', text, who?, to?, streaming?}
   const [status, setStatus] = useState('esperándote')
-  const [running, setRunning] = useState([]) // roles trabajando en paralelo
+  // Estado de cada rol: listening (te mira), working (mira pantalla), talking (te mira).
+  // Ausente = idle (en su pantalla, a lo suyo).
+  const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
   const [input, setInput] = useState('')
   const [cfg, setCfg] = useState(null)
@@ -79,7 +81,15 @@ export default function App() {
   const logRef = useRef(null)
 
   const projects = cfg?.projectsByProfile?.[profile] || []
+  const running = Object.keys(roleStates)
   const busy = running.length > 0
+  const setRS = (role, st) =>
+    setRoleStates((s) => {
+      const copy = { ...s }
+      if (st === 'idle') delete copy[role]
+      else copy[role] = st
+      return copy
+    })
 
   useEffect(() => {
     window.oficina?.getConfig?.().then((c) => {
@@ -100,9 +110,11 @@ export default function App() {
         if (who === 'dev') setStatus('pensando…')
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name })
+        setRS(who, 'working') // necesita la pantalla: se gira a trabajar
         if (who === 'dev') setStatus(`${toolInfo(e.name)[1]}…`)
       } else if (e.kind === 'text') {
         setTool((t) => (t?.role === who ? null : t))
+        setRS(who, 'talking') // te responde: se voltea a mirarte
         if (who === 'dev') setStatus('respondiendo…')
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
@@ -123,12 +135,12 @@ export default function App() {
           }
           return e.result ? [...ms, { role: 'assistant', who, text: e.result }] : ms
         })
-        setRunning((r) => r.filter((x) => x !== who))
+        setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
         if (who === 'dev') setStatus('esperándote')
       } else if (e.kind === 'error') {
         setMessages((ms) => [...ms, { role: 'assistant', who, text: `⚠️ ${e.message}` }])
-        setRunning((r) => r.filter((x) => x !== who))
+        setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
         if (who === 'dev') setStatus('error — mira la terminal')
       }
@@ -255,19 +267,19 @@ export default function App() {
       return
     }
     const target = routeMessage(text)
-    if (running.includes(target)) {
+    if (roleStates[target]) {
       addSystem(`${ROLES[target].emoji} ${ROLES[target].name} está ocupado — espera a que termine`)
       return
     }
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     setMessages((ms) => [...ms, { role: 'user', text, to: target }])
     setInput('')
-    setRunning((r) => [...r, target])
+    setRS(target, 'listening') // lo nombraste: se voltea a mirarte
     if (target === 'dev') setStatus('pensando…')
     const res = await window.oficina.ask({ prompt: text, profile, cwd: project, writeMode, model, role: target })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: target, text: `⚠️ ${res?.error || 'error desconocido'}` }])
-      setRunning((r) => r.filter((x) => x !== target))
+      setRS(target, 'idle')
       if (target === 'dev') setStatus('esperándote')
     }
   }
@@ -315,7 +327,7 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <Office workingRoles={running} status={status} />
+        <Office roleStates={roleStates} status={status} />
         {histOpen && (
           <div className="drawer">
             <div className="drawer-head">
@@ -374,7 +386,7 @@ export default function App() {
           placeholder={
             busy
               ? `${running.map((r) => ROLES[r].name).join(', ')} trabajando… (puedes pedirle algo a otro)`
-              : 'Escríbele al squad… (ej: "Tess, corre los tests" · "@remy investiga X")'
+              : `Escríbele al squad… (ej: "${ROLES.qa.name}, corre los tests" · "@${ROLES.research.name.toLowerCase()} investiga X")`
           }
           autoFocus
         />
