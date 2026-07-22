@@ -3,6 +3,15 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Office from './Office.jsx'
 
+// ── El squad ─────────────────────────────────────────────────────────────────
+const ROLES = {
+  dev: { name: 'Luffy', emoji: '⌨️', color: '#2dd4bf', label: 'Dev' },
+  research: { name: 'Nami', emoji: '🔍', color: '#6366f1', label: 'Research' },
+  design: { name: 'Sanji', emoji: '🎨', color: '#f472b6', label: 'UI/UX' },
+  qa: { name: 'Zoro', emoji: '🧪', color: '#f5a524', label: 'QA' },
+}
+const ROLE_IDS = Object.keys(ROLES)
+
 // Cómo se muestra cada herramienta de Claude en pantalla.
 const TOOL_INFO = {
   Read: ['📖', 'leyendo archivos'],
@@ -32,28 +41,45 @@ const MODEL_ALIASES = {
   sonnet: 'claude-sonnet-5',
   haiku: 'claude-haiku-4-5-20251001',
 }
-// Default de Claude Code cuando el perfil no tiene modelo guardado
-// (verificado contra el perfil private: claude-sonnet-5).
 const FALLBACK_MODEL = 'claude-sonnet-5'
 
+// ── Enrutar el mensaje al miembro del squad correcto ────────────────────────
+const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+const ROLE_KEYWORDS = [
+  ['design', /disen|\bui\b|\bux\b|figma|pantalla|mockup|interfaz|estilo|boton|layout|tipografia/],
+  ['qa', /\btest\b|\btests\b|prueba|regresion|\bqa\b|coverage|e2e|unitari/],
+  ['research', /investig|busca|analiza|compara|artifact|documenta/],
+]
+function routeMessage(text) {
+  const t = norm(text)
+  // nombre al inicio ("tess, ...") o @nombre en cualquier parte
+  for (const id of ROLE_IDS) {
+    const n = norm(ROLES[id].name)
+    if (new RegExp(`^${n}\\b`).test(t) || t.includes(`@${n}`)) return id
+  }
+  for (const [role, re] of ROLE_KEYWORDS) if (re.test(t)) return role
+  return 'dev'
+}
+
 export default function App() {
-  const [messages, setMessages] = useState([]) // {role, text, streaming?}
+  const [messages, setMessages] = useState([]) // {role:'user'|'assistant'|'system', text, who?, to?, streaming?}
   const [status, setStatus] = useState('esperándote')
-  const [busy, setBusy] = useState(false)
-  const [tool, setTool] = useState(null) // herramienta en uso (chip sobre la escena)
+  const [running, setRunning] = useState([]) // roles trabajando en paralelo
+  const [tool, setTool] = useState(null)
   const [input, setInput] = useState('')
-  const [cfg, setCfg] = useState(null) // {profiles, projectsByProfile}
+  const [cfg, setCfg] = useState(null)
   const [profile, setProfile] = useState('work')
   const [project, setProject] = useState('')
-  const [writeMode, setWriteMode] = useState(true) // edición por defecto (flujo normal de trabajo)
+  const [writeMode, setWriteMode] = useState(true)
   const [model, setModel] = useState(FALLBACK_MODEL)
-  const [sessionId, setSessionId] = useState(null) // session de claude (para --resume al retomar)
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
-  const convIdRef = useRef(null) // id de la conversación actual en el historial
+  const sessionsRef = useRef({}) // role → sessionId (para historial/--resume)
+  const convIdRef = useRef(null)
   const logRef = useRef(null)
 
   const projects = cfg?.projectsByProfile?.[profile] || []
+  const busy = running.length > 0
 
   useEffect(() => {
     window.oficina?.getConfig?.().then((c) => {
@@ -65,31 +91,88 @@ export default function App() {
     })
   }, [])
 
-  // cambiar perfil también cambia la lista de proyectos; ambos resetean la charla
+  useEffect(() => {
+    if (!window.oficina?.onEvent) return
+    return window.oficina.onEvent((e) => {
+      const who = e.role || 'dev'
+      if (e.kind === 'init') {
+        if (e.sessionId) sessionsRef.current[who] = e.sessionId
+        if (who === 'dev') setStatus('pensando…')
+      } else if (e.kind === 'tool') {
+        setTool({ role: who, name: e.name })
+        if (who === 'dev') setStatus(`${toolInfo(e.name)[1]}…`)
+      } else if (e.kind === 'text') {
+        setTool((t) => (t?.role === who ? null : t))
+        if (who === 'dev') setStatus('respondiendo…')
+        setMessages((ms) => {
+          const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
+          if (idx >= 0) {
+            const copy = [...ms]
+            copy[idx] = { ...copy[idx], text: copy[idx].text + e.text }
+            return copy
+          }
+          return [...ms, { role: 'assistant', who, text: e.text, streaming: true }]
+        })
+      } else if (e.kind === 'done') {
+        setMessages((ms) => {
+          const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
+          if (idx >= 0) {
+            const copy = [...ms]
+            copy[idx] = { ...copy[idx], streaming: false }
+            return copy
+          }
+          return e.result ? [...ms, { role: 'assistant', who, text: e.result }] : ms
+        })
+        setRunning((r) => r.filter((x) => x !== who))
+        setTool((t) => (t?.role === who ? null : t))
+        if (who === 'dev') setStatus('esperándote')
+      } else if (e.kind === 'error') {
+        setMessages((ms) => [...ms, { role: 'assistant', who, text: `⚠️ ${e.message}` }])
+        setRunning((r) => r.filter((x) => x !== who))
+        setTool((t) => (t?.role === who ? null : t))
+        if (who === 'dev') setStatus('error — mira la terminal')
+      }
+    })
+  }, [])
+
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
+  }, [messages])
+
+  const addSystem = (text) => setMessages((ms) => [...ms, { role: 'system', text }])
+
+  const flashStatus = (text, ms = 2500) => {
+    setStatus(text)
+    setTimeout(() => setStatus((s) => (s === text ? 'esperándote' : s)), ms)
+  }
+
+  const newChat = () => {
+    setMessages([])
+    convIdRef.current = null
+    sessionsRef.current = {}
+    window.oficina?.reset?.()
+    flashStatus('conversación nueva ✨')
+  }
+
   const changeProfile = (e) => {
     const p = e.target.value
     setProfile(p)
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
     setModel(cfg?.defaultModels?.[p] || FALLBACK_MODEL)
     setMessages([])
+    convIdRef.current = null
+    sessionsRef.current = {}
     window.oficina?.reset?.()
   }
   const changeProject = (e) => {
     setProject(e.target.value)
     setMessages([])
-    window.oficina?.reset?.()
-  }
-
-  const newChat = () => {
-    setMessages([])
     convIdRef.current = null
-    setSessionId(null)
+    sessionsRef.current = {}
     window.oficina?.reset?.()
-    flashStatus('conversación nueva ✨')
   }
 
-  // ── Historial ──────────────────────────────────────────────────────────────
-  // Guardado automático al terminar cada respuesta.
+  // ── Historial ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (busy || !messages.length || !convIdRef.current) return
     const title = messages.find((m) => m.role === 'user')?.text.slice(0, 60) || 'conversación'
@@ -99,11 +182,11 @@ export default function App() {
       profile,
       project,
       model,
-      sessionId,
+      sessions: { ...sessionsRef.current },
       updatedAt: Date.now(),
-      messages: messages.map(({ role, text }) => ({ role, text })),
+      messages: messages.map(({ role, text, who, to }) => ({ role, text, who, to })),
     })
-  }, [busy, messages, profile, project, model, sessionId])
+  }, [busy, messages, profile, project, model])
 
   const toggleHist = async () => {
     if (!histOpen) setHistList((await window.oficina?.history?.list()) || [])
@@ -118,78 +201,23 @@ export default function App() {
     if (c.profile && cfg?.profiles?.includes(c.profile)) setProfile(c.profile)
     if (c.project) setProject(c.project)
     if (c.model) setModel(c.model)
-    setSessionId(c.sessionId || null)
+    // compat: conversaciones viejas guardaban un solo sessionId (dev)
+    const saved = c.sessions || (c.sessionId ? { dev: c.sessionId } : {})
+    sessionsRef.current = { ...saved }
     setMessages(c.messages || [])
-    // restaurar la sesión en el main → el próximo mensaje hace --resume
-    await window.oficina?.setSession?.({ sessionId: c.sessionId, profile: c.profile, cwd: c.project })
+    await window.oficina?.setSession?.({ sessions: saved, profile: c.profile, cwd: c.project })
     setHistOpen(false)
-    flashStatus(c.sessionId ? 'retomada — recuerdo todo 🧠' : 'conversación cargada', 3000)
+    flashStatus(Object.keys(saved).length ? 'retomada — recordamos todo 🧠' : 'conversación cargada', 3000)
   }
 
   const deleteConvo = async (e, id) => {
     e.stopPropagation()
     await window.oficina?.history?.remove(id)
-    // si borras la conversación abierta, limpiar también el chat en pantalla
-    // (si no, el auto-guardado la volvería a crear en el próximo mensaje)
     if (id === convIdRef.current) newChat()
     setHistList((await window.oficina?.history?.list()) || [])
   }
 
-  useEffect(() => {
-    if (!window.oficina?.onEvent) return
-    return window.oficina.onEvent((e) => {
-      if (e.kind === 'init') {
-        if (e.sessionId) setSessionId(e.sessionId)
-        setStatus('pensando…')
-      } else if (e.kind === 'tool') {
-        setTool(e.name)
-        setStatus(`${toolInfo(e.name)[1]}…`)
-      } else if (e.kind === 'text') {
-        setTool(null)
-        setStatus('respondiendo…')
-        setMessages((ms) => {
-          const last = ms[ms.length - 1]
-          if (last?.role === 'assistant' && last.streaming) {
-            return [...ms.slice(0, -1), { ...last, text: last.text + e.text }]
-          }
-          return [...ms, { role: 'assistant', text: e.text, streaming: true }]
-        })
-      } else if (e.kind === 'done') {
-        setMessages((ms) => {
-          const last = ms[ms.length - 1]
-          if (last?.role === 'assistant' && last.streaming) {
-            return [...ms.slice(0, -1), { ...last, streaming: false }]
-          }
-          // sin deltas: usar el resultado final completo
-          return e.result ? [...ms, { role: 'assistant', text: e.result }] : ms
-        })
-        setBusy(false)
-        setTool(null)
-        setStatus('esperándote')
-      } else if (e.kind === 'error') {
-        setMessages((ms) => [...ms, { role: 'assistant', text: `⚠️ ${e.message}` }])
-        setBusy(false)
-        setTool(null)
-        setStatus('error — mira la terminal')
-      }
-    })
-  }, [])
-
-  useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages])
-
-  const addSystem = (text) => setMessages((ms) => [...ms, { role: 'system', text }])
-
-  // status transitorio: se muestra un momento y vuelve a "esperándote"
-  // (solo si nadie lo cambió mientras tanto)
-  const flashStatus = (text, ms = 2500) => {
-    setStatus(text)
-    setTimeout(() => setStatus((s) => (s === text ? 'esperándote' : s)), ms)
-  }
-
-  // Comandos locales (los interactivos de la CLI no existen en headless).
-  // Cualquier otro /comando pasa directo a Claude → tus skills funcionan.
+  // ── Comandos locales ─────────────────────────────────────────────────────
   const handleLocalCommand = (text) => {
     const [cmd, ...rest] = text.split(/\s+/)
     if (cmd === '/model') {
@@ -207,13 +235,17 @@ export default function App() {
       newChat()
       return true
     }
+    if (cmd === '/squad') {
+      addSystem(ROLE_IDS.map((id) => `${ROLES[id].emoji} ${ROLES[id].name} — ${ROLES[id].label}`).join('  ·  '))
+      return true
+    }
     return false
   }
 
   const send = async (ev) => {
     ev.preventDefault()
     const text = input.trim()
-    if (!text || busy) return
+    if (!text) return
     if (text.startsWith('/') && handleLocalCommand(text)) {
       setInput('')
       return
@@ -222,16 +254,21 @@ export default function App() {
       setStatus('sin Electron — corre npm run dev')
       return
     }
+    const target = routeMessage(text)
+    if (running.includes(target)) {
+      addSystem(`${ROLES[target].emoji} ${ROLES[target].name} está ocupado — espera a que termine`)
+      return
+    }
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
-    setMessages((ms) => [...ms, { role: 'user', text }])
+    setMessages((ms) => [...ms, { role: 'user', text, to: target }])
     setInput('')
-    setBusy(true)
-    setStatus('pensando…')
-    const res = await window.oficina.ask({ prompt: text, profile, cwd: project, writeMode, model })
+    setRunning((r) => [...r, target])
+    if (target === 'dev') setStatus('pensando…')
+    const res = await window.oficina.ask({ prompt: text, profile, cwd: project, writeMode, model, role: target })
     if (!res?.ok) {
-      setMessages((ms) => [...ms, { role: 'assistant', text: `⚠️ ${res?.error || 'error desconocido'}` }])
-      setBusy(false)
-      setStatus('esperándote')
+      setMessages((ms) => [...ms, { role: 'assistant', who: target, text: `⚠️ ${res?.error || 'error desconocido'}` }])
+      setRunning((r) => r.filter((x) => x !== target))
+      if (target === 'dev') setStatus('esperándote')
     }
   }
 
@@ -265,7 +302,6 @@ export default function App() {
           type="button"
           className={writeMode ? 'mode write' : 'mode'}
           onClick={() => setWriteMode((w) => !w)}
-          disabled={busy}
           title={writeMode ? 'Puede editar archivos y correr comandos (acceptEdits)' : 'Solo lectura: investigar sin tocar nada'}
         >
           {writeMode ? '✏️ edición' : '🔒 lectura'}
@@ -279,7 +315,7 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <Office working={busy} status={status} />
+        <Office workingRoles={running} status={status} />
         {histOpen && (
           <div className="drawer">
             <div className="drawer-head">
@@ -302,15 +338,23 @@ export default function App() {
           </div>
         )}
         {tool && (
-          <div className="toolchip" key={tool}>
-            <span className="toolchip-icon">{toolInfo(tool)[0]}</span>
-            {toolInfo(tool)[1]}…
+          <div className="toolchip" key={`${tool.role}-${tool.name}`}>
+            <span className="toolchip-icon">{toolInfo(tool.name)[0]}</span>
+            {ROLES[tool.role]?.name}: {toolInfo(tool.name)[1]}…
           </div>
         )}
         {messages.length > 0 && (
           <div className="chat" ref={logRef}>
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role}`}>
+                {m.role === 'assistant' && m.who && (
+                  <div className="who" style={{ color: ROLES[m.who]?.color }}>
+                    {ROLES[m.who]?.emoji} {ROLES[m.who]?.name}
+                  </div>
+                )}
+                {m.role === 'user' && m.to && m.to !== 'dev' && (
+                  <div className="who to">→ {ROLES[m.to]?.name}</div>
+                )}
                 {m.role === 'assistant' ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
                 ) : (
@@ -327,11 +371,14 @@ export default function App() {
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder={busy ? 'Claude está trabajando…' : 'Escríbele a Claude…'}
-          disabled={busy}
+          placeholder={
+            busy
+              ? `${running.map((r) => ROLES[r].name).join(', ')} trabajando… (puedes pedirle algo a otro)`
+              : 'Escríbele al squad… (ej: "Tess, corre los tests" · "@remy investiga X")'
+          }
           autoFocus
         />
-        <button disabled={busy || !input.trim()}>Enviar</button>
+        <button disabled={!input.trim()}>Enviar</button>
       </form>
     </div>
   )

@@ -94,6 +94,21 @@ body {
 .msg.assistant hr { border: none; border-top: 1px solid #28353a; margin: 8px 0; }
 .ipc.busy { color: #f5a524; }
 
+/* etiqueta de nombre bajo cada personaje */
+.nametag {
+  background: rgba(14, 20, 23, 0.85); color: #e9f1ee;
+  border: 1px solid; border-radius: 999px;
+  padding: 1px 8px; font-size: 10px; letter-spacing: 0.04em;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+/* quién habla en el chat */
+.msg .who {
+  font-size: 11px; font-weight: 700; margin-bottom: 3px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.msg .who.to { color: #04201c; opacity: 0.75; text-align: right; }
+
 /* globo de estado sobre el personaje */
 .bubble3d {
   position: relative;

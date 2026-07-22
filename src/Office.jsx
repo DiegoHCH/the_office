@@ -6,21 +6,23 @@ import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
 
 // ── Paleta calcada de la referencia ─────────────────────────────────────────
-const FLOOR = '#c9917b' // piso rosado-terracota
-const WALL_BACK = '#3d5866' // azul acero oscuro
+const FLOOR = '#c9917b'
+const WALL_BACK = '#3d5866'
 const WALL_LEFT = '#35505d'
 const BASE = '#2f434e'
-const DESK = '#cf9b7e' // madera rosada del escritorio
+const DESK = '#cf9b7e'
 const METAL = '#b9c2c7'
 const DARK = '#22282c'
 const WHITE = '#eef2f4'
-const MAT_BLUE = '#3c6b82' // tapete azul bajo la silla
+const MAT_BLUE = '#3c6b82'
 const POT = '#ece6db'
 const GREEN1 = '#3a8f5f'
 const GREEN2 = '#49a56d'
 
-const DESK_H = 0.38 // altura de la superficie del escritorio
-const TOP = DESK_H + 0.025 // cara superior de la tabla
+const DESK_H = 0.38
+const TOP = DESK_H + 0.025
+const ROOM = 5.2 // piso ROOM x ROOM, paredes en ±ROOM/2
+const HALF = ROOM / 2
 
 const mat = (color, opts = {}) => (
   <meshStandardMaterial color={color} roughness={opts.rough ?? 0.8} metalness={opts.metal ?? 0} {...opts.extra} />
@@ -40,33 +42,32 @@ function Room() {
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[3.6, 3.6]} />
+        <planeGeometry args={[ROOM, ROOM]} />
         {mat(FLOOR)}
       </mesh>
-      <mesh position={[0, 0.9, -1.8]} receiveShadow castShadow>
-        <boxGeometry args={[3.6, 1.8, 0.08]} />
+      <mesh position={[0, 1, -HALF]} receiveShadow castShadow>
+        <boxGeometry args={[ROOM, 2, 0.08]} />
         {mat(WALL_BACK)}
       </mesh>
-      <mesh position={[-1.8, 0.9, 0]} receiveShadow castShadow>
-        <boxGeometry args={[0.08, 1.8, 3.6]} />
+      <mesh position={[-HALF, 1, 0]} receiveShadow castShadow>
+        <boxGeometry args={[0.08, 2, ROOM]} />
         {mat(WALL_LEFT)}
       </mesh>
-      <mesh position={[0, 0.05, -1.75]}>
-        <boxGeometry args={[3.6, 0.1, 0.03]} />
+      <mesh position={[0, 0.05, -HALF + 0.05]}>
+        <boxGeometry args={[ROOM, 0.1, 0.03]} />
         {mat(BASE)}
       </mesh>
-      <mesh position={[-1.75, 0.05, 0]}>
-        <boxGeometry args={[0.03, 0.1, 3.6]} />
+      <mesh position={[-HALF + 0.05, 0.05, 0]}>
+        <boxGeometry args={[0.03, 0.1, ROOM]} />
         {mat(BASE)}
       </mesh>
     </group>
   )
 }
 
-// Ventana en la pared IZQUIERDA (como la referencia), sobre el ala del escritorio.
 function Window() {
   return (
-    <group position={[-1.75, 1.25, -0.85]} rotation={[0, Math.PI / 2, 0]}>
+    <group position={[-HALF + 0.04, 1.3, -1.4]} rotation={[0, Math.PI / 2, 0]}>
       <RB args={[1.05, 1.15, 0.08]} r={0.03} castShadow>{mat(WHITE)}</RB>
       <mesh position={[0, 0, 0.045]}>
         <planeGeometry args={[0.85, 0.95]} />
@@ -84,21 +85,20 @@ function Window() {
   )
 }
 
-// ── Escritorio en L (ancho, color propio) ────────────────────────────────────
-function DeskL() {
+// ── Escritorio en L genérico ─────────────────────────────────────────────────
+// Esquina del L en el origen local; alas hacia +z y +x. Se rota por estación.
+function LDesk({ position, rotation = [0, 0, 0] }) {
   const legs = [
-    [-1.19, -0.05],
-    [0.13, -1.19],
-    [-1.19, -1.19],
+    [0.15, 1.58],
+    [1.58, 0.15],
+    [0.18, 0.18],
   ]
   return (
-    <group>
-      {/* ala contra la pared izquierda */}
-      <RB args={[0.55, 0.05, 1.7]} r={0.02} position={[-1.42, DESK_H, -0.85]} castShadow receiveShadow>
+    <group position={position} rotation={rotation}>
+      <RB args={[0.55, 0.05, 1.7]} r={0.02} position={[0, DESK_H, 0.85]} castShadow receiveShadow>
         {mat(DESK)}
       </RB>
-      {/* ala contra la pared del fondo */}
-      <RB args={[1.9, 0.05, 0.55]} r={0.02} position={[-0.75, DESK_H, -1.42]} castShadow receiveShadow>
+      <RB args={[1.7, 0.05, 0.55]} r={0.02} position={[0.85, DESK_H + 0.001, 0]} castShadow receiveShadow>
         {mat(DESK)}
       </RB>
       {legs.map(([x, z], i) => (
@@ -106,20 +106,12 @@ function DeskL() {
           {mat(METAL, { metal: 0.5, rough: 0.4 })}
         </RB>
       ))}
-      {/* caja oscura bajo el ala del fondo (como la referencia) */}
-      <RB args={[0.35, 0.3, 0.42]} r={0.02} position={[0.0, 0.15, -1.42]} castShadow>{mat(DARK)}</RB>
-      {/* archivadores bajo el ala izquierda */}
-      {['#3a4750', '#51616c', '#2e3a42'].map((c, i) => (
-        <RB key={c} args={[0.05, 0.26, 0.18]} r={0.012} position={[-1.32 + i * 0.07, 0.13, -0.25]} castShadow>
-          {mat(c)}
-        </RB>
-      ))}
     </group>
   )
 }
 
-// Monitor estilo iMac (oscuro). Mientras Claude trabaja, la pantalla "late".
-function Monitor({ working = false }) {
+// Monitor estilo iMac. Mientras su estación trabaja, la pantalla "late".
+function Monitor({ working = false, position, rotation = [0, 0, 0] }) {
   const screen = useRef()
   useFrame(({ clock }) => {
     if (!screen.current) return
@@ -128,7 +120,7 @@ function Monitor({ working = false }) {
       : 0.35
   })
   return (
-    <group position={[-0.55, TOP, -1.48]}>
+    <group position={position} rotation={rotation}>
       <RB args={[0.16, 0.015, 0.12]} r={0.006} position={[0, 0.008, 0.03]} castShadow>{mat(METAL, { metal: 0.5 })}</RB>
       <RB args={[0.035, 0.16, 0.025]} r={0.01} position={[0, 0.09, 0.01]} castShadow>{mat(METAL, { metal: 0.5 })}</RB>
       <RB args={[0.5, 0.32, 0.03]} r={0.012} position={[0, 0.26, 0]} castShadow>{mat('#c9d2d6', { metal: 0.3 })}</RB>
@@ -140,10 +132,9 @@ function Monitor({ working = false }) {
   )
 }
 
-// Laptop abierta sobre el ala izquierda, mirando hacia la sala.
-function Laptop() {
+function Laptop({ position, rotation = [0, 0, 0] }) {
   return (
-    <group position={[-1.42, TOP, -0.5]} rotation={[0, Math.PI / 2, 0]}>
+    <group position={position} rotation={rotation}>
       <RB args={[0.3, 0.018, 0.2]} r={0.008} castShadow>{mat('#aab4b9', { metal: 0.6, rough: 0.35 })}</RB>
       <group position={[0, 0.1, -0.095]} rotation={[-0.4, 0, 0]}>
         <RB args={[0.3, 0.2, 0.012]} r={0.008} castShadow>{mat('#aab4b9', { metal: 0.6, rough: 0.35 })}</RB>
@@ -156,7 +147,7 @@ function Laptop() {
   )
 }
 
-// Silla ergonómica blanca con base de 5 ruedas (como la referencia).
+// Silla ergonómica blanca con base de 5 ruedas.
 function Chair({ position, rotation }) {
   return (
     <group position={position} rotation={rotation}>
@@ -186,12 +177,11 @@ function Chair({ position, rotation }) {
   )
 }
 
-// Estante flotante con cuadro y libros (pared del fondo, lado derecho).
+// Estante flotante con cuadro y libros (pared del fondo).
 function Shelf() {
   return (
-    <group position={[0.75, 1.2, -1.68]}>
+    <group position={[1.3, 1.3, -HALF + 0.12]}>
       <RB args={[1.25, 0.05, 0.28]} r={0.015} castShadow receiveShadow>{mat(DESK)}</RB>
-      {/* cuadro apoyado */}
       <group position={[-0.38, 0.21, -0.02]} rotation={[0.08, 0, 0]}>
         <RB args={[0.28, 0.36, 0.03]} r={0.01} castShadow>{mat('#e3e8ea')}</RB>
         <mesh position={[0, 0, 0.017]}>
@@ -199,7 +189,6 @@ function Shelf() {
           {mat('#9fb7c4')}
         </mesh>
       </group>
-      {/* libros de pie (azul / blanco / índigo, como la referencia) */}
       {[
         ['#3b62a8', 0.28, 0.05],
         ['#e8edf0', 0.24, 0.14],
@@ -211,7 +200,6 @@ function Shelf() {
   )
 }
 
-// Planta grande tipo fiddle-leaf en maceta blanca (junto a la ventana).
 function FiddlePlant({ position, scale = 0.5 }) {
   const leaves = [
     [0.0, 1.55, 0.0, 0, 0],
@@ -240,23 +228,68 @@ function FiddlePlant({ position, scale = 0.5 }) {
   )
 }
 
-// Props chicos de Kenney sobre el escritorio.
+// Props chicos de Kenney sobre el escritorio principal + estante.
 const PROPS = [
-  { url: '/models/furniture/computerKeyboard.glb', position: [-0.75, TOP, -1.16] },
-  { url: '/models/furniture/computerMouse.glb', position: [-0.32, TOP, -1.2] },
-  { url: '/models/furniture/plantSmall3.glb', position: [-0.15, TOP, -1.45] },
-  { url: '/models/furniture/pottedPlant.glb', position: [-1.45, TOP, -1.42], scale: 0.6 },
-  { url: '/models/furniture/plantSmall2.glb', position: [-1.45, TOP, -0.15] },
-  { url: '/models/furniture/books.glb', position: [1.15, 1.225, -1.7], scale: 1.4 },
+  { url: '/models/furniture/computerKeyboard.glb', position: [-1.62, TOP, -1.95] },
+  { url: '/models/furniture/computerMouse.glb', position: [-1.28, TOP, -1.98] },
+  { url: '/models/furniture/plantSmall3.glb', position: [-1.05, TOP, -2.32] },
+  { url: '/models/furniture/pottedPlant.glb', position: [-2.28, TOP, -2.28], scale: 0.6 },
+  { url: '/models/furniture/plantSmall2.glb', position: [-2.3, TOP, -0.75] },
+  { url: '/models/furniture/books.glb', position: [1.55, 1.325, -2.5], scale: 1.4 },
 ]
 
-// Silla y personaje comparten pose. Mirando al frente cuando espera; al
-// trabajar, la silla gira suavemente hacia el escritorio (y de vuelta).
-const CHAIR_POS = [-0.72, 0, -0.66]
-const MONITOR_POS = [-0.55, 0, -1.48]
-const YAW_FRONT = Math.PI / 4 // hacia la cámara
-// yaw exacto hacia el monitor (no hacia la esquina)
+// ── Estación principal (dev) ────────────────────────────────────────────────
+const CHAIR_POS = [-1.5, 0, -1.5]
+const MONITOR_POS = [-1.5, 0, -2.32]
+const YAW_FRONT = Math.PI / 4
 const YAW_DESK = Math.atan2(MONITOR_POS[0] - CHAIR_POS[0], MONITOR_POS[2] - CHAIR_POS[2])
+
+// ── Squad: research (investiga/artifacts), design (UI/UX), qa (tests) ──────
+// Cada estación tiene su L en una esquina, monitor en diagonal y personaje.
+const STATIONS = [
+  {
+    id: 'research',
+    name: 'Nami',
+    emoji: '🔍',
+    desk: [HALF - 0.32, 0, -HALF + 0.32],
+    deskRot: [0, -Math.PI / 2, 0], // alas hacia -x (pared fondo) y +z
+    monitor: [1.95, TOP, -1.95],
+    monitorRot: [0, -Math.PI / 4, 0],
+    chair: [1.4, 0, -1.4],
+    chairRot: [0, (Math.PI * 3) / 4, 0],
+    url: '/models/pj/Casual_Female.gltf',
+    shirt: '#6366f1',
+    hair: '#f97316', // Nami: pelo naranja
+  },
+  {
+    id: 'design',
+    name: 'Sanji',
+    emoji: '🎨',
+    desk: [-HALF + 0.32, 0, HALF - 0.32],
+    deskRot: [0, Math.PI / 2, 0], // alas hacia -z (pared izq) y +x
+    monitor: [-1.95, TOP, 1.95],
+    monitorRot: [0, (Math.PI * 3) / 4, 0],
+    chair: [-1.4, 0, 1.4],
+    chairRot: [0, -Math.PI / 4, 0],
+    url: '/models/pj/Casual2_Male.gltf',
+    shirt: '#f472b6',
+    hair: '#eab308', // Sanji: rubio
+  },
+  {
+    id: 'qa',
+    name: 'Zoro',
+    emoji: '🧪',
+    desk: [HALF - 0.32, 0, HALF - 0.32],
+    deskRot: [0, Math.PI, 0], // alas hacia -x y -z (isla en la esquina frontal)
+    monitor: [1.95, TOP, 1.95],
+    monitorRot: [0, (-Math.PI * 3) / 4, 0],
+    chair: [1.4, 0, 1.4],
+    chairRot: [0, Math.PI / 4, 0],
+    url: '/models/pj/Casual3_Male.gltf',
+    shirt: '#f5a524',
+    hair: '#3a8f5f', // Zoro: pelo verde
+  },
+]
 
 function Swivel({ working, children }) {
   const ref = useRef()
@@ -272,44 +305,54 @@ function Swivel({ working, children }) {
   )
 }
 
-export default function Office({ working = false, status = '' }) {
+export default function Office({ workingRoles = [], status = '' }) {
+  const working = workingRoles.includes('dev')
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={['#b9ccd3']} />
 
-      <OrthographicCamera makeDefault position={[9, 8, 9]} zoom={150} near={0.1} far={100} />
-      <OrbitControls target={[0, 0.35, 0]} enablePan={false} minZoom={80} maxZoom={320} />
+      <OrthographicCamera makeDefault position={[9, 8, 9]} zoom={105} near={0.1} far={100} />
+      <OrbitControls target={[0, 0.35, 0]} enablePan={false} minZoom={60} maxZoom={280} />
 
       <ambientLight intensity={0.9} />
       <hemisphereLight args={['#dbe8ec', '#4a3b2f', 0.7]} />
       <directionalLight
-        position={[4, 7, 4]}
+        position={[5, 9, 5]}
         intensity={2.1}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
-        shadow-camera-left={-3}
-        shadow-camera-right={3}
-        shadow-camera-top={3}
-        shadow-camera-bottom={-3}
+        shadow-camera-left={-5}
+        shadow-camera-right={5}
+        shadow-camera-top={5}
+        shadow-camera-bottom={-5}
         shadow-camera-near={0.1}
-        shadow-camera-far={20}
+        shadow-camera-far={25}
       />
 
       <Room />
       <Window />
-      <DeskL />
-      <Monitor working={working} />
-      <Laptop />
       <Shelf />
-      {/* tapete azul + silla giratoria con el personaje sentado */}
-      <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-0.72, 0.012, -0.66]} receiveShadow>{mat(MAT_BLUE)}</RB>
-      <FiddlePlant position={[-1.38, 0, 0.85]} />
+
+      {/* estación principal (dev): L en la esquina trasera-izquierda */}
+      <LDesk position={[-HALF + 0.32, 0, -HALF + 0.32]} />
+      <Monitor working={working} position={MONITOR_POS.map((v, i) => (i === 1 ? TOP : v))} />
+      <Laptop position={[-2.3, TOP, -1.3]} rotation={[0, Math.PI / 2, 0]} />
+      {/* gabinete y archivadores bajo el ala del fondo */}
+      <RB args={[0.35, 0.3, 0.42]} r={0.02} position={[-0.75, 0.15, -2.28]} castShadow>{mat(DARK)}</RB>
+      {['#3a4750', '#51616c', '#2e3a42'].map((c, i) => (
+        <RB key={c} args={[0.05, 0.26, 0.18]} r={0.012} position={[-1.95 + i * 0.07, 0.13, -2.28]} castShadow>
+          {mat(c)}
+        </RB>
+      ))}
+      <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-1.5, 0.012, -1.45]} receiveShadow>{mat(MAT_BLUE)}</RB>
+      <FiddlePlant position={[2.3, 0, 0.1]} />
 
       <Suspense fallback={null}>
         {PROPS.map((p, i) => (
           <GltfProp key={i} {...p} />
         ))}
+
         <Swivel working={working}>
           <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
           <Character3D
@@ -319,21 +362,61 @@ export default function Office({ working = false, status = '' }) {
             scale={0.27}
             position={[0, 0, 0]}
             rotation={[0, 0, 0]}
-            sitAt={[-0.72, 0.3, -0.66]}
-            colors={{ Skin: '#e8b890', Face: '#5c402e' }}
+            sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
+            colors={{ Skin: '#e8b890', Face: '#1f2937', Hair: '#1f2937', Shirt: '#2dd4bf' }}
             sway={working}
           />
         </Swivel>
+        {/* etiqueta con el nombre del principal (Luffy: pelo negro) */}
+        <Html position={[CHAIR_POS[0], 0.82, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+          <div className="nametag" style={{ borderColor: '#2dd4bf' }}>Luffy</div>
+        </Html>
+
+        {/* squad: research / design / qa — cada uno con su L y su monitor */}
+        {STATIONS.map((s) => {
+          const active = workingRoles.includes(s.id)
+          return (
+            <group key={s.id}>
+              <LDesk position={s.desk} rotation={s.deskRot} />
+              <Monitor working={active} position={s.monitor} rotation={s.monitorRot} />
+              <Chair position={s.chair} rotation={s.chairRot} />
+              <Character3D
+                url={s.url}
+                clip="SitDown"
+                once
+                scale={0.27}
+                position={s.chair}
+                rotation={s.chairRot}
+                sitAt={[s.chair[0], 0.3, s.chair[2]]}
+                colors={{ Skin: '#e8b890', Face: s.hair, Hair: s.hair, Shirt: s.shirt }}
+                sway={active}
+              />
+              <Html position={[s.chair[0], 0.82, s.chair[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                <div className="nametag" style={{ borderColor: s.shirt }}>{s.name}</div>
+              </Html>
+              {active && (
+                <Html
+                  position={[s.chair[0], 1.05, s.chair[2]]}
+                  center
+                  zIndexRange={[1, 0]}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <div className="bubble3d busy">{s.emoji} trabajando…</div>
+                </Html>
+              )}
+            </group>
+          )
+        })}
       </Suspense>
 
-      {/* globo de estado sobre la cabeza del personaje */}
+      {/* globo de estado sobre la cabeza del personaje principal */}
       {status && (
         <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
           <div className={working ? 'bubble3d busy' : 'bubble3d'}>{status}</div>
         </Html>
       )}
 
-      <ContactShadows position={[0, 0.004, 0]} opacity={0.4} scale={6} blur={2.5} far={3} />
+      <ContactShadows position={[0, 0.004, 0]} opacity={0.4} scale={9} blur={2.5} far={3} />
     </Canvas>
   )
 }
