@@ -512,10 +512,10 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
         })}
       </Suspense>
 
-      {/* globo de estado sobre la cabeza del personaje principal */}
-      {status && (
+      {/* globo del principal: solo mientras tiene una conversación activa */}
+      {status && devState !== 'idle' && (
         <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-          <div className={devState !== 'idle' ? 'bubble3d busy' : 'bubble3d'}>{status}</div>
+          <div className="bubble3d busy">{status}</div>
         </Html>
       )}
 

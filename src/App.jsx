@@ -266,17 +266,12 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), ms)
   }
 
-  const flashStatus = (text, ms = 2500) => {
-    setStatus(text)
-    setTimeout(() => setStatus((s) => (s === text ? 'esperándote' : s)), ms)
-  }
-
   const newChat = () => {
     setMessages([])
     convIdRef.current = null
     sessionsRef.current = {}
     window.oficina?.reset?.()
-    flashStatus('conversación nueva ✨')
+    showToast('conversación nueva ✨')
   }
 
   const changeProfile = (e) => {
@@ -367,7 +362,7 @@ export default function App() {
     setMessages(c.messages || [])
     await window.oficina?.setSession?.({ sessions: saved, profile: c.profile, cwd: c.project })
     setHistOpen(false)
-    flashStatus(Object.keys(saved).length ? 'retomada — recordamos todo 🧠' : 'conversación cargada', 3000)
+    showToast(Object.keys(saved).length ? 'retomada — recordamos todo 🧠' : 'conversación cargada')
   }
 
   const deleteConvo = async (e, id) => {
@@ -411,7 +406,7 @@ export default function App() {
       return
     }
     if (!window.oficina?.ask) {
-      setStatus('sin Electron — corre npm run dev')
+      showToast('sin Electron — corre npm run dev')
       return
     }
     const target = routeMessage(text, squad, principal)
