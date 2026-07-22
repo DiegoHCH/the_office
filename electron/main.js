@@ -110,14 +110,17 @@ ipcMain.handle('config:get', () => {
   const profiles = Object.keys(PROFILE_DIRS).filter((p) => fs.existsSync(PROFILE_DIRS[p]()))
   const projectsByProfile = {}
   for (const p of profiles.length ? profiles : ['default']) {
-    const root = path.join(home, PROJECT_ROOTS[p] || '')
-    const list = []
+    const rootName = PROJECT_ROOTS[p] || ''
+    const root = path.join(home, rootName)
+    // La raíz va primero y es el default: en work se lanza claude desde
+    // ~/Workspace para que cargue el protocolo ai-context (global-b2c, etc.).
+    const list = [{ name: `🗂 ${rootName || 'Home'}`, path: root }]
     try {
       fs.readdirSync(root, { withFileTypes: true })
         .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
         .forEach((d) => list.push({ name: d.name, path: path.join(root, d.name) }))
     } catch {}
-    projectsByProfile[p] = list.length ? list : [{ name: '🏠 Home', path: home }]
+    projectsByProfile[p] = list
   }
   return { profiles: profiles.length ? profiles : ['default'], projectsByProfile }
 })
