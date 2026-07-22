@@ -33,7 +33,8 @@
         "dir",
         "dmg"
       ],
-      "identity": null,
+      "identity": "-",
+      "hardenedRuntime": false,
       "icon": "build/icon.icns"
     },
     "dmg": {
