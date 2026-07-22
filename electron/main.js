@@ -16,10 +16,18 @@ const CLAUDE_BIN = CLAUDE_CANDIDATES.find((p) => fs.existsSync(p)) || 'claude'
 let win = null
 let child = null // proceso claude en curso (uno a la vez)
 let sessionId = null // para multi-turno con --resume
+let sessionKey = null // perfil+cwd de la sesión actual (si cambia, conversación nueva)
 
 // Herramientas permitidas en headless (read-only: puede investigar, no tocar).
 // Para modo escritura, añadir Edit/Write/Bash o usar --permission-mode acceptEdits.
 const ALLOWED_TOOLS = 'Read,Glob,Grep,WebSearch,WebFetch'
+
+// Perfiles = mismos alias que en zsh: claude-work / claude-private
+// (cada CLAUDE_CONFIG_DIR tiene su propio login y sesiones).
+const PROFILE_DIRS = {
+  work: () => path.join(app.getPath('home'), '.claude-work'),
+  private: () => path.join(app.getPath('home'), '.claude-private'),
+}
 
 function createWindow() {
   win = new BrowserWindow({
@@ -92,8 +100,45 @@ function handleLine(line) {
   }
 }
 
-ipcMain.handle('claude:ask', (_e, prompt) => {
+// Carpeta de proyectos por perfil: work → ~/Workspace, private → ~/personal.
+const PROJECT_ROOTS = { work: 'Workspace', private: 'personal' }
+
+// Config para el renderer: perfiles disponibles y sus proyectos.
+ipcMain.handle('config:get', () => {
+  const home = app.getPath('home')
+  const profiles = Object.keys(PROFILE_DIRS).filter((p) => fs.existsSync(PROFILE_DIRS[p]()))
+  const projectsByProfile = {}
+  for (const p of profiles.length ? profiles : ['default']) {
+    const root = path.join(home, PROJECT_ROOTS[p] || '')
+    const list = []
+    try {
+      fs.readdirSync(root, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+        .forEach((d) => list.push({ name: d.name, path: path.join(root, d.name) }))
+    } catch {}
+    projectsByProfile[p] = list.length ? list : [{ name: '🏠 Home', path: home }]
+  }
+  return { profiles: profiles.length ? profiles : ['default'], projectsByProfile }
+})
+
+ipcMain.handle('claude:reset', () => {
+  sessionId = null
+  sessionKey = null
+  return { ok: true }
+})
+
+ipcMain.handle('claude:ask', (_e, payload) => {
   if (child) return { ok: false, error: 'Claude ya está procesando un mensaje' }
+
+  const { prompt, profile = 'work', cwd } = typeof payload === 'string' ? { prompt: payload } : payload
+  const workdir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
+
+  // cambiar de perfil o de proyecto = conversación nueva (las sesiones no cruzan)
+  const key = `${profile}::${workdir}`
+  if (key !== sessionKey) {
+    sessionId = null
+    sessionKey = key
+  }
 
   const args = [
     '-p', prompt,
@@ -108,9 +153,12 @@ ipcMain.handle('claude:ask', (_e, prompt) => {
   const env = { ...process.env }
   delete env.ANTHROPIC_API_KEY
   delete env.ANTHROPIC_AUTH_TOKEN
+  // perfil work/private = mismo mecanismo que los alias de zsh
+  if (PROFILE_DIRS[profile]) env.CLAUDE_CONFIG_DIR = PROFILE_DIRS[profile]()
+  else delete env.CLAUDE_CONFIG_DIR
 
   try {
-    child = spawn(CLAUDE_BIN, args, { cwd: app.getPath('home'), env })
+    child = spawn(CLAUDE_BIN, args, { cwd: workdir, env })
   } catch (err) {
     child = null
     return { ok: false, error: `No pude lanzar claude: ${err.message}` }

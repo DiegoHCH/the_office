@@ -3,8 +3,12 @@ const { contextBridge, ipcRenderer } = require('electron')
 // Puente seguro entre el proceso principal (Node) y el renderer (React).
 contextBridge.exposeInMainWorld('oficina', {
   getVersion: () => ipcRenderer.invoke('app:version'),
+  // Perfiles (work/private) y proyectos de ~/Workspace para los selectores.
+  getConfig: () => ipcRenderer.invoke('config:get'),
   // Envía un prompt a Claude Code (headless). Respuestas llegan por onEvent.
-  ask: (prompt) => ipcRenderer.invoke('claude:ask', prompt),
+  ask: (payload) => ipcRenderer.invoke('claude:ask', payload),
+  // Empieza una conversación nueva (olvida el session_id actual).
+  reset: () => ipcRenderer.invoke('claude:reset'),
   // Suscripción a eventos del stream: init | text | tool | done | error.
   onEvent: (cb) => {
     const handler = (_e, data) => cb(data)

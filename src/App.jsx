@@ -21,7 +21,41 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [tool, setTool] = useState(null) // herramienta en uso (chip sobre la escena)
   const [input, setInput] = useState('')
+  const [cfg, setCfg] = useState(null) // {profiles, projectsByProfile}
+  const [profile, setProfile] = useState('work')
+  const [project, setProject] = useState('')
   const logRef = useRef(null)
+
+  const projects = cfg?.projectsByProfile?.[profile] || []
+
+  useEffect(() => {
+    window.oficina?.getConfig?.().then((c) => {
+      setCfg(c)
+      const first = c.profiles[0]
+      setProfile(first)
+      setProject(c.projectsByProfile[first]?.[0]?.path || '')
+    })
+  }, [])
+
+  // cambiar perfil también cambia la lista de proyectos; ambos resetean la charla
+  const changeProfile = (e) => {
+    const p = e.target.value
+    setProfile(p)
+    setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
+    setMessages([])
+    window.oficina?.reset?.()
+  }
+  const changeProject = (e) => {
+    setProject(e.target.value)
+    setMessages([])
+    window.oficina?.reset?.()
+  }
+
+  const newChat = () => {
+    setMessages([])
+    window.oficina?.reset?.()
+    setStatus('conversación nueva')
+  }
 
   useEffect(() => {
     if (!window.oficina?.onEvent) return
@@ -78,7 +112,7 @@ export default function App() {
     setInput('')
     setBusy(true)
     setStatus('pensando…')
-    const res = await window.oficina.ask(text)
+    const res = await window.oficina.ask({ prompt: text, profile, cwd: project })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', text: `⚠️ ${res?.error || 'error desconocido'}` }])
       setBusy(false)
@@ -91,7 +125,23 @@ export default function App() {
       <header className="hud">
         <span className="dot" />
         <b>LA OFICINA</b>
-        <span className="muted">· Fase 2 · conectada a Claude</span>
+        <select className="sel" value={profile} onChange={changeProfile} disabled={busy} title="Perfil de Claude">
+          {(cfg?.profiles || []).map((p) => (
+            <option key={p} value={p}>
+              {p === 'work' ? '💼 work' : p === 'private' ? '🔒 private' : p}
+            </option>
+          ))}
+        </select>
+        <select className="sel" value={project} onChange={changeProject} disabled={busy} title="Proyecto (cwd)">
+          {projects.map((p) => (
+            <option key={p.path} value={p.path}>
+              {p.name}
+            </option>
+          ))}
+        </select>
+        <button type="button" className="newchat" onClick={newChat} disabled={busy} title="Conversación nueva">
+          ✚ nueva
+        </button>
         <span className={busy ? 'ipc busy' : 'ipc'}>{status}</span>
       </header>
 

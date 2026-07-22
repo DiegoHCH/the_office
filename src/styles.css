@@ -18,6 +18,19 @@ body {
 .hud b { letter-spacing: 1px; }
 .hud .muted { color: #93a6a1; }
 .hud .ipc { margin-left: auto; color: #2dd4bf; }
+.sel {
+  background: #1b252a; color: #e9f1ee; border: 1px solid #28353a;
+  border-radius: 8px; padding: 4px 8px; font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; outline: none; cursor: pointer;
+}
+.sel:focus { border-color: #2dd4bf; }
+.newchat {
+  background: transparent; color: #93a6a1; border: 1px solid #28353a;
+  border-radius: 8px; padding: 4px 10px; font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; cursor: pointer;
+}
+.newchat:hover { color: #2dd4bf; border-color: #2dd4bf; }
+.sel:disabled, .newchat:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .stage { flex: 1; min-height: 0; position: relative; }
 
