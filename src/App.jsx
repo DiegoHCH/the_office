@@ -17,15 +17,16 @@ const TOOL_INFO = {
 }
 const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `usando ${name}`]
 
-// Modelos disponibles para --model ('' = el default del perfil).
-const MODELS = [
-  ['', '🧠 auto'],
-  ['opus', 'Opus 4.8'],
-  ['sonnet', 'Sonnet 5'],
-  ['haiku', 'Haiku 4.5'],
-  ['claude-fable-5', 'Fable 5'],
-]
-const MODEL_ALIASES = { fable: 'claude-fable-5', auto: '', default: '' }
+// Modelos disponibles para --model (siempre explícito).
+const MODEL_LABELS = {
+  'claude-fable-5[1m]': 'Fable 5 · 1M',
+  'claude-fable-5': 'Fable 5',
+  opus: 'Opus 4.8',
+  sonnet: 'Sonnet 5',
+  haiku: 'Haiku 4.5',
+}
+const MODEL_ALIASES = { fable: 'claude-fable-5', fable1m: 'claude-fable-5[1m]' }
+const FALLBACK_MODEL = 'claude-fable-5'
 
 export default function App() {
   const [messages, setMessages] = useState([]) // {role, text, streaming?}
@@ -37,7 +38,7 @@ export default function App() {
   const [profile, setProfile] = useState('work')
   const [project, setProject] = useState('')
   const [writeMode, setWriteMode] = useState(true) // edición por defecto (flujo normal de trabajo)
-  const [model, setModel] = useState('') // '' = default del perfil
+  const [model, setModel] = useState(FALLBACK_MODEL)
   const logRef = useRef(null)
 
   const projects = cfg?.projectsByProfile?.[profile] || []
@@ -48,6 +49,7 @@ export default function App() {
       const first = c.profiles[0]
       setProfile(first)
       setProject(c.projectsByProfile[first]?.[0]?.path || '')
+      setModel(c.defaultModels?.[first] || FALLBACK_MODEL)
     })
   }, [])
 
@@ -56,6 +58,7 @@ export default function App() {
     const p = e.target.value
     setProfile(p)
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
+    setModel(cfg?.defaultModels?.[p] || FALLBACK_MODEL)
     setMessages([])
     window.oficina?.reset?.()
   }
@@ -123,14 +126,12 @@ export default function App() {
     if (cmd === '/model') {
       const arg = rest[0]?.toLowerCase()
       if (!arg) {
-        addSystem(
-          `modelo actual: ${model || 'auto (default del perfil)'} · usa /model opus | sonnet | haiku | fable | auto`
-        )
+        addSystem(`modelo actual: ${model} · usa /model opus | sonnet | haiku | fable | fable1m`)
         return true
       }
       const resolved = MODEL_ALIASES[arg] ?? arg
       setModel(resolved)
-      addSystem(`modelo → ${resolved || 'auto (default del perfil)'}`)
+      addSystem(`modelo → ${resolved}`)
       return true
     }
     if (cmd === '/clear' || cmd === '/nueva') {
@@ -184,15 +185,11 @@ export default function App() {
           ))}
         </select>
         <select className="sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy} title="Modelo (--model)">
-          {MODELS.map(([value, label]) => {
-            const def = cfg?.defaultModels?.[profile]
-            const text = value === '' && def ? `🧠 auto · ${def.replace(/^claude-/, '')}` : label
-            return (
-              <option key={value} value={value}>
-                {text}
-              </option>
-            )
-          })}
+          {[...new Set([model, ...Object.keys(MODEL_LABELS)])].map((id) => (
+            <option key={id} value={id}>
+              {MODEL_LABELS[id] || id.replace(/^claude-/, '')}
+            </option>
+          ))}
         </select>
         <button
           type="button"
