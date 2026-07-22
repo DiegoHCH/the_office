@@ -155,6 +155,35 @@ const emit = (payload) => {
   if (win && !win.isDestroyed()) win.webContents.send('claude:event', payload)
 }
 
+// Qué está haciendo exactamente una herramienta (archivo, comando, búsqueda…).
+function toolDetail(name, input = {}) {
+  const base = (p) => (p ? String(p).split('/').pop() : '')
+  try {
+    switch (name) {
+      case 'Edit':
+      case 'Write':
+      case 'Read':
+        return base(input.file_path)
+      case 'NotebookEdit':
+        return base(input.notebook_path)
+      case 'Bash':
+        return (input.command || '').replace(/\s+/g, ' ').slice(0, 42)
+      case 'Grep':
+        return input.pattern ? `"${String(input.pattern).slice(0, 28)}"` : ''
+      case 'Glob':
+        return String(input.pattern || '').slice(0, 32)
+      case 'WebSearch':
+        return input.query ? `"${String(input.query).slice(0, 36)}"` : ''
+      case 'WebFetch':
+        return new URL(input.url).host
+      default:
+        return ''
+    }
+  } catch {
+    return ''
+  }
+}
+
 // Parser de una línea NDJSON del stream, ligado al rol que la produce.
 function makeLineHandler(role, sessionKey, displayName) {
   return (line) => {
@@ -186,7 +215,10 @@ function makeLineHandler(role, sessionKey, displayName) {
 
     if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
       for (const block of msg.message.content) {
-        if (block.type === 'tool_use') emit({ kind: 'tool', role, name: block.name })
+        if (block.type === 'tool_use') {
+          // aquí ya viene el input completo → detalle de QUÉ hace exactamente
+          emit({ kind: 'tool', role, name: block.name, detail: toolDetail(block.name, block.input) })
+        }
       }
       return
     }

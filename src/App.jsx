@@ -290,6 +290,8 @@ export default function App() {
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
   const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
   const [toast, setToast] = useState(null)
+  const [doneChip, setDoneChip] = useState(null) // "✅ X respondió" transitorio
+  const doneChipTimer = useRef(null)
   const [deliverTargets, setDeliverTargets] = useState({}) // a quién camina cada entrega
   const handoffsRef = useRef([]) // [{from, to, original, result?}]
   const toastTimer = useRef(null)
@@ -372,9 +374,9 @@ export default function App() {
         if (e.sessionId) sessionsRef.current[who] = e.sessionId
         if (isP) setStatus('pensando…')
       } else if (e.kind === 'tool') {
-        setTool({ role: who, name: e.name })
+        setTool({ role: who, name: e.name, detail: e.detail || null })
         setRS(who, 'working')
-        if (isP) setStatus(`${toolInfo(e.name)[1]}…`)
+        if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
       } else if (e.kind === 'text') {
         setTool((t) => (t?.role === who ? null : t))
         setRS(who, 'talking')
@@ -407,6 +409,11 @@ export default function App() {
         if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
         setTool((t) => (t?.role === who ? null : t))
         dingSound()
+        // chip transitorio anunciando la respuesta final
+        const doneName = squadRef.current.find((m) => m.id === who)?.name || who
+        setDoneChip(`✅ ${doneName} respondió`)
+        clearTimeout(doneChipTimer.current)
+        doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
         if (isP) setStatus('esperándote')
       } else if (e.kind === 'stopped') {
         // tarea cancelada por el usuario: cerrar el mensaje a medias y limpiar
@@ -767,6 +774,7 @@ export default function App() {
           status={status}
           squad={squad}
           theme={theme}
+          tool={tool}
           deliverTargets={deliverTargets}
           onTourDone={(r) => {
             setRS(r, 'idle')
@@ -952,10 +960,9 @@ export default function App() {
           </div>
         )}
 
-        {tool && (
-          <div className="toolchip" key={`${tool.role}-${tool.name}`}>
-            <span className="toolchip-icon">{toolInfo(tool.name)[0]}</span>
-            {memberOf(tool.role).name}: {toolInfo(tool.name)[1]}…
+        {doneChip && (
+          <div className="toolchip" key={doneChip}>
+            {doneChip}
           </div>
         )}
 

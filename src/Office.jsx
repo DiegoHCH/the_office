@@ -483,7 +483,7 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', onTourDone }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, onTourDone }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -692,7 +692,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
           const bubble =
             st === 'working'
-              ? `${m.emoji} trabajando…`
+              ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'trabajando…'}`
               : st === 'listening'
                 ? '👂 escuchando…'
                 : st === 'talking'
