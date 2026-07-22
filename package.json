@@ -1,0 +1,29 @@
+{
+  "name": "la-oficina",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Cliente visual 3D de Claude Code — una oficina isométrica que reacciona a lo que Claude hace.",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n vite,electron -c green,cyan \"npm:dev:vite\" \"npm:dev:electron\"",
+    "dev:vite": "vite",
+    "dev:electron": "wait-on http://127.0.0.1:5173 && NODE_ENV=development electron .",
+    "build": "vite build",
+    "preview": "vite preview",
+    "start": "NODE_ENV=production electron ."
+  },
+  "dependencies": {
+    "@react-three/drei": "^9.114.0",
+    "@react-three/fiber": "^8.17.10",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "vite": "^5.4.11",
+    "wait-on": "^8.0.1"
+  }
+}
