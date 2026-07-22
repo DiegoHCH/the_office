@@ -612,7 +612,7 @@ export default function App() {
           }
           autoFocus
         />
-        <button disabled={!input.trim()}>Enviar</button>
+        <button type="submit">Enviar</button>
       </form>
     </div>
   )
