@@ -565,6 +565,20 @@ ipcMain.handle('help:open', () => {
   return { ok: true }
 })
 
+// Guarda una imagen pegada/arrastrada para que el squad la pueda leer.
+ipcMain.handle('image:save', (_e, { name, data }) => {
+  try {
+    const dir = path.join(app.getPath('userData'), 'attachments')
+    fs.mkdirSync(dir, { recursive: true })
+    const ext = (name && path.extname(name)) || '.png'
+    const file = path.join(dir, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`)
+    fs.writeFileSync(file, Buffer.from(data))
+    return { ok: true, path: file }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 ipcMain.handle('app:version', () => app.getVersion())
 
 app.whenReady().then(() => {

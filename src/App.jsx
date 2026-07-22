@@ -293,6 +293,7 @@ export default function App() {
   const [doneChip, setDoneChip] = useState(null) // "✅ X respondió" transitorio
   const doneChipTimer = useRef(null)
   const [deliverTargets, setDeliverTargets] = useState({}) // a quién camina cada entrega
+  const [attachments, setAttachments] = useState([]) // imágenes pegadas/arrastradas
   const handoffsRef = useRef([]) // [{from, to, original, result?}]
   const toastTimer = useRef(null)
   const sessionsRef = useRef({})
@@ -505,6 +506,29 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
+  // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
+  const addImageFile = async (file) => {
+    if (!file || !file.type?.startsWith('image/')) return
+    const buf = new Uint8Array(await file.arrayBuffer())
+    const res = await window.oficina?.saveImage?.(file.name || 'imagen.png', buf)
+    if (res?.ok) {
+      setAttachments((a) => [...a, { path: res.path, name: file.name || res.path.split('/').pop() }])
+      popSound()
+    }
+  }
+  const handlePaste = (e) => {
+    for (const item of e.clipboardData?.items || []) {
+      if (item.type?.startsWith('image/')) {
+        e.preventDefault()
+        addImageFile(item.getAsFile())
+      }
+    }
+  }
+  const handleDrop = (e) => {
+    e.preventDefault()
+    for (const f of e.dataTransfer?.files || []) addImageFile(f)
+  }
+
   // aviso transitorio: aparece y se desvanece solo (no ensucia el chat)
   const showToast = (text, ms = 3500) => {
     setToast(text)
@@ -687,7 +711,7 @@ export default function App() {
   const send = async (ev) => {
     ev.preventDefault()
     const text = input.trim()
-    if (!text) return
+    if (!text && !attachments.length) return
     if (text.startsWith('/') && handleLocalCommand(text)) {
       setInput('')
       return
@@ -705,12 +729,21 @@ export default function App() {
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     const handoffTo = detectHandoff(text, squad, target)
     if (handoffTo) handoffsRef.current.push({ from: target, to: handoffTo, original: text, result: null })
-    setMessages((ms) => [...ms, { role: 'user', text, to: target }])
+    // imágenes adjuntas: el tripulante las lee con su herramienta Read
+    const atts = attachments
+    let prompt = text || 'Describe y analiza las imágenes adjuntas.'
+    if (atts.length) {
+      prompt = `He adjuntado ${atts.length} imagen(es). Léelas con la herramienta Read antes de responder:\n${atts
+        .map((a) => `- ${a.path}`)
+        .join('\n')}\n\n${prompt}`
+    }
+    setMessages((ms) => [...ms, { role: 'user', text: text || '🖼', to: target, atts: atts.map((a) => a.name) }])
     setInput('')
+    setAttachments([])
     setRS(target, 'listening')
     popSound()
     if (target === principal) setStatus('pensando…')
-    const res = await window.oficina.ask({ prompt: text, profile, cwd: project, writeMode, model, role: target })
+    const res = await window.oficina.ask({ prompt, profile, cwd: project, writeMode, model, role: target })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: target, text: `⚠️ ${res?.error || 'error desconocido'}` }])
       setRS(target, 'idle')
@@ -719,7 +752,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app" onDrop={handleDrop} onDragOver={(e) => e.preventDefault()}>
       <header className="hud">
         <span className="dot" />
         <b>LA OFICINA</b>
@@ -976,6 +1009,9 @@ export default function App() {
                   </div>
                 )}
                 {m.role === 'user' && m.to && m.to !== principal && <div className="who to">→ {memberOf(m.to).name}</div>}
+                {m.role === 'user' && m.atts?.length > 0 && (
+                  <div className="msg-atts">{m.atts.map((n, j) => <span key={j}>🖼 {n}</span>)}</div>
+                )}
                 {m.role === 'assistant' ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown> : m.text}
                 {m.streaming ? '▍' : ''}
               </div>
@@ -984,10 +1020,22 @@ export default function App() {
         )}
       </div>
 
+      {attachments.length > 0 && (
+        <div className="attachbar">
+          {attachments.map((a, i) => (
+            <span key={a.path} className="attachchip">
+              🖼 {a.name}
+              <button type="button" onClick={() => setAttachments((arr) => arr.filter((_, j) => j !== i))}>✕</button>
+            </span>
+          ))}
+        </div>
+      )}
+
       <form className="composer" onSubmit={send}>
         <input
           ref={inputRef}
           value={input}
+          onPaste={handlePaste}
           onChange={(e) => setInput(e.target.value)}
           placeholder={
             busy
