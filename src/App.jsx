@@ -1,17 +1,62 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Office from './Office.jsx'
 import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 
-// ── El squad ─────────────────────────────────────────────────────────────────
-const ROLES = {
-  dev: { name: 'Luffy', emoji: '⌨️', color: '#2dd4bf', label: 'Dev' },
-  research: { name: 'Nami', emoji: '🔍', color: '#6366f1', label: 'Research' },
-  design: { name: 'Sanji', emoji: '🎨', color: '#f472b6', label: 'UI/UX' },
-  qa: { name: 'Zoro', emoji: '🧪', color: '#f5a524', label: 'QA' },
+// ── Catálogo de roles (visual + keywords). Nombres/activos vienen de la config ⚙️ ──
+export const ROLE_META = {
+  dev: {
+    label: 'Dev',
+    emoji: '⌨️',
+    color: '#2dd4bf',
+    hair: '#1f2937',
+    url: '/models/pj/Casual_Male.gltf',
+    kw: /arregla|implementa|refactoriza|codigo|\bbug\b/,
+  },
+  research: {
+    label: 'Research',
+    emoji: '🔍',
+    color: '#6366f1',
+    hair: '#f97316',
+    url: '/models/pj/Casual_Female.gltf',
+    kw: /investig|busca|analiza|compara|artifact|documenta/,
+  },
+  design: {
+    label: 'UI/UX',
+    emoji: '🎨',
+    color: '#f472b6',
+    hair: '#eab308',
+    url: '/models/pj/Casual2_Male.gltf',
+    kw: /disen|\bui\b|\bux\b|figma|pantalla|mockup|interfaz|estilo|layout|tipografia/,
+  },
+  qa: {
+    label: 'QA',
+    emoji: '🧪',
+    color: '#f5a524',
+    hair: '#3a8f5f',
+    url: '/models/pj/Casual3_Male.gltf',
+    kw: /\btest\b|\btests\b|prueba|regresion|\bqa\b|coverage|e2e|unitari/,
+  },
+  pr: {
+    label: 'Revisor PR',
+    emoji: '🔎',
+    color: '#8b5cf6',
+    hair: '#16181d', // Robin: pelinegra
+    url: '/models/pj/Suit_Female.gltf',
+    kw: /\bpr\b|\bprs\b|pull request|review|\bdiff\b|merge|mergea|pre-pr|g66-pr|review-pr|merge-hu/,
+  },
+  docs: {
+    label: 'Docs',
+    emoji: '📝',
+    color: '#34d399',
+    hair: '#8a5a33',
+    url: '/models/pj/Doctor_Male_Young.gltf',
+    kw: /\bdocs?\b|documentacion|readme|guia|manual|\badr\b/,
+  },
 }
-const ROLE_IDS = Object.keys(ROLES)
+
+const MAX_ACTIVE = 4
 
 // Cómo se muestra cada herramienta de Claude en pantalla.
 const TOOL_INFO = {
@@ -44,29 +89,26 @@ const MODEL_ALIASES = {
 }
 const FALLBACK_MODEL = 'claude-sonnet-5'
 
-// ── Enrutar el mensaje al miembro del squad correcto ────────────────────────
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
-const ROLE_KEYWORDS = [
-  ['design', /disen|\bui\b|\bux\b|figma|pantalla|mockup|interfaz|estilo|boton|layout|tipografia/],
-  ['qa', /\btest\b|\btests\b|prueba|regresion|\bqa\b|coverage|e2e|unitari/],
-  ['research', /investig|busca|analiza|compara|artifact|documenta/],
-]
-function routeMessage(text) {
+const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+// A qué miembro va el mensaje: nombre al inicio / @nombre / keywords / principal.
+function routeMessage(text, squad, principal) {
   const t = norm(text)
-  // nombre al inicio ("tess, ...") o @nombre en cualquier parte
-  for (const id of ROLE_IDS) {
-    const n = norm(ROLES[id].name)
-    if (new RegExp(`^${n}\\b`).test(t) || t.includes(`@${n}`)) return id
+  for (const m of squad) {
+    const n = escRe(norm(m.name))
+    if (new RegExp(`^${n}\\b`).test(t) || t.includes(`@${norm(m.name)}`)) return m.id
   }
-  for (const [role, re] of ROLE_KEYWORDS) if (re.test(t)) return role
-  return 'dev'
+  for (const m of squad) if (m.id !== principal && m.kw?.test(t)) return m.id
+  return principal
 }
 
+// Qué miembro activa cada herramienta (si ese rol está en el squad activo).
+const TOOL_AFFINITY = { Bash: 'qa', Read: 'research', Glob: 'research', Grep: 'research', WebSearch: 'research', WebFetch: 'research' }
+
 export default function App() {
-  const [messages, setMessages] = useState([]) // {role:'user'|'assistant'|'system', text, who?, to?, streaming?}
+  const [messages, setMessages] = useState([])
   const [status, setStatus] = useState('esperándote')
-  // Estado de cada rol: listening (te mira), working (mira pantalla), talking (te mira).
-  // Ausente = idle (en su pantalla, a lo suyo).
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
   const [input, setInput] = useState('')
@@ -78,10 +120,31 @@ export default function App() {
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
   const [sound, setSound] = useState(() => localStorage.getItem('oficina-sound') !== '0')
-  const sessionsRef = useRef({}) // role → sessionId (para historial/--resume)
+  const [roster, setRoster] = useState([]) // config completa (6 roles)
+  const [squadOpen, setSquadOpen] = useState(false)
+  const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
+  const [toast, setToast] = useState(null)
+  const toastTimer = useRef(null)
+  const sessionsRef = useRef({})
   const convIdRef = useRef(null)
   const logRef = useRef(null)
   const inputRef = useRef(null)
+
+  // squad activo (máx 4) con su meta visual; el primero es el principal
+  const squad = useMemo(
+    () =>
+      roster
+        .filter((r) => r.enabled)
+        .slice(0, MAX_ACTIVE)
+        .map((r) => ({ id: r.id, name: r.name, ...ROLE_META[r.id] })),
+    [roster]
+  )
+  const principal = squad[0]?.id || 'dev'
+  const principalRef = useRef(principal)
+  useEffect(() => {
+    principalRef.current = principal
+  }, [principal])
+  const memberOf = (id) => squad.find((m) => m.id === id) || { name: id, emoji: '🤖', color: '#93a6a1', label: id }
 
   const projects = cfg?.projectsByProfile?.[profile] || []
   const running = Object.keys(roleStates)
@@ -97,7 +160,13 @@ export default function App() {
   useEffect(() => {
     setSoundEnabled(sound)
     localStorage.setItem('oficina-sound', sound ? '1' : '0')
+    window.oficina?.setNotify?.(sound) // también los avisos del sistema
   }, [sound])
+
+  const loadSquad = async (p) => {
+    const r = (await window.oficina?.squad?.get(p)) || []
+    setRoster(r)
+  }
 
   useEffect(() => {
     window.oficina?.getConfig?.().then((c) => {
@@ -106,24 +175,26 @@ export default function App() {
       setProfile(first)
       setProject(c.projectsByProfile[first]?.[0]?.path || '')
       setModel(c.defaultModels?.[first] || FALLBACK_MODEL)
+      loadSquad(first)
     })
   }, [])
 
   useEffect(() => {
     if (!window.oficina?.onEvent) return
     return window.oficina.onEvent((e) => {
-      const who = e.role || 'dev'
+      const who = e.role || principalRef.current
+      const isP = who === principalRef.current
       if (e.kind === 'init') {
         if (e.sessionId) sessionsRef.current[who] = e.sessionId
-        if (who === 'dev') setStatus('pensando…')
+        if (isP) setStatus('pensando…')
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name })
-        setRS(who, 'working') // necesita la pantalla: se gira a trabajar
-        if (who === 'dev') setStatus(`${toolInfo(e.name)[1]}…`)
+        setRS(who, 'working')
+        if (isP) setStatus(`${toolInfo(e.name)[1]}…`)
       } else if (e.kind === 'text') {
         setTool((t) => (t?.role === who ? null : t))
-        setRS(who, 'talking') // te responde: se voltea a mirarte
-        if (who === 'dev') setStatus('respondiendo…')
+        setRS(who, 'talking')
+        if (isP) setStatus('respondiendo…')
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
@@ -143,17 +214,16 @@ export default function App() {
           }
           return e.result ? [...ms, { role: 'assistant', who, text: e.result }] : ms
         })
-        // el squad camina a "entregarle" a Luffy; Luffy solo vuelve a esperar
-        setRS(who, who === 'dev' ? 'idle' : 'delivering')
+        setRS(who, isP ? 'idle' : 'delivering')
         setTool((t) => (t?.role === who ? null : t))
         dingSound()
-        if (who === 'dev') setStatus('esperándote')
+        if (isP) setStatus('esperándote')
       } else if (e.kind === 'error') {
         setMessages((ms) => [...ms, { role: 'assistant', who, text: `⚠️ ${e.message}` }])
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
         buzzSound()
-        if (who === 'dev') setStatus('error — mira la terminal')
+        if (isP) setStatus('error — mira la terminal')
       }
     })
   }, [])
@@ -162,11 +232,12 @@ export default function App() {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  // Atajos: ⌘K nueva · ⌘1-4 hablarle a un tripulante · ⌘Y historial · Esc cierra panel
+  // Atajos: ⌘K nueva · ⌘1-4 miembro del squad · ⌘Y historial · Esc cierra paneles
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         setHistOpen(false)
+        setSquadOpen(false)
         return
       }
       if (!e.metaKey) return
@@ -178,8 +249,9 @@ export default function App() {
         toggleHist()
       } else if (['1', '2', '3', '4'].includes(e.key)) {
         e.preventDefault()
-        const id = ROLE_IDS[Number(e.key) - 1]
-        setInput((v) => `${ROLES[id].name}, ${v.replace(/^\S+,\s*/, '')}`)
+        const m = squad[Number(e.key) - 1]
+        if (!m) return
+        setInput((v) => `${m.name}, ${v.replace(/^\S+,\s*/, '')}`)
         inputRef.current?.focus()
       }
     }
@@ -187,7 +259,12 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   })
 
-  const addSystem = (text) => setMessages((ms) => [...ms, { role: 'system', text }])
+  // aviso transitorio: aparece y se desvanece solo (no ensucia el chat)
+  const showToast = (text, ms = 3500) => {
+    setToast(text)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(null), ms)
+  }
 
   const flashStatus = (text, ms = 2500) => {
     setStatus(text)
@@ -211,6 +288,7 @@ export default function App() {
     convIdRef.current = null
     sessionsRef.current = {}
     window.oficina?.reset?.()
+    loadSquad(p) // cada cuenta tiene su squad
   }
   const changeProject = (e) => {
     setProject(e.target.value)
@@ -218,6 +296,37 @@ export default function App() {
     convIdRef.current = null
     sessionsRef.current = {}
     window.oficina?.reset?.()
+  }
+
+  // ── Config del squad (⚙️) ────────────────────────────────────────────────
+  const openSquad = () => {
+    setDraft(roster.map((r) => ({ ...r })))
+    setSquadOpen(true)
+    setHistOpen(false)
+  }
+  const draftEnabled = draft.filter((r) => r.enabled).length
+  const toggleMember = (id) =>
+    setDraft((d) =>
+      d.map((r) => {
+        if (r.id !== id) return r
+        if (r.enabled && draftEnabled <= 1) return r // mínimo 1
+        if (!r.enabled && draftEnabled >= MAX_ACTIVE) return r // máximo 4
+        return { ...r, enabled: !r.enabled }
+      })
+    )
+  const renameMember = (id, name) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, name } : r)))
+  const saveSquad = async () => {
+    const clean = draft.map((r) => ({ ...r, name: r.name.trim() || ROLE_META[r.id].label }))
+    await window.oficina?.squad?.save(profile, clean)
+    setRoster(clean)
+    setSquadOpen(false)
+    showToast(
+      `squad actualizado: ${clean
+        .filter((r) => r.enabled)
+        .slice(0, MAX_ACTIVE)
+        .map((r) => `${ROLE_META[r.id].emoji} ${r.name}`)
+        .join(' · ')}`
+    )
   }
 
   // ── Historial ────────────────────────────────────────────────────────────
@@ -239,6 +348,7 @@ export default function App() {
   const toggleHist = async () => {
     if (!histOpen) setHistList((await window.oficina?.history?.list()) || [])
     setHistOpen((o) => !o)
+    setSquadOpen(false)
   }
 
   const loadConvo = async (id) => {
@@ -246,10 +356,12 @@ export default function App() {
     const c = await window.oficina?.history?.get(id)
     if (!c) return
     convIdRef.current = c.id
-    if (c.profile && cfg?.profiles?.includes(c.profile)) setProfile(c.profile)
+    if (c.profile && cfg?.profiles?.includes(c.profile)) {
+      setProfile(c.profile)
+      loadSquad(c.profile)
+    }
     if (c.project) setProject(c.project)
     if (c.model) setModel(c.model)
-    // compat: conversaciones viejas guardaban un solo sessionId (dev)
     const saved = c.sessions || (c.sessionId ? { dev: c.sessionId } : {})
     sessionsRef.current = { ...saved }
     setMessages(c.messages || [])
@@ -271,12 +383,12 @@ export default function App() {
     if (cmd === '/model') {
       const arg = rest[0]?.toLowerCase()
       if (!arg) {
-        addSystem(`modelo actual: ${model} · usa /model opus | sonnet | haiku | fable | fable1m`)
+        showToast(`modelo actual: ${model} · usa /model opus | sonnet | haiku | fable | fable1m`)
         return true
       }
       const resolved = MODEL_ALIASES[arg] ?? arg
       setModel(resolved)
-      addSystem(`modelo → ${resolved}`)
+      showToast(`modelo → ${resolved}`)
       return true
     }
     if (cmd === '/clear' || cmd === '/nueva') {
@@ -284,7 +396,7 @@ export default function App() {
       return true
     }
     if (cmd === '/squad') {
-      addSystem(ROLE_IDS.map((id) => `${ROLES[id].emoji} ${ROLES[id].name} — ${ROLES[id].label}`).join('  ·  '))
+      showToast(squad.map((m) => `${m.emoji} ${m.name} — ${m.label}`).join('  ·  '))
       return true
     }
     return false
@@ -302,22 +414,23 @@ export default function App() {
       setStatus('sin Electron — corre npm run dev')
       return
     }
-    const target = routeMessage(text)
+    const target = routeMessage(text, squad, principal)
     if (roleStates[target]) {
-      addSystem(`${ROLES[target].emoji} ${ROLES[target].name} está ocupado — espera a que termine`)
+      const m = memberOf(target)
+      showToast(`${m.emoji} ${m.name} está ocupado — espera a que termine`)
       return
     }
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     setMessages((ms) => [...ms, { role: 'user', text, to: target }])
     setInput('')
-    setRS(target, 'listening') // lo nombraste: se voltea a mirarte
+    setRS(target, 'listening')
     popSound()
-    if (target === 'dev') setStatus('pensando…')
+    if (target === principal) setStatus('pensando…')
     const res = await window.oficina.ask({ prompt: text, profile, cwd: project, writeMode, model, role: target })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: target, text: `⚠️ ${res?.error || 'error desconocido'}` }])
       setRS(target, 'idle')
-      if (target === 'dev') setStatus('esperándote')
+      if (target === principal) setStatus('esperándote')
     }
   }
 
@@ -329,7 +442,7 @@ export default function App() {
         <select className="sel" value={profile} onChange={changeProfile} disabled={busy} title="Perfil de Claude">
           {(cfg?.profiles || []).map((p) => (
             <option key={p} value={p}>
-              {p === 'work' ? '💼 work' : p === 'private' ? '🔒 private' : p}
+              {p === 'work' ? '💼 work' : p === 'private' ? '🔒 private' : '🧑 mi cuenta'}
             </option>
           ))}
         </select>
@@ -340,34 +453,92 @@ export default function App() {
             </option>
           ))}
         </select>
-        <select className="sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy} title="Modelo (--model)">
-          {[...new Set([model, ...Object.keys(MODEL_LABELS)])].map((id) => (
-            <option key={id} value={id}>
-              {MODEL_LABELS[id] || id.replace(/^claude-/, '')}
-            </option>
-          ))}
-        </select>
-        <button
-          type="button"
-          className={writeMode ? 'mode write' : 'mode'}
-          onClick={() => setWriteMode((w) => !w)}
-          title={writeMode ? 'Puede editar archivos y correr comandos (acceptEdits)' : 'Solo lectura: investigar sin tocar nada'}
-        >
-          {writeMode ? '✏️ edición' : '🔒 lectura'}
-        </button>
-        <button type="button" className="newchat" onClick={() => setSound((s) => !s)} title={sound ? 'Silenciar sonidos' : 'Activar sonidos'}>
-          {sound ? '🔊' : '🔇'}
-        </button>
-        <button type="button" className="newchat" onClick={toggleHist} disabled={busy} title="Historial de conversaciones">
+        <button type="button" className="newchat" onClick={toggleHist} disabled={busy} title="Historial (⌘Y)">
           🕘
         </button>
-        <button type="button" className="newchat" onClick={newChat} disabled={busy} title="Conversación nueva">
+        <button type="button" className="newchat" onClick={newChat} disabled={busy} title="Conversación nueva (⌘K)">
           ✚ nueva
+        </button>
+        <button type="button" className="gear" onClick={openSquad} disabled={busy} title="Modelo, permisos, notificaciones y squad">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          Configuración
         </button>
       </header>
 
       <div className="stage">
-        <Office roleStates={roleStates} status={status} onTourDone={(r) => setRS(r, 'idle')} />
+        <Office roleStates={roleStates} status={status} squad={squad} onTourDone={(r) => setRS(r, 'idle')} />
+
+        {squadOpen && (
+          <div className="drawer">
+            <div className="drawer-head">
+              <b>⚙️ Configuración</b>
+              <button onClick={() => setSquadOpen(false)}>✕</button>
+            </div>
+
+            {/* preferencias — aplican al instante */}
+            <div className="pref-row">
+              <span className="pref-label">Modelo:</span>
+              <select className="sel pref-sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy}>
+                {[...new Set([model, ...Object.keys(MODEL_LABELS)])].map((id) => (
+                  <option key={id} value={id}>
+                    {MODEL_LABELS[id] || id.replace(/^claude-/, '')}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Permiso:</span>
+              <select
+                className="sel pref-sel"
+                value={writeMode ? 'write' : 'read'}
+                onChange={(e) => setWriteMode(e.target.value === 'write')}
+                disabled={busy}
+              >
+                <option value="write">✏️ edición — puede modificar y correr comandos</option>
+                <option value="read">🔒 lectura — solo investigar</option>
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Notificaciones:</span>
+              <button
+                type="button"
+                className={sound ? 'pref-toggle on' : 'pref-toggle'}
+                onClick={() => setSound((s) => !s)}
+                title={sound ? 'Apagar sonidos y avisos' : 'Encender sonidos y avisos'}
+              >
+                {sound ? '🔔 encendidas' : '🔕 apagadas'}
+              </button>
+            </div>
+
+            <div className="drawer-sep">Squad · hasta {MAX_ACTIVE} activos · el 1º es el principal ({profile})</div>
+            {draft.map((r) => (
+              <div key={r.id} className={r.enabled ? 'squad-row' : 'squad-row off'}>
+                <input
+                  type="checkbox"
+                  checked={r.enabled}
+                  onChange={() => toggleMember(r.id)}
+                  title={r.enabled ? 'Desactivar' : 'Activar'}
+                />
+                <span className="squad-emoji">{ROLE_META[r.id].emoji}</span>
+                <input
+                  className="squad-name"
+                  value={r.name}
+                  maxLength={16}
+                  onChange={(e) => renameMember(r.id, e.target.value)}
+                  style={{ borderColor: r.enabled ? ROLE_META[r.id].color : undefined }}
+                />
+                <span className="squad-label">{ROLE_META[r.id].label}</span>
+              </div>
+            ))}
+            <button className="squad-save" onClick={saveSquad}>
+              Guardar squad ({draftEnabled}/{MAX_ACTIVE})
+            </button>
+          </div>
+        )}
+
         {histOpen && (
           <div className="drawer">
             <div className="drawer-head">
@@ -380,7 +551,9 @@ export default function App() {
                 <div className="hist-title">{h.title}</div>
                 <div className="hist-meta">
                   {h.profile === 'work' ? '💼' : '🔒'} {h.project?.split('/').pop()} · {h.count} msgs ·{' '}
-                  {h.updatedAt ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                  {h.updatedAt
+                    ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                    : ''}
                 </div>
                 <button className="hist-del" title="Borrar" onClick={(e) => deleteConvo(e, h.id)}>
                   🗑
@@ -389,29 +562,31 @@ export default function App() {
             ))}
           </div>
         )}
+
+        {toast && (
+          <div className="toast" key={toast}>
+            {toast}
+          </div>
+        )}
+
         {tool && (
           <div className="toolchip" key={`${tool.role}-${tool.name}`}>
             <span className="toolchip-icon">{toolInfo(tool.name)[0]}</span>
-            {ROLES[tool.role]?.name}: {toolInfo(tool.name)[1]}…
+            {memberOf(tool.role).name}: {toolInfo(tool.name)[1]}…
           </div>
         )}
+
         {messages.length > 0 && (
           <div className="chat" ref={logRef}>
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role}`}>
                 {m.role === 'assistant' && m.who && (
-                  <div className="who" style={{ color: ROLES[m.who]?.color }}>
-                    {ROLES[m.who]?.emoji} {ROLES[m.who]?.name}
+                  <div className="who" style={{ color: memberOf(m.who).color }}>
+                    {memberOf(m.who).emoji} {memberOf(m.who).name}
                   </div>
                 )}
-                {m.role === 'user' && m.to && m.to !== 'dev' && (
-                  <div className="who to">→ {ROLES[m.to]?.name}</div>
-                )}
-                {m.role === 'assistant' ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
-                ) : (
-                  m.text
-                )}
+                {m.role === 'user' && m.to && m.to !== principal && <div className="who to">→ {memberOf(m.to).name}</div>}
+                {m.role === 'assistant' ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown> : m.text}
                 {m.streaming ? '▍' : ''}
               </div>
             ))}
@@ -426,8 +601,10 @@ export default function App() {
           onChange={(e) => setInput(e.target.value)}
           placeholder={
             busy
-              ? `${running.map((r) => ROLES[r].name).join(', ')} trabajando… (puedes pedirle algo a otro)`
-              : `Escríbele al squad… (ej: "${ROLES.qa.name}, corre los tests" · "@${ROLES.research.name.toLowerCase()} investiga X")`
+              ? `${running.map((r) => memberOf(r).name).join(', ')} trabajando… (puedes pedirle algo a otro)`
+              : squad.length > 1
+                ? `Escríbele al squad… (ej: "${memberOf(squad[1]?.id).name}, ayúdame con…" · ⌘1-${squad.length})`
+                : 'Escríbele a tu asistente…'
           }
           autoFocus
         />

@@ -11,6 +11,13 @@ contextBridge.exposeInMainWorld('oficina', {
   reset: () => ipcRenderer.invoke('claude:reset'),
   // Restaura una sesión guardada para continuarla (--resume).
   setSession: (data) => ipcRenderer.invoke('claude:setSession', data),
+  // Preferencias: activar/desactivar notificaciones del sistema.
+  setNotify: (v) => ipcRenderer.invoke('prefs:notify', v),
+  // Configuración del squad (roster por perfil: nombres y activos).
+  squad: {
+    get: (profile) => ipcRenderer.invoke('squad:get', profile),
+    save: (profile, roster) => ipcRenderer.invoke('squad:save', { profile, roster }),
+  },
   // Historial de conversaciones.
   history: {
     save: (convo) => ipcRenderer.invoke('history:save', convo),

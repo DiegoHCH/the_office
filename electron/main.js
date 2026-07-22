@@ -25,23 +25,55 @@ const children = new Map() // role → child process
 // Sesión por rol+perfil+proyecto → cada personaje tiene su propio contexto.
 const sessions = new Map() // `${role}::${profile}::${workdir}` → sessionId
 
-// Personalidad de cada miembro del squad (--append-system-prompt).
-const ROLE_PROMPTS = {
-  dev: 'Eres Luffy, dev principal del squad. Tu foco: implementar código, arreglar bugs y refactorizar. Preséntate como Luffy cuando te saluden.',
-  research:
-    'Eres Nami, investigadora del squad. Tu foco: investigar código y web, analizar, comparar y producir documentos/artifacts claros (archivos .md bien estructurados). Preséntate como Nami cuando te saluden.',
-  design:
-    'Eres Sanji, diseñador UI/UX del squad. Tu foco: diseño de interfaces, experiencia de usuario, estilos, accesibilidad y propuestas visuales concretas. Preséntate como Sanji cuando te saluden.',
-  qa: 'Eres Zoro, QA del squad. Tu foco: calidad — escribir tests, ejecutarlos, reproducir bugs y reportar resultados con claridad. Preséntate como Zoro cuando te saluden.',
+// Catálogo de roles: plantilla de persona por rol, con el nombre configurable.
+const ROLE_TEMPLATES = {
+  dev: (n) =>
+    `Eres ${n}, dev principal del squad. Tu foco: implementar código, arreglar bugs y refactorizar. Preséntate como ${n} cuando te saluden.`,
+  research: (n) =>
+    `Eres ${n}, investigador/a del squad. Tu foco: investigar código y web, analizar, comparar y producir documentos/artifacts claros (archivos .md bien estructurados). Preséntate como ${n} cuando te saluden.`,
+  design: (n) =>
+    `Eres ${n}, diseñador/a UI/UX del squad. Tu foco: diseño de interfaces, experiencia de usuario, estilos, accesibilidad y propuestas visuales concretas. Preséntate como ${n} cuando te saluden.`,
+  qa: (n) =>
+    `Eres ${n}, QA del squad. Tu foco: calidad — escribir tests, ejecutarlos, reproducir bugs y reportar resultados con claridad. Preséntate como ${n} cuando te saluden.`,
+  pr: (n) =>
+    `Eres ${n}, revisor/a de Pull Requests del squad. Tu foco: revisar PRs y diffs con ojo crítico — correctitud, diseño, tests, riesgos y estilo — y dar feedback concreto y accionable. Eres dueño/a de TODO el flujo de PRs: si el proyecto tiene skills/slash-commands relacionados con PRs (p. ej. /g66-pr, /pre-pr, /review-pr, /merge-hu), úsalos cuando la tarea lo amerite. Preséntate como ${n} cuando te saluden.`,
+  docs: (n) =>
+    `Eres ${n}, technical writer del squad. Tu foco: documentación clara — READMEs, guías, ADRs, comentarios útiles. Preséntate como ${n} cuando te saluden.`,
 }
 
-const ROLE_NAMES = { dev: '⌨️ Luffy', research: '🔍 Nami', design: '🎨 Sanji', qa: '🧪 Zoro' }
+// Squad por defecto: nombres genéricos — cada usuario los personaliza
+// desde ⚙️ y ahí sí se guardan sus nombres en su perfil.
+const DEFAULT_SQUAD = [
+  { id: 'dev', name: 'Dev', enabled: true },
+  { id: 'research', name: 'Research', enabled: true },
+  { id: 'design', name: 'Diseño', enabled: true },
+  { id: 'qa', name: 'QA', enabled: true },
+  { id: 'pr', name: 'Revisor PR', enabled: false },
+  { id: 'docs', name: 'Docs', enabled: false },
+]
+
+const squadFile = (profile) => path.join(app.getPath('userData'), `squad-${profile}.json`)
+
+// Roster del perfil: defaults + overrides guardados (nombre/enabled por rol).
+function getSquad(profile) {
+  let saved = {}
+  try {
+    saved = JSON.parse(fs.readFileSync(squadFile(profile), 'utf8'))
+  } catch {}
+  return DEFAULT_SQUAD.map((d) => ({ ...d, ...(saved[d.id] || {}) }))
+}
+
+let notifEnabled = true
+ipcMain.handle('prefs:notify', (_e, v) => {
+  notifEnabled = !!v
+  return { ok: true }
+})
 
 // Notifica solo si la ventana no está al frente (tareas largas en background).
-function notify(role, body) {
-  if (!Notification.isSupported() || !win || win.isDestroyed() || win.isFocused()) return
+function notify(displayName, body) {
+  if (!notifEnabled || !Notification.isSupported() || !win || win.isDestroyed() || win.isFocused()) return
   const n = new Notification({
-    title: `${ROLE_NAMES[role] || role} terminó`,
+    title: `${displayName} terminó`,
     body: (body || '').replace(/\s+/g, ' ').slice(0, 140) || 'Tarea completada',
     silent: true, // ya tenemos nuestro "ding" dentro de la app
   })
@@ -64,6 +96,8 @@ const PROFILE_DIRS = {
   private: () => path.join(app.getPath('home'), '.claude-private'),
 }
 const PROJECT_ROOTS = { work: 'Workspace', private: 'personal' }
+// Sin perfiles work/private (usuario con ~/.claude a secas): buscar raíces comunes.
+const DEFAULT_ROOT_CANDIDATES = ['Workspace', 'workspace', 'Projects', 'projects', 'dev', 'code', 'repos', 'personal']
 
 function createWindow() {
   win = new BrowserWindow({
@@ -95,7 +129,7 @@ const emit = (payload) => {
 }
 
 // Parser de una línea NDJSON del stream, ligado al rol que la produce.
-function makeLineHandler(role, sessionKey) {
+function makeLineHandler(role, sessionKey, displayName) {
   return (line) => {
     let msg
     try {
@@ -131,7 +165,7 @@ function makeLineHandler(role, sessionKey) {
       if (msg.session_id) sessions.set(sessionKey, msg.session_id)
       console.log('[claude:result]', role, JSON.stringify({ cost: msg.total_cost_usd, session: msg.session_id }))
       emit({ kind: 'done', role, result: msg.result ?? '', cost: msg.total_cost_usd ?? null })
-      notify(role, msg.result)
+      notify(displayName, msg.result)
     }
   }
 }
@@ -142,14 +176,26 @@ ipcMain.handle('config:get', () => {
   const profiles = Object.keys(PROFILE_DIRS).filter((p) => fs.existsSync(PROFILE_DIRS[p]()))
   const projectsByProfile = {}
   for (const p of profiles.length ? profiles : ['default']) {
-    const rootName = PROJECT_ROOTS[p] || ''
-    const root = path.join(home, rootName)
-    const list = [{ name: `🗂 ${rootName || 'Home'}`, path: root }]
-    try {
-      fs.readdirSync(root, { withFileTypes: true })
-        .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-        .forEach((d) => list.push({ name: d.name, path: path.join(root, d.name) }))
-    } catch {}
+    // raíces de proyectos del perfil: fija (work/private) o detectadas (default)
+    const rootNames = PROJECT_ROOTS[p]
+      ? [PROJECT_ROOTS[p]]
+      : DEFAULT_ROOT_CANDIDATES.filter((r) => fs.existsSync(path.join(home, r)))
+    const list = []
+    for (const rootName of rootNames) {
+      const root = path.join(home, rootName)
+      list.push({ name: `🗂 ${rootName}`, path: root })
+      try {
+        fs.readdirSync(root, { withFileTypes: true })
+          .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+          .forEach((d) =>
+            list.push({
+              name: rootNames.length > 1 ? `${rootName}/${d.name}` : d.name,
+              path: path.join(root, d.name),
+            })
+          )
+      } catch {}
+    }
+    if (!list.length) list.push({ name: '🏠 Home', path: home })
     projectsByProfile[p] = list
   }
   const defaultModels = {}
@@ -161,6 +207,20 @@ ipcMain.handle('config:get', () => {
     }
   }
   return { profiles: profiles.length ? profiles : ['default'], projectsByProfile, defaultModels }
+})
+
+ipcMain.handle('squad:get', (_e, profile) => getSquad(profile))
+
+ipcMain.handle('squad:save', (_e, { profile, roster }) => {
+  try {
+    const map = {}
+    for (const r of roster) map[r.id] = { name: r.name, enabled: r.enabled }
+    fs.mkdirSync(app.getPath('userData'), { recursive: true })
+    fs.writeFileSync(squadFile(profile), JSON.stringify(map, null, 2))
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
 })
 
 ipcMain.handle('claude:reset', () => {
@@ -188,13 +248,17 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   const sessionKey = `${role}::${profile}::${workdir}`
   const sid = sessions.get(sessionKey)
 
+  const member = getSquad(profile).find((r) => r.id === role)
+  const displayName = member?.name || role
+  const persona = (ROLE_TEMPLATES[role] || ROLE_TEMPLATES.dev)(displayName)
+
   const args = [
     '-p', prompt,
     '--output-format', 'stream-json',
     '--verbose',
     '--include-partial-messages',
     '--allowedTools', writeMode ? WRITE_TOOLS : READ_TOOLS,
-    '--append-system-prompt', ROLE_PROMPTS[role] || ROLE_PROMPTS.dev,
+    '--append-system-prompt', persona,
   ]
   if (writeMode) args.push('--permission-mode', 'acceptEdits')
   if (model) args.push('--model', model)
@@ -215,7 +279,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   }
   children.set(role, child)
 
-  const handleLine = makeLineHandler(role, sessionKey)
+  const handleLine = makeLineHandler(role, sessionKey, displayName)
   let buffer = ''
   child.stdout.on('data', (chunk) => {
     buffer += chunk.toString()
@@ -236,7 +300,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   child.on('close', (code) => {
     if (code !== 0 && code !== null) {
       emit({ kind: 'error', role, message: `claude terminó con código ${code} (mira la terminal)` })
-      notify(role, `⚠️ terminó con error (código ${code})`)
+      notify(displayName, `⚠️ terminó con error (código ${code})`)
     }
     children.delete(role)
   })

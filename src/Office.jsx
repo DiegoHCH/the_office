@@ -244,53 +244,32 @@ const MONITOR_POS = [-1.5, 0, -2.32]
 const YAW_FRONT = Math.PI / 4
 const YAW_DESK = Math.atan2(MONITOR_POS[0] - CHAIR_POS[0], MONITOR_POS[2] - CHAIR_POS[2])
 
-// ── Squad: research (investiga/artifacts), design (UI/UX), qa (tests) ──────
-// Cada estación tiene su L en una esquina, monitor en diagonal y personaje.
-const STATIONS = [
+// ── Puestos de trabajo (geometría fija). Quién los ocupa viene del squad ⚙️ ──
+// Cada puesto tiene su L en una esquina, monitor en diagonal y punto de entrega.
+const SLOTS = [
   {
-    id: 'research',
-    name: 'Nami',
-    emoji: '🔍',
     desk: [HALF - 0.32, 0, -HALF + 0.32],
     deskRot: [0, -Math.PI / 2, 0], // alas hacia -x (pared fondo) y +z
     monitor: [1.95, TOP, -1.95],
     monitorRot: [0, -Math.PI / 4, 0],
     chair: [1.4, 0, -1.4],
-    chairRot: [0, (Math.PI * 3) / 4, 0],
-    deliver: [-0.6, -0.95], // a dónde camina a entregarle a Luffy
-    url: '/models/pj/Casual_Female.gltf',
-    shirt: '#6366f1',
-    hair: '#f97316', // Nami: pelo naranja
+    deliver: [-0.6, -0.95], // a dónde camina a entregarle al principal
   },
   {
-    id: 'design',
-    name: 'Sanji',
-    emoji: '🎨',
     desk: [-HALF + 0.32, 0, HALF - 0.32],
     deskRot: [0, Math.PI / 2, 0], // alas hacia -z (pared izq) y +x
     monitor: [-1.95, TOP, 1.95],
     monitorRot: [0, (Math.PI * 3) / 4, 0],
     chair: [-1.4, 0, 1.4],
-    chairRot: [0, -Math.PI / 4, 0],
     deliver: [-1.05, -0.4],
-    url: '/models/pj/Casual2_Male.gltf',
-    shirt: '#f472b6',
-    hair: '#eab308', // Sanji: rubio
   },
   {
-    id: 'qa',
-    name: 'Zoro',
-    emoji: '🧪',
     desk: [HALF - 0.32, 0, HALF - 0.32],
     deskRot: [0, Math.PI, 0], // alas hacia -x y -z (isla en la esquina frontal)
     monitor: [1.95, TOP, 1.95],
     monitorRot: [0, (-Math.PI * 3) / 4, 0],
     chair: [1.4, 0, 1.4],
-    chairRot: [0, Math.PI / 4, 0],
     deliver: [-0.45, -0.65],
-    url: '/models/pj/Casual3_Male.gltf',
-    shirt: '#f5a524',
-    hair: '#3a8f5f', // Zoro: pelo verde
   },
 ]
 
@@ -312,8 +291,9 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', onTourDone }) {
-  const devState = roleStates.dev || 'idle'
+export default function Office({ roleStates = {}, status = '', squad = [], onTourDone }) {
+  const main = squad[0] // miembro principal (escritorio grande)
+  const devState = (main && roleStates[main.id]) || 'idle'
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={['#b9ccd3']} />
@@ -360,41 +340,46 @@ export default function Office({ roleStates = {}, status = '', onTourDone }) {
           <GltfProp key={i} {...p} />
         ))}
 
-        <Turn position={CHAIR_POS} yaw={yawFor(devState, YAW_DESK)}>
-          <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
-          <Character3D
-            url="/models/pj/Casual_Male.gltf"
-            clip="SitDown"
-            once
-            scale={0.27}
-            position={[0, 0, 0]}
-            rotation={[0, 0, 0]}
-            sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
-            colors={{ Skin: '#e8b890', Face: '#1f2937', Hair: '#1f2937', Shirt: '#2dd4bf' }}
-            sway={devState === 'working'}
-          />
-        </Turn>
-        {/* etiqueta con el nombre del principal (Luffy: pelo negro) */}
-        <Html position={[CHAIR_POS[0], 0.82, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="nametag" style={{ borderColor: '#2dd4bf' }}>Luffy</div>
-        </Html>
+        {main && (
+          <>
+            <Turn position={CHAIR_POS} yaw={yawFor(devState, YAW_DESK)}>
+              <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
+              <Character3D
+                key={main.id}
+                url={main.url}
+                clip="SitDown"
+                once
+                scale={0.27}
+                position={[0, 0, 0]}
+                rotation={[0, 0, 0]}
+                sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
+                colors={{ Skin: '#e8b890', Face: main.hair, Hair: main.hair, Shirt: main.color }}
+                sway={devState === 'working'}
+              />
+            </Turn>
+            <Html position={[CHAIR_POS[0], 0.82, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+              <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
+            </Html>
+          </>
+        )}
 
         {/* squad: research / design / qa — cada uno con su L y su monitor */}
-        {STATIONS.map((s) => {
-          const st = roleStates[s.id] || 'idle'
+        {SLOTS.map((s, i) => {
+          const m = squad[i + 1] // ocupante del puesto (o vacío)
+          const st = (m && roleStates[m.id]) || 'idle'
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
           const bubble =
             st === 'working'
-              ? `${s.emoji} trabajando…`
+              ? `${m.emoji} trabajando…`
               : st === 'listening'
                 ? '👂 escuchando…'
                 : st === 'talking'
                   ? '💬'
                   : st === 'delivering'
-                    ? `${s.emoji} ¡listo!`
+                    ? `${m.emoji} ¡listo!`
                     : null
           return (
-            <group key={s.id}>
+            <group key={i}>
               <LDesk position={s.desk} rotation={s.deskRot} />
               <Monitor working={st === 'working'} position={s.monitor} rotation={s.monitorRot} />
               <Turn position={s.chair} yaw={yawFor(st, yawScreen)}>
@@ -402,32 +387,35 @@ export default function Office({ roleStates = {}, status = '', onTourDone }) {
               </Turn>
               {/* el personaje vive fuera del Turn para poder levantarse y caminar;
                   nametag y globo van DENTRO (coords locales /0.27) y lo siguen */}
-              <Character3D
-                url={s.url}
-                clip="SitDown"
-                once
-                scale={0.27}
-                position={s.chair}
-                rotation={[0, yawScreen, 0]}
-                yaw={yawFor(st, yawScreen)}
-                sitAt={[s.chair[0], 0.3, s.chair[2]]}
-                colors={{ Skin: '#e8b890', Face: s.hair, Hair: s.hair, Shirt: s.shirt }}
-                sway={st === 'working'}
-                tour={
-                  st === 'delivering'
-                    ? { to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(s.id) }
-                    : null
-                }
-              >
-                <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-                  <div className="nametag" style={{ borderColor: s.shirt }}>{s.name}</div>
-                </Html>
-                {bubble && (
-                  <Html position={[0, 4.0, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-                    <div className="bubble3d busy">{bubble}</div>
+              {m && (
+                <Character3D
+                  key={m.id}
+                  url={m.url}
+                  clip="SitDown"
+                  once
+                  scale={0.27}
+                  position={s.chair}
+                  rotation={[0, yawScreen, 0]}
+                  yaw={yawFor(st, yawScreen)}
+                  sitAt={[s.chair[0], 0.3, s.chair[2]]}
+                  colors={{ Skin: '#e8b890', Face: m.hair, Hair: m.hair, Shirt: m.color }}
+                  sway={st === 'working'}
+                  tour={
+                    st === 'delivering'
+                      ? { to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(m.id) }
+                      : null
+                  }
+                >
+                  <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                    <div className="nametag" style={{ borderColor: m.color }}>{m.name}</div>
                   </Html>
-                )}
-              </Character3D>
+                  {bubble && (
+                    <Html position={[0, 4.0, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                      <div className="bubble3d busy">{bubble}</div>
+                    </Html>
+                  )}
+                </Character3D>
+              )}
             </group>
           )
         })}
