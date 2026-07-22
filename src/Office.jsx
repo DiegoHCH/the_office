@@ -17,8 +17,8 @@ export const THEMES = {
   },
   noche: {
     label: '🌙 Noche',
-    floor: '#5a4a44', wallBack: '#16222c', wallLeft: '#121c25', base: '#0d151c',
-    desk: '#6b4a3a', matColor: '#1f4650', bg: '#0d1620',
+    floor: '#5a4a44', wallBack: '#2a4058', wallLeft: '#22364a', base: '#182838',
+    desk: '#6b4a3a', matColor: '#1f4650', bg: '#080d14',
     ambient: 0.4, hemi: ['#3b5566', '#1a1410', 0.45], dir: 0.9,
     lampsOn: true, // las lámparas de piso se encienden
   },
