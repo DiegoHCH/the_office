@@ -361,16 +361,25 @@ const SLOTS = [
 // ── Vida ambiental: mientras nadie trabaja, la oficina respira ───────────────
 const PHRASES = [
   '☕ necesito otro café',
-  '🎵 ♪ ♫',
   '🤔 mmm…',
-  '🐛 ese bug de ayer…',
   '🍕 ¿pedimos algo?',
-  '✨ hoy compila a la primera',
   '👀 ¿vieron el deploy?',
-  '💭 refactor… refactor…',
   '🥱 qué sueño',
   '🔥 en racha hoy',
 ]
+// frases con sabor a cada rol (se mezclan con las genéricas, con más peso)
+const PHRASES_BY_ROLE = {
+  dev: ['🐛 este bug no se me escapa', '⌨️ un refactor y quedo', '🚀 listo pa deployar', '✨ hoy compila a la primera'],
+  research: ['📚 qué artículo tan bueno', '🔍 encontré algo interesante', '🗺️ mapeando el código…', '🧠 dato curioso…'],
+  design: ['🎨 ese contraste no va', '✨ pixel perfect o nada', '🖌️ probando una paleta', '📐 4px más de padding…'],
+  qa: ['🧪 eso huele a flaky', '🐞 lo voy a romper', '✅ verde, todo verde', '🚦 ¿quién probó esto?'],
+  pr: ['🔎 ese diff está grande', '📝 LGTM… casi', '🧐 aquí falta un test', '🚦 aprobado con comentarios'],
+  docs: ['📖 si no está documentado, no pasó', '✍️ puliendo el README', '🗒️ esto merece un ADR'],
+}
+const phraseFor = (id) => {
+  const own = PHRASES_BY_ROLE[id] || []
+  return rand([...own, ...own, ...PHRASES]) // doble peso a las del rol
+}
 const WANDER_SPOTS = [
   { to: [0.2, 0.2], text: '💭' },
   { to: [2.0, -0.55], text: '🌿' },
@@ -398,9 +407,21 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', squad = [], onTourDone }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, onTourDone }) {
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
+
+  // silla de un miembro (para entregas dirigidas y visitas)
+  const chairFor = (id) => {
+    if (main && id === main.id) return CHAIR_POS
+    const idx = squad.findIndex((m) => m?.id === id)
+    return idx > 0 ? SLOTS[idx - 1]?.chair : null
+  }
+  // punto de pie junto a una silla (un pasito hacia el centro de la sala)
+  const standNear = (chair) => {
+    const len = Math.hypot(chair[0], chair[2]) || 1
+    return [chair[0] - (chair[0] / len) * 0.6, chair[2] - (chair[2] / len) * 0.6]
+  }
 
   // ── vida ambiental: {roleId: {kind, text?, tour?}} solo mientras están libres ──
   const [ambient, setAmbient] = useState({})
@@ -432,16 +453,16 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
         if (!m || roleStates[m.id] || ambientRef.current[m.id]) return
         if (Math.random() > 0.4) return // ratos de calma
         const roll = Math.random()
-        if (roll < 0.35) {
-          // frase casual
-          setAmbient((a) => ({ ...a, [m.id]: { kind: 'phrase', text: rand(PHRASES) } }))
+        if (roll < 0.3) {
+          // frase casual (con sabor al rol)
+          setAmbient((a) => ({ ...a, [m.id]: { kind: 'phrase', text: phraseFor(m.id) } }))
           timers.current[m.id] = setTimeout(() => clearAmbient(m.id), 3800)
-        } else if (roll < 0.6) {
+        } else if (roll < 0.55) {
           // escuchar música (con meneo)
           setAmbient((a) => ({ ...a, [m.id]: { kind: 'music', text: '🎧 ♪ ♫' } }))
           timers.current[m.id] = setTimeout(() => clearAmbient(m.id), 8000)
-        } else if (idx > 0) {
-          // paseo por la oficina (el principal no deja su puesto)
+        } else if (roll < 0.8) {
+          // paseo por la oficina (todos, el capitán incluido)
           const spot = rand(WANDER_SPOTS)
           const to = [spot.to[0] + (Math.random() - 0.5) * 0.3, spot.to[1] + (Math.random() - 0.5) * 0.3]
           setAmbient((a) => ({
@@ -452,6 +473,30 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
               tour: { to, pose: 'Idle', pauseMs: 2500 + Math.random() * 2500, onDone: () => clearAmbient(m.id) },
             },
           }))
+        } else {
+          // visita social: caminar al puesto de CUALQUIER compañero libre
+          // (vale aunque esté en frase/música — se le interrumpe con un 👋)
+          const hosts = squad.filter((o) => o && o.id !== m.id && !roleStates[o.id] && !ambientRef.current[o.id]?.tour)
+          const host = hosts.length ? rand(hosts) : null
+          const chair = host && chairFor(host.id)
+          if (!chair) return
+          clearAmbient(host.id)
+          setAmbient((a) => ({
+            ...a,
+            [m.id]: {
+              kind: 'visit',
+              text: '🗣️ ¿cómo vas?',
+              tour: {
+                to: standNear(chair),
+                face: [chair[0], chair[2]],
+                pose: 'Idle',
+                pauseMs: 3500 + Math.random() * 1500,
+                onDone: () => clearAmbient(m.id),
+              },
+            },
+            [host.id]: { kind: 'phrase', text: '👋' },
+          }))
+          timers.current[host.id] = setTimeout(() => clearAmbient(host.id), 6500)
         }
       })
     }, 5000)
@@ -513,28 +558,42 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
           <>
             <Turn position={CHAIR_POS} yaw={yawFor(devState, YAW_DESK)}>
               <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
-              <Character3D
-                key={main.id}
-                url={main.url}
-                clip="SitDown"
-                once
-                scale={0.27}
-                position={[0, 0, 0]}
-                rotation={[0, 0, 0]}
-                sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
-                colors={{ Skin: '#e8b890', Face: main.hair, Hair: main.hair, Shirt: main.color }}
-                sway={devState === 'working' || (devState === 'idle' && ambient[main.id]?.kind === 'music')}
-              />
             </Turn>
-            {/* globito ambiental del principal (frases / música) */}
-            {devState === 'idle' && ambient[main.id]?.text && (
-              <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-                <div className="bubble3d">{ambient[main.id].text}</div>
+            {/* el principal también vive fuera del Turn: puede pasear, visitar y entregar */}
+            <Character3D
+              key={main.id}
+              url={main.url}
+              clip="SitDown"
+              once
+              scale={0.27}
+              position={CHAIR_POS}
+              rotation={[0, YAW_DESK, 0]}
+              yaw={yawFor(devState, YAW_DESK)}
+              sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
+              colors={{ Skin: '#e8b890', Face: main.hair, Hair: main.hair, Shirt: main.color }}
+              sway={devState === 'working' || (devState === 'idle' && ambient[main.id]?.kind === 'music')}
+              tour={
+                devState === 'delivering'
+                  ? (() => {
+                      const tc = deliverTargets[main.id] ? chairFor(deliverTargets[main.id]) : null
+                      return tc
+                        ? { to: standNear(tc), face: [tc[0], tc[2]], onDone: () => onTourDone?.(main.id) }
+                        : { to: [-0.6, -0.6], onDone: () => onTourDone?.(main.id) }
+                    })()
+                  : devState === 'idle'
+                    ? ambient[main.id]?.tour || null
+                    : null
+              }
+            >
+              <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
               </Html>
-            )}
-            <Html position={[CHAIR_POS[0], 0.82, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-              <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
-            </Html>
+              {devState === 'idle' && ambient[main.id]?.text && (
+                <Html position={[0, 4.0, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                  <div className="bubble3d">{ambient[main.id].text}</div>
+                </Html>
+              )}
+            </Character3D>
           </>
         )}
 
@@ -580,7 +639,13 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
                   sway={st === 'working' || (st === 'idle' && amb?.kind === 'music')}
                   tour={
                     st === 'delivering'
-                      ? { to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(m.id) }
+                      ? (() => {
+                          // entrega dirigida: camina hacia el compañero destinatario
+                          const targetChair = deliverTargets[m.id] ? chairFor(deliverTargets[m.id]) : null
+                          return targetChair
+                            ? { to: standNear(targetChair), face: [targetChair[0], targetChair[2]], onDone: () => onTourDone?.(m.id) }
+                            : { to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(m.id) }
+                        })()
                       : st === 'idle'
                         ? amb?.tour || null
                         : null
@@ -602,7 +667,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
       </Suspense>
 
       {/* globo del principal: solo mientras tiene una conversación activa */}
-      {status && devState !== 'idle' && (
+      {status && devState !== 'idle' && devState !== 'delivering' && (
         <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
           <div className="bubble3d busy">{status}</div>
         </Html>

@@ -103,8 +103,19 @@ function routeMessage(text, squad, principal) {
   return principal
 }
 
-// Qué miembro activa cada herramienta (si ese rol está en el squad activo).
-const TOOL_AFFINITY = { Bash: 'qa', Read: 'research', Glob: 'research', Grep: 'research', WebSearch: 'research', WebFetch: 'research' }
+// ¿El mensaje pide pasarle el resultado a otro miembro? ("...y pásaselo a Luffy",
+// "Nami -> Luffy: ...", "para que Zoro lo pruebe")
+function detectHandoff(text, squad, fromId) {
+  const t = norm(text)
+  const verb = /(pasal|pasasel|pasa el resultado|entregal|entregasel|entrega el resultado|dasel|dale el resultado|para que|y que)/.test(t)
+  for (const m of squad) {
+    if (m.id === fromId) continue
+    const n = escRe(norm(m.name))
+    if (new RegExp(`(?:->|→)\\s*${n}\\b`).test(t)) return m.id
+    if (verb && new RegExp(`\\b(?:a|para(?:\\s+que)?|que)\\s+${n}\\b`).test(t)) return m.id
+  }
+  return null
+}
 
 export default function App() {
   const [messages, setMessages] = useState([])
@@ -124,6 +135,8 @@ export default function App() {
   const [squadOpen, setSquadOpen] = useState(false)
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
   const [toast, setToast] = useState(null)
+  const [deliverTargets, setDeliverTargets] = useState({}) // a quién camina cada entrega
+  const handoffsRef = useRef([]) // [{from, to, original, result?}]
   const toastTimer = useRef(null)
   const sessionsRef = useRef({})
   const convIdRef = useRef(null)
@@ -214,7 +227,13 @@ export default function App() {
           }
           return e.result ? [...ms, { role: 'assistant', who, text: e.result }] : ms
         })
-        setRS(who, isP ? 'idle' : 'delivering')
+        // ¿hay un handoff pendiente de este rol? guardar su resultado
+        const entry = handoffsRef.current.find((h) => h.from === who && h.result == null)
+        if (entry) entry.result = (e.result || '').slice(0, 6000) || '(sin salida)'
+        // el principal solo camina cuando entrega a un compañero; los demás siempre
+        setRS(who, isP && !entry ? 'idle' : 'delivering')
+        // si entrega a un compañero, camina hacia ÉL (no hacia el principal)
+        if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
         setTool((t) => (t?.role === who ? null : t))
         dingSound()
         if (isP) setStatus('esperándote')
@@ -231,6 +250,36 @@ export default function App() {
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
+
+  // Despachador de handoffs: cuando el destinatario está libre, le llega el
+  // trabajo del compañero (su sesión arranca con el resultado como contexto).
+  useEffect(() => {
+    const ready = handoffsRef.current.filter((h) => h.result != null)
+    for (const h of ready) {
+      if (roleStates[h.to]) continue // ocupado: la entrega espera su turno
+      handoffsRef.current = handoffsRef.current.filter((x) => x !== h)
+      const from = memberOf(h.from)
+      const to = memberOf(h.to)
+      setMessages((ms) => [...ms, { role: 'system', text: `🤝 ${from.name} le pasa el trabajo a ${to.name}` }])
+      setRS(h.to, 'listening')
+      popSound()
+      window.oficina
+        ?.ask({
+          prompt: `${from.name} (${from.label}) del squad te entrega el resultado de su trabajo para que tú continúes con tu parte.\n\nInstrucción original del usuario: "${h.original}"\n\nResultado de ${from.name}:\n"""\n${h.result}\n"""\n\nContinúa a partir de esto según tu rol.`,
+          profile,
+          cwd: project,
+          writeMode,
+          model,
+          role: h.to,
+        })
+        .then((res) => {
+          if (!res?.ok) {
+            setRS(h.to, 'idle')
+            showToast(`⚠️ ${res?.error || 'no se pudo entregar'}`)
+          }
+        })
+    }
+  }, [roleStates, profile, project, writeMode, model, squad])
 
   // Atajos: ⌘K nueva · ⌘1-4 miembro del squad · ⌘Y historial · Esc cierra paneles
   useEffect(() => {
@@ -416,6 +465,8 @@ export default function App() {
       return
     }
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+    const handoffTo = detectHandoff(text, squad, target)
+    if (handoffTo) handoffsRef.current.push({ from: target, to: handoffTo, original: text, result: null })
     setMessages((ms) => [...ms, { role: 'user', text, to: target }])
     setInput('')
     setRS(target, 'listening')
@@ -473,7 +524,20 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <Office roleStates={roleStates} status={status} squad={squad} onTourDone={(r) => setRS(r, 'idle')} />
+        <Office
+          roleStates={roleStates}
+          status={status}
+          squad={squad}
+          deliverTargets={deliverTargets}
+          onTourDone={(r) => {
+            setRS(r, 'idle')
+            setDeliverTargets((d) => {
+              const copy = { ...d }
+              delete copy[r]
+              return copy
+            })
+          }}
+        />
 
         {squadOpen && (
           <div className="drawer">
