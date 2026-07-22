@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import Office from './Office.jsx'
 
 // Cómo se muestra cada herramienta de Claude en pantalla.
@@ -157,7 +159,11 @@ export default function App() {
           <div className="chat" ref={logRef}>
             {messages.map((m, i) => (
               <div key={i} className={`msg ${m.role}`}>
-                {m.text}
+                {m.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown>
+                ) : (
+                  m.text
+                )}
                 {m.streaming ? '▍' : ''}
               </div>
             ))}
