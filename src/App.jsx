@@ -239,6 +239,22 @@ const FALLBACK_MODEL = 'claude-sonnet-5'
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
+// Extrae opciones "seleccionables" del texto de una respuesta (para botones rápidos).
+function extractOptions(text) {
+  if (!text) return []
+  const opts = []
+  for (const raw of text.split('\n')) {
+    const line = raw.trim()
+    // 1. / 2) / A. / - / • / **1.**  seguido de contenido corto
+    const m = line.match(/^(?:\*\*)?(?:\d{1,2}|[a-dA-D])(?:\*\*)?[.)]\s+(.+)$/) || line.match(/^[-•]\s+(.+)$/)
+    if (!m) continue
+    let label = m[1].replace(/\*\*/g, '').replace(/`/g, '').trim()
+    if (label.length >= 2 && label.length <= 80) opts.push(label)
+  }
+  // solo si parece un menú real: 2–6 opciones y el texto termina cerca de la lista
+  return opts.length >= 2 && opts.length <= 6 ? opts : []
+}
+
 const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
 1) ¿En qué trabajamos la última vez?
 2) ¿Quedó algo pendiente o bloqueado?
@@ -708,6 +724,25 @@ export default function App() {
     return false
   }
 
+  // Respuesta rápida: envía una opción elegida directo al tripulante indicado.
+  const quickReply = async (option, target) => {
+    if (roleStates[target]) {
+      const m = memberOf(target)
+      showToast(`${m.emoji} ${m.name} está ocupado — espera a que termine`)
+      return
+    }
+    if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+    setMessages((ms) => [...ms, { role: 'user', text: option, to: target }])
+    setRS(target, 'listening')
+    popSound()
+    if (target === principal) setStatus('pensando…')
+    const res = await window.oficina.ask({ prompt: option, profile, cwd: project, writeMode, model, role: target })
+    if (!res?.ok) {
+      setRS(target, 'idle')
+      showToast(`⚠️ ${res?.error || 'error'}`)
+    }
+  }
+
   const send = async (ev) => {
     ev.preventDefault()
     const text = input.trim()
@@ -1001,7 +1036,13 @@ export default function App() {
 
         {messages.length > 0 && (
           <div className="chat" ref={logRef}>
-            {messages.map((m, i) => (
+            {messages.map((m, i) => {
+              // botones de respuesta rápida: solo en el último mensaje del asistente,
+              // ya terminado, si detecto un menú de opciones y nadie está ocupado
+              const isLastAssistant =
+                m.role === 'assistant' && !m.streaming && i === messages.length - 1 && !busy
+              const options = isLastAssistant ? extractOptions(m.text) : []
+              return (
               <div key={i} className={`msg ${m.role}`}>
                 {m.role === 'assistant' && m.who && (
                   <div className="who" style={{ color: memberOf(m.who).color }}>
@@ -1014,8 +1055,18 @@ export default function App() {
                 )}
                 {m.role === 'assistant' ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown> : m.text}
                 {m.streaming ? '▍' : ''}
+                {options.length > 0 && (
+                  <div className="quickreplies">
+                    {options.map((opt, j) => (
+                      <button key={j} onClick={() => quickReply(opt, m.who)} title={opt}>
+                        {opt.length > 42 ? opt.slice(0, 40) + '…' : opt}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

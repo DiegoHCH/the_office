@@ -120,6 +120,16 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* botones de respuesta rápida bajo un mensaje con opciones */
+.quickreplies { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+.quickreplies button {
+  text-align: left; background: rgba(45, 212, 191, 0.08); color: #2dd4bf;
+  border: 1px solid rgba(45, 212, 191, 0.4); border-radius: 9px;
+  padding: 8px 12px; font-size: 13px; cursor: pointer; line-height: 1.35;
+  font-family: inherit; transition: background 0.12s;
+}
+.quickreplies button:hover { background: rgba(45, 212, 191, 0.18); }
+
 /* quién habla en el chat */
 .msg .who {
   font-size: 11px; font-weight: 700; margin-bottom: 3px;
