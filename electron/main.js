@@ -214,7 +214,7 @@ ipcMain.handle('squad:get', (_e, profile) => getSquad(profile))
 ipcMain.handle('squad:save', (_e, { profile, roster }) => {
   try {
     const map = {}
-    for (const r of roster) map[r.id] = { name: r.name, enabled: r.enabled }
+    for (const r of roster) map[r.id] = { name: r.name, enabled: r.enabled, avatar: r.avatar || null }
     fs.mkdirSync(app.getPath('userData'), { recursive: true })
     fs.writeFileSync(squadFile(profile), JSON.stringify(map, null, 2))
     return { ok: true }

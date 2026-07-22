@@ -561,7 +561,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
             </Turn>
             {/* el principal también vive fuera del Turn: puede pasear, visitar y entregar */}
             <Character3D
-              key={main.id}
+              key={`${main.id}-${main.url}`}
               url={main.url}
               clip="SitDown"
               once
@@ -570,7 +570,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               rotation={[0, YAW_DESK, 0]}
               yaw={yawFor(devState, YAW_DESK)}
               sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
-              colors={{ Skin: '#e8b890', Face: main.hair, Hair: main.hair, Shirt: main.color }}
+              colors={{ ...(main.human !== false ? { Skin: '#e8b890' } : {}), Face: main.hair, Hair: main.hair, Shirt: main.color }}
               sway={devState === 'working' || (devState === 'idle' && ambient[main.id]?.kind === 'music')}
               tour={
                 devState === 'delivering'
@@ -626,7 +626,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   nametag y globo van DENTRO (coords locales /0.27) y lo siguen */}
               {m && (
                 <Character3D
-                  key={m.id}
+                  key={`${m.id}-${m.url}`}
                   url={m.url}
                   clip="SitDown"
                   once
@@ -635,7 +635,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   rotation={[0, yawScreen, 0]}
                   yaw={yawFor(st, yawScreen)}
                   sitAt={[s.chair[0], 0.3, s.chair[2]]}
-                  colors={{ Skin: '#e8b890', Face: m.hair, Hair: m.hair, Shirt: m.color }}
+                  colors={{ ...(m.human !== false ? { Skin: '#e8b890' } : {}), Face: m.hair, Hair: m.hair, Shirt: m.color }}
                   sway={st === 'working' || (st === 'idle' && amb?.kind === 'music')}
                   tour={
                     st === 'delivering'

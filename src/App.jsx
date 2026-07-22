@@ -3,6 +3,20 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Office from './Office.jsx'
 import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
+import { getAvatarThumb, NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
+
+// Miniatura 3D de un avatar (se genera una vez y queda en caché).
+function AvatarThumb({ file }) {
+  const [src, setSrc] = useState(null)
+  useEffect(() => {
+    let on = true
+    getAvatarThumb(file).then((u) => on && setSrc(u))
+    return () => {
+      on = false
+    }
+  }, [file])
+  return src ? <img src={src} alt="" draggable={false} /> : <div className="thumb-loading">⏳</div>
+}
 
 // ── Catálogo de roles (visual + keywords). Nombres/activos vienen de la config ⚙️ ──
 export const ROLE_META = {
@@ -57,6 +71,25 @@ export const ROLE_META = {
 }
 
 const MAX_ACTIVE = 4
+
+// Todos los personajes del pack (se excluyen accesorios y mascotas).
+const AVATARS = [
+  'Casual_Male.gltf', 'Casual_Female.gltf', 'Casual2_Male.gltf', 'Casual2_Female.gltf',
+  'Casual3_Male.gltf', 'Casual3_Female.gltf', 'Casual_Bald.gltf',
+  'Suit_Male.gltf', 'Suit_Female.gltf', 'Worker_Male.gltf', 'Worker_Female.gltf',
+  'Chef_Male.gltf', 'Chef_Female.gltf',
+  'Doctor_Male_Young.gltf', 'Doctor_Female_Young.gltf', 'Doctor_Male_Old.gltf', 'Doctor_Female_Old.gltf',
+  'OldClassy_Male.gltf', 'OldClassy_Female.gltf',
+  'Cowboy_Male.gltf', 'Cowboy_Female.gltf', 'Kimono_Male.gltf', 'Kimono_Female.gltf',
+  'Ninja_Male.gltf', 'Ninja_Female.gltf', 'Ninja_Sand.gltf', 'Ninja_Sand_Female.gltf',
+  'Pirate_Male.gltf', 'Pirate_Female.gltf', 'Viking_Male.gltf', 'Viking_Female.gltf',
+  'Knight_Male.gltf', 'Knight_Golden_Male.gltf', 'Knight_Golden_Female.gltf',
+  'Soldier_Male.gltf', 'Soldier_Female.gltf', 'BlueSoldier_Male.gltf', 'BlueSoldier_Female.gltf',
+  'Elf.gltf', 'Witch.gltf', 'Wizard.gltf', 'Goblin_Male.gltf', 'Goblin_Female.gltf',
+  'Zombie_Male.gltf', 'Zombie_Female.gltf', 'BaseCharacter.gltf',
+]
+const avatarLabel = (f) =>
+  f.replace('.gltf', '').replace(/_/g, ' ').replace('Female', '♀').replace('Male', '♂')
 
 // Cómo se muestra cada herramienta de Claude en pantalla.
 const TOOL_INFO = {
@@ -134,6 +167,7 @@ export default function App() {
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [squadOpen, setSquadOpen] = useState(false)
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
+  const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
   const [toast, setToast] = useState(null)
   const [deliverTargets, setDeliverTargets] = useState({}) // a quién camina cada entrega
   const handoffsRef = useRef([]) // [{from, to, original, result?}]
@@ -149,7 +183,17 @@ export default function App() {
       roster
         .filter((r) => r.enabled)
         .slice(0, MAX_ACTIVE)
-        .map((r) => ({ id: r.id, name: r.name, ...ROLE_META[r.id] })),
+        .map((r) => {
+          const url = r.avatar ? `/models/pj/${r.avatar}` : ROLE_META[r.id].url
+          return {
+            id: r.id,
+            name: r.name,
+            ...ROLE_META[r.id],
+            url,
+            // los humanos llevan piel natural; goblins/zombies/robot no
+            human: !NONHUMAN_AVATARS.has(url.split('/').pop()),
+          }
+        }),
     [roster]
   )
   const principal = squad[0]?.id || 'dev'
@@ -287,6 +331,7 @@ export default function App() {
       if (e.key === 'Escape') {
         setHistOpen(false)
         setSquadOpen(false)
+        setAvatarPicker(null)
         return
       }
       if (!e.metaKey) return
@@ -346,6 +391,7 @@ export default function App() {
   const openSquad = () => {
     setDraft(roster.map((r) => ({ ...r })))
     setSquadOpen(true)
+    setAvatarPicker(null)
     setHistOpen(false)
   }
   const draftEnabled = draft.filter((r) => r.enabled).length
@@ -359,8 +405,20 @@ export default function App() {
       })
     )
   const renameMember = (id, name) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, name } : r)))
+  const setMemberAvatar = (id, avatar) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r)))
+  // avatar efectivo de un miembro (elegido o el default de su rol)
+  const effectiveAvatar = (r) => r.avatar || ROLE_META[r.id].url.split('/').pop()
+  // modelos ya ocupados por OTROS miembros activos (no se pueden repetir)
+  const takenAvatars = (selfId) =>
+    new Set(draft.filter((r) => r.enabled && r.id !== selfId).map((r) => effectiveAvatar(r)))
   const saveSquad = async () => {
     const clean = draft.map((r) => ({ ...r, name: r.name.trim() || ROLE_META[r.id].label }))
+    // sin personajes duplicados entre los activos
+    const active = clean.filter((r) => r.enabled)
+    if (new Set(active.map(effectiveAvatar)).size !== active.length) {
+      showToast('⚠️ dos miembros tienen el mismo personaje — elige otro')
+      return
+    }
     await window.oficina?.squad?.save(profile, clean)
     setRoster(clean)
     setSquadOpen(false)
@@ -584,21 +642,32 @@ export default function App() {
             <div className="drawer-sep">Squad · hasta {MAX_ACTIVE} activos · el 1º es el principal ({profile})</div>
             {draft.map((r) => (
               <div key={r.id} className={r.enabled ? 'squad-row' : 'squad-row off'}>
-                <input
-                  type="checkbox"
-                  checked={r.enabled}
-                  onChange={() => toggleMember(r.id)}
-                  title={r.enabled ? 'Desactivar' : 'Activar'}
-                />
-                <span className="squad-emoji">{ROLE_META[r.id].emoji}</span>
-                <input
-                  className="squad-name"
-                  value={r.name}
-                  maxLength={16}
-                  onChange={(e) => renameMember(r.id, e.target.value)}
-                  style={{ borderColor: r.enabled ? ROLE_META[r.id].color : undefined }}
-                />
-                <span className="squad-label">{ROLE_META[r.id].label}</span>
+                <div className="squad-row-top">
+                  <input
+                    type="checkbox"
+                    checked={r.enabled}
+                    onChange={() => toggleMember(r.id)}
+                    title={r.enabled ? 'Desactivar' : 'Activar'}
+                  />
+                  <span className="squad-emoji">{ROLE_META[r.id].emoji}</span>
+                  <input
+                    className="squad-name"
+                    value={r.name}
+                    maxLength={16}
+                    onChange={(e) => renameMember(r.id, e.target.value)}
+                    style={{ borderColor: r.enabled ? ROLE_META[r.id].color : undefined }}
+                  />
+                  <span className="squad-label">{ROLE_META[r.id].label}</span>
+                </div>
+                {r.enabled && (
+                  <button
+                    type="button"
+                    className={avatarPicker === r.id ? 'squad-avatar-btn open' : 'squad-avatar-btn'}
+                    onClick={() => setAvatarPicker((p) => (p === r.id ? null : r.id))}
+                  >
+                    🧍 {avatarLabel(effectiveAvatar(r))} · cambiar
+                  </button>
+                )}
               </div>
             ))}
             <button className="squad-save" onClick={saveSquad}>
@@ -606,6 +675,43 @@ export default function App() {
             </button>
           </div>
         )}
+
+        {squadOpen &&
+          avatarPicker &&
+          (() => {
+            const r = draft.find((x) => x.id === avatarPicker)
+            if (!r) return null
+            const taken = takenAvatars(r.id)
+            const current = effectiveAvatar(r)
+            return (
+              <div className="drawer right">
+                <div className="drawer-head">
+                  <b>🧍 Personaje de {r.name}</b>
+                  <button onClick={() => setAvatarPicker(null)}>✕</button>
+                </div>
+                <div className="avatar-grid">
+                  {AVATARS.map((a) => {
+                    const isTaken = taken.has(a)
+                    const sel = current === a
+                    return (
+                      <div
+                        key={a}
+                        className={`avatar-card${sel ? ' sel' : ''}${isTaken ? ' taken' : ''}`}
+                        onClick={() => !isTaken && setMemberAvatar(r.id, a)}
+                        title={isTaken ? 'En uso por otro miembro' : avatarLabel(a)}
+                      >
+                        <AvatarThumb file={a} />
+                        <div className="avatar-name">
+                          {avatarLabel(a)}
+                          {isTaken ? ' 🔒' : ''}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )
+          })()}
 
         {histOpen && (
           <div className="drawer">

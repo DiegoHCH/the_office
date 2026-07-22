@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { LoopOnce, LoopRepeat, Vector3, Quaternion } from 'three'
+import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, useAnimations } from '@react-three/drei'
 
@@ -43,7 +44,9 @@ export default function Character3D({
   const tourRef = useRef(null)
   const standPos = useRef(null)
   const home = useRef(position)
-  const { scene, animations } = useGLTF(url)
+  const { scene: source, animations } = useGLTF(url)
+  // clon con esqueleto propio: permite usar el MISMO modelo en varios personajes
+  const scene = useMemo(() => skeletonClone(source), [source])
   const { actions, names, mixer } = useAnimations(animations, group)
 
   useEffect(() => {
