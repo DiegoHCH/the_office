@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import Office from './Office.jsx'
+import Office, { THEMES } from './Office.jsx'
 import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { getAvatarThumb, NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 
@@ -284,6 +284,7 @@ export default function App() {
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
   const [sound, setSound] = useState(() => localStorage.getItem('oficina-sound') !== '0')
+  const [theme, setTheme] = useState(() => localStorage.getItem('oficina-theme') || 'clasico')
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [squadOpen, setSquadOpen] = useState(false)
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
@@ -339,6 +340,10 @@ export default function App() {
     localStorage.setItem('oficina-sound', sound ? '1' : '0')
     window.oficina?.setNotify?.(sound) // también los avisos del sistema
   }, [sound])
+
+  useEffect(() => {
+    localStorage.setItem('oficina-theme', theme)
+  }, [theme])
 
   const loadSquad = async (p) => {
     const r = (await window.oficina?.squad?.get(p)) || []
@@ -735,6 +740,7 @@ export default function App() {
           roleStates={roleStates}
           status={status}
           squad={squad}
+          theme={theme}
           deliverTargets={deliverTargets}
           onTourDone={(r) => {
             setRS(r, 'idle')
@@ -774,6 +780,16 @@ export default function App() {
               >
                 <option value="write">✏️ edición — puede modificar y correr comandos</option>
                 <option value="read">🔒 lectura — solo investigar</option>
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Tema:</span>
+              <select className="sel pref-sel" value={theme} onChange={(e) => setTheme(e.target.value)}>
+                {Object.entries(THEMES).map(([id, t]) => (
+                  <option key={id} value={id}>
+                    {t.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="pref-row">

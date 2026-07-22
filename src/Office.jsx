@@ -7,15 +7,39 @@ import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
 
 // ── Paleta calcada de la referencia ─────────────────────────────────────────
-const FLOOR = '#c9917b'
-const WALL_BACK = '#3d5866'
-const WALL_LEFT = '#35505d'
-const BASE = '#2f434e'
-const DESK = '#cf9b7e'
+// ── Temas de la sala ─────────────────────────────────────────────────────────
+export const THEMES = {
+  clasico: {
+    label: '🏢 Clásico',
+    floor: '#c9917b', wallBack: '#3d5866', wallLeft: '#35505d', base: '#2f434e',
+    desk: '#cf9b7e', matColor: '#3c6b82', bg: '#b9ccd3',
+    ambient: 0.9, hemi: ['#dbe8ec', '#4a3b2f', 0.7], dir: 2.1,
+  },
+  noche: {
+    label: '🌙 Noche',
+    floor: '#5a4a44', wallBack: '#16222c', wallLeft: '#121c25', base: '#0d151c',
+    desk: '#6b4a3a', matColor: '#1f4650', bg: '#0d1620',
+    ambient: 0.4, hemi: ['#3b5566', '#1a1410', 0.45], dir: 0.9,
+    lampsOn: true, // las lámparas de piso se encienden
+  },
+  playa: {
+    label: '🏖 Playa',
+    floor: '#e2c290', wallBack: '#6ba8bb', wallLeft: '#5d99ad', base: '#4a7f92',
+    desk: '#c98a5a', matColor: '#d96a4f', bg: '#cfe9f0',
+    ambient: 1.05, hemi: ['#eaf6fa', '#8a6a45', 0.8], dir: 2.4,
+  },
+  sakura: {
+    label: '🌸 Sakura',
+    floor: '#d9b8b0', wallBack: '#6b4d61', wallLeft: '#5d4255', base: '#4a3545',
+    desk: '#c9909a', matColor: '#8a5a6e', bg: '#ecd6dc',
+    ambient: 0.95, hemi: ['#f5e4ea', '#5a3b45', 0.7], dir: 2.0,
+  },
+}
+// paleta activa (Office la fija en cada render según el tema elegido)
+let T = THEMES.clasico
 const METAL = '#b9c2c7'
 const DARK = '#22282c'
 const WHITE = '#eef2f4'
-const MAT_BLUE = '#3c6b82'
 const POT = '#ece6db'
 const GREEN1 = '#3a8f5f'
 const GREEN2 = '#49a56d'
@@ -44,23 +68,23 @@ function Room() {
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[ROOM, ROOM]} />
-        {mat(FLOOR)}
+        {mat(T.floor)}
       </mesh>
       <mesh position={[0, 1, -HALF]} receiveShadow castShadow>
         <boxGeometry args={[ROOM, 2, 0.08]} />
-        {mat(WALL_BACK)}
+        {mat(T.wallBack)}
       </mesh>
       <mesh position={[-HALF, 1, 0]} receiveShadow castShadow>
         <boxGeometry args={[0.08, 2, ROOM]} />
-        {mat(WALL_LEFT)}
+        {mat(T.wallLeft)}
       </mesh>
       <mesh position={[0, 0.05, -HALF + 0.05]}>
         <boxGeometry args={[ROOM, 0.1, 0.03]} />
-        {mat(BASE)}
+        {mat(T.base)}
       </mesh>
       <mesh position={[-HALF + 0.05, 0.05, 0]}>
         <boxGeometry args={[0.03, 0.1, ROOM]} />
-        {mat(BASE)}
+        {mat(T.base)}
       </mesh>
     </group>
   )
@@ -123,6 +147,58 @@ function FlutterFrame({ position, rotation = [0, 0, 0] }) {
   )
 }
 
+// Lámpara de piso: decorativa siempre; en el tema Noche emite luz cálida real.
+function FloorLamp({ position, on = false }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.03, 0]} castShadow>
+        <cylinderGeometry args={[0.14, 0.16, 0.06, 12]} />
+        {mat(DARK)}
+      </mesh>
+      <mesh position={[0, 0.58, 0]} castShadow>
+        <cylinderGeometry args={[0.022, 0.022, 1.1, 8]} />
+        {mat(METAL, { metal: 0.6, rough: 0.35 })}
+      </mesh>
+      <mesh position={[0, 1.2, 0]} castShadow>
+        <cylinderGeometry args={[0.13, 0.2, 0.26, 14, 1, true]} />
+        <meshStandardMaterial
+          color="#e8dcc8"
+          emissive={on ? '#ffb26b' : '#000000'}
+          emissiveIntensity={on ? 1 : 0}
+          side={DoubleSide}
+        />
+      </mesh>
+      {on && <pointLight position={[0, 1.1, 0]} color="#ffb27a" intensity={5} distance={4.5} decay={1.8} />}
+    </group>
+  )
+}
+
+// Lamparita de escritorio articulada (luz suave y puntual en Noche).
+function DeskLamp({ position, rotation = [0, 0, 0], on = false }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh castShadow position={[0, 0.015, 0]}>
+        <cylinderGeometry args={[0.05, 0.06, 0.03, 10]} />
+        {mat(DARK)}
+      </mesh>
+      <mesh castShadow position={[0.035, 0.1, 0]} rotation={[0, 0, -0.5]}>
+        <cylinderGeometry args={[0.01, 0.01, 0.18, 6]} />
+        {mat(METAL, { metal: 0.6, rough: 0.35 })}
+      </mesh>
+      <mesh castShadow position={[0.1, 0.17, 0]} rotation={[0, 0, 0.9]}>
+        <coneGeometry args={[0.045, 0.07, 10, 1, true]} />
+        <meshStandardMaterial
+          color="#d8ccb8"
+          emissive={on ? '#ffc27f' : '#000000'}
+          emissiveIntensity={on ? 1.1 : 0}
+          side={DoubleSide}
+        />
+      </mesh>
+      {on && <pointLight position={[0.11, 0.13, 0]} color="#ffc27f" intensity={1.2} distance={1.8} decay={1.9} />}
+    </group>
+  )
+}
+
 // ── Escritorio en L genérico ─────────────────────────────────────────────────
 // Superficie de UNA sola pieza (polígono en L extruido con bisel), no dos
 // tablones cruzados. Esquina del L en el origen local; alas hacia +z y +x.
@@ -156,7 +232,7 @@ function LDesk({ position, rotation = [0, 0, 0] }) {
     <group position={position} rotation={rotation}>
       {/* tabla en L continua (el shape XY se acuesta al plano XZ) */}
       <mesh geometry={L_TOP_GEOM} position={[0, DESK_H + 0.028, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
-        {mat(DESK)}
+        {mat(T.desk)}
       </mesh>
       {legs.map(([x, z], i) => (
         <RB key={i} args={[0.05, DESK_H, 0.05]} r={0.015} position={[x, DESK_H / 2, z]} castShadow>
@@ -238,7 +314,7 @@ function Chair({ position, rotation }) {
 function Shelf() {
   return (
     <group position={[1.3, 1.3, -HALF + 0.12]}>
-      <RB args={[1.25, 0.05, 0.28]} r={0.015} castShadow receiveShadow>{mat(DESK)}</RB>
+      <RB args={[1.25, 0.05, 0.28]} r={0.015} castShadow receiveShadow>{mat(T.desk)}</RB>
       <group position={[-0.38, 0.21, -0.02]} rotation={[0.08, 0, 0]}>
         <RB args={[0.28, 0.36, 0.03]} r={0.01} castShadow>{mat('#e3e8ea')}</RB>
         <mesh position={[0, 0, 0.017]}>
@@ -407,7 +483,8 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, onTourDone }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', onTourDone }) {
+  T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
 
@@ -505,16 +582,16 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
-      <color attach="background" args={['#b9ccd3']} />
+      <color attach="background" args={[T.bg]} />
 
       <OrthographicCamera makeDefault position={[9, 8, 9]} zoom={105} near={0.1} far={100} />
       <OrbitControls target={[0, 0.35, 0]} enablePan={false} minZoom={60} maxZoom={280} />
 
-      <ambientLight intensity={0.9} />
-      <hemisphereLight args={['#dbe8ec', '#4a3b2f', 0.7]} />
+      <ambientLight intensity={T.ambient} />
+      <hemisphereLight args={T.hemi} />
       <directionalLight
         position={[5, 9, 5]}
-        intensity={2.1}
+        intensity={T.dir}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
@@ -543,10 +620,20 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           {mat(c)}
         </RB>
       ))}
-      <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-1.5, 0.012, -1.45]} receiveShadow>{mat(MAT_BLUE)}</RB>
+      <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-1.5, 0.012, -1.45]} receiveShadow>{mat(T.matColor)}</RB>
       <FiddlePlant position={[2.3, 0, 0.1]} />
       <FiddlePlant position={[0.05, 0, -2.28]} scale={0.38} />
       <FiddlePlant position={[0, 0, 2.45]} scale={0.42} />
+      {/* lámparas de piso (encendidas en el tema Noche) */}
+      <FloorLamp position={[0.42, 0, -2.32]} on={!!T.lampsOn} />
+      <FloorLamp position={[-0.5, 0, 2.36]} on={!!T.lampsOn} />
+      <FloorLamp position={[-2.35, 0, 0.42]} on={!!T.lampsOn} />
+      <FloorLamp position={[2.42, 0, -0.42]} on={!!T.lampsOn} />
+      {/* lamparitas de escritorio, una por puesto */}
+      <DeskLamp position={[-0.68, TOP, -2.35]} rotation={[0, Math.PI * 0.9, 0]} on={!!T.lampsOn} />
+      <DeskLamp position={[2.3, TOP, -1.35]} rotation={[0, -Math.PI / 2, 0]} on={!!T.lampsOn} />
+      <DeskLamp position={[-2.3, TOP, 2.0]} rotation={[0, Math.PI / 2, 0]} on={!!T.lampsOn} />
+      <DeskLamp position={[2.2, TOP, 2.35]} rotation={[0, Math.PI, 0]} on={!!T.lampsOn} />
 
       <Suspense fallback={null}>
         <FlutterFrame position={[-0.7, 1.35, -HALF + 0.07]} />
@@ -617,7 +704,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           return (
             <group key={i}>
               <LDesk position={s.desk} rotation={s.deskRot} />
-              <RB args={s.mat.args} r={0.03} position={s.mat.position} receiveShadow>{mat(MAT_BLUE)}</RB>
+              <RB args={s.mat.args} r={0.03} position={s.mat.position} receiveShadow>{mat(T.matColor)}</RB>
               <Monitor working={st === 'working'} position={s.monitor} rotation={s.monitorRot} />
               <Turn position={s.chair} yaw={yawFor(st, yawScreen)}>
                 <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
