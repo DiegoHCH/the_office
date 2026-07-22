@@ -28,7 +28,8 @@
     ],
     "mac": {
       "target": "dir",
-      "identity": null
+      "identity": null,
+      "icon": "build/icon.icns"
     }
   },
   "dependencies": {

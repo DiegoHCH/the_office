@@ -1,0 +1,29 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- fondo redondeado oscuro -->
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="#10181c"/>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="none" stroke="#22313a" stroke-width="8"/>
+  <!-- piso isométrico (rombo) -->
+  <polygon points="512,700 200,540 512,380 824,540" fill="#cf9b7e"/>
+  <polygon points="512,700 200,540 200,580 512,740" fill="#a87a5f"/>
+  <polygon points="512,700 824,540 824,580 512,740" fill="#b8886a"/>
+  <!-- pared izquierda -->
+  <polygon points="200,540 200,240 512,80 512,380" fill="#35505d"/>
+  <!-- pared derecha -->
+  <polygon points="824,540 824,240 512,80 512,380" fill="#3d5866"/>
+  <!-- alfombra -->
+  <polygon points="512,640 380,572 512,504 644,572" fill="#3c6b82"/>
+  <!-- escritorio (tabla iso) -->
+  <polygon points="512,470 400,412 512,354 624,412" fill="#e0b18c"/>
+  <polygon points="400,412 400,452 512,510 512,470" fill="#b8886a"/>
+  <polygon points="624,412 624,452 512,510 512,470" fill="#c9976f"/>
+  <!-- patas -->
+  <rect x="412" y="448" width="14" height="52" fill="#8fa0a8"/>
+  <rect x="598" y="448" width="14" height="52" fill="#8fa0a8"/>
+  <!-- monitor teal encendido -->
+  <polygon points="512,426 442,390 512,354 582,390" fill="#22313a"/>
+  <polygon points="512,426 442,390 442,294 512,330" fill="#1a252c"/>
+  <polygon points="512,426 582,390 582,294 512,330" fill="#2dd4bf"/>
+  <polygon points="512,412 572,381 572,304 512,335" fill="#7ff0dd"/>
+  <!-- brillo -->
+  <circle cx="512" cy="80" r="0" fill="none"/>
+</svg>
