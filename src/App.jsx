@@ -17,16 +17,24 @@ const TOOL_INFO = {
 }
 const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `usando ${name}`]
 
-// Modelos disponibles para --model (siempre explícito).
+// Modelos disponibles para --model (siempre explícito, IDs completos).
 const MODEL_LABELS = {
   'claude-fable-5[1m]': 'Fable 5 · 1M',
   'claude-fable-5': 'Fable 5',
-  opus: 'Opus 4.8',
-  sonnet: 'Sonnet 5',
-  haiku: 'Haiku 4.5',
+  'claude-opus-4-8': 'Opus 4.8',
+  'claude-sonnet-5': 'Sonnet 5',
+  'claude-haiku-4-5-20251001': 'Haiku 4.5',
 }
-const MODEL_ALIASES = { fable: 'claude-fable-5', fable1m: 'claude-fable-5[1m]' }
-const FALLBACK_MODEL = 'claude-fable-5'
+const MODEL_ALIASES = {
+  fable: 'claude-fable-5',
+  fable1m: 'claude-fable-5[1m]',
+  opus: 'claude-opus-4-8',
+  sonnet: 'claude-sonnet-5',
+  haiku: 'claude-haiku-4-5-20251001',
+}
+// Default de Claude Code cuando el perfil no tiene modelo guardado
+// (verificado contra el perfil private: claude-sonnet-5).
+const FALLBACK_MODEL = 'claude-sonnet-5'
 
 export default function App() {
   const [messages, setMessages] = useState([]) // {role, text, streaming?}
