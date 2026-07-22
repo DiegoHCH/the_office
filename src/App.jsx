@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import Office from './Office.jsx'
+import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 
 // ── El squad ─────────────────────────────────────────────────────────────────
 const ROLES = {
@@ -76,6 +77,7 @@ export default function App() {
   const [model, setModel] = useState(FALLBACK_MODEL)
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
+  const [sound, setSound] = useState(() => localStorage.getItem('oficina-sound') !== '0')
   const sessionsRef = useRef({}) // role → sessionId (para historial/--resume)
   const convIdRef = useRef(null)
   const logRef = useRef(null)
@@ -90,6 +92,11 @@ export default function App() {
       else copy[role] = st
       return copy
     })
+
+  useEffect(() => {
+    setSoundEnabled(sound)
+    localStorage.setItem('oficina-sound', sound ? '1' : '0')
+  }, [sound])
 
   useEffect(() => {
     window.oficina?.getConfig?.().then((c) => {
@@ -135,13 +142,16 @@ export default function App() {
           }
           return e.result ? [...ms, { role: 'assistant', who, text: e.result }] : ms
         })
-        setRS(who, 'idle')
+        // el squad camina a "entregarle" a Luffy; Luffy solo vuelve a esperar
+        setRS(who, who === 'dev' ? 'idle' : 'delivering')
         setTool((t) => (t?.role === who ? null : t))
+        dingSound()
         if (who === 'dev') setStatus('esperándote')
       } else if (e.kind === 'error') {
         setMessages((ms) => [...ms, { role: 'assistant', who, text: `⚠️ ${e.message}` }])
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
+        buzzSound()
         if (who === 'dev') setStatus('error — mira la terminal')
       }
     })
@@ -275,6 +285,7 @@ export default function App() {
     setMessages((ms) => [...ms, { role: 'user', text, to: target }])
     setInput('')
     setRS(target, 'listening') // lo nombraste: se voltea a mirarte
+    popSound()
     if (target === 'dev') setStatus('pensando…')
     const res = await window.oficina.ask({ prompt: text, profile, cwd: project, writeMode, model, role: target })
     if (!res?.ok) {
@@ -318,6 +329,9 @@ export default function App() {
         >
           {writeMode ? '✏️ edición' : '🔒 lectura'}
         </button>
+        <button type="button" className="newchat" onClick={() => setSound((s) => !s)} title={sound ? 'Silenciar sonidos' : 'Activar sonidos'}>
+          {sound ? '🔊' : '🔇'}
+        </button>
         <button type="button" className="newchat" onClick={toggleHist} disabled={busy} title="Historial de conversaciones">
           🕘
         </button>
@@ -327,7 +341,7 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <Office roleStates={roleStates} status={status} />
+        <Office roleStates={roleStates} status={status} onTourDone={(r) => setRS(r, 'idle')} />
         {histOpen && (
           <div className="drawer">
             <div className="drawer-head">
