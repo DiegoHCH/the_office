@@ -25,10 +25,12 @@ body {
 }
 .sel:focus { border-color: #2dd4bf; }
 .newchat, .mode {
+  display: inline-flex; align-items: center; gap: 6px;
   background: transparent; color: #93a6a1; border: 1px solid #28353a;
-  border-radius: 8px; padding: 4px 10px; font-size: 12px;
+  border-radius: 8px; padding: 5px 11px; font-size: 12px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace; cursor: pointer;
 }
+.newchat svg { width: 15px; height: 15px; }
 .newchat:hover { color: #2dd4bf; border-color: #2dd4bf; }
 /* botón de configuración: pegado a la derecha, tuerca SVG + texto */
 .gear {

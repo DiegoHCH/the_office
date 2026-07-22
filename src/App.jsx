@@ -454,10 +454,19 @@ export default function App() {
           ))}
         </select>
         <button type="button" className="newchat" onClick={toggleHist} disabled={busy} title="Historial (⌘Y)">
-          🕘
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          Historial
         </button>
         <button type="button" className="newchat" onClick={newChat} disabled={busy} title="Conversación nueva (⌘K)">
-          ✚ nueva
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            <line x1="12" y1="8" x2="12" y2="14" />
+            <line x1="9" y1="11" x2="15" y2="11" />
+          </svg>
+          Nueva Conversación
         </button>
         <button type="button" className="gear" onClick={openSquad} disabled={busy} title="Modelo, permisos, notificaciones y squad">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
