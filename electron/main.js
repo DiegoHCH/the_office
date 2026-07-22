@@ -122,7 +122,18 @@ ipcMain.handle('config:get', () => {
     } catch {}
     projectsByProfile[p] = list
   }
-  return { profiles: profiles.length ? profiles : ['default'], projectsByProfile }
+  // modelo default de cada perfil (settings.json del CLAUDE_CONFIG_DIR)
+  const defaultModels = {}
+  for (const p of profiles) {
+    try {
+      defaultModels[p] = JSON.parse(
+        fs.readFileSync(path.join(PROFILE_DIRS[p](), 'settings.json'), 'utf8')
+      ).model || null
+    } catch {
+      defaultModels[p] = null
+    }
+  }
+  return { profiles: profiles.length ? profiles : ['default'], projectsByProfile, defaultModels }
 })
 
 ipcMain.handle('claude:reset', () => {

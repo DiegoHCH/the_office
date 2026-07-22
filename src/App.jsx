@@ -184,11 +184,15 @@ export default function App() {
           ))}
         </select>
         <select className="sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy} title="Modelo (--model)">
-          {MODELS.map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
-            </option>
-          ))}
+          {MODELS.map(([value, label]) => {
+            const def = cfg?.defaultModels?.[profile]
+            const text = value === '' && def ? `🧠 auto · ${def.replace(/^claude-/, '')}` : label
+            return (
+              <option key={value} value={value}>
+                {text}
+              </option>
+            )
+          })}
         </select>
         <button
           type="button"
