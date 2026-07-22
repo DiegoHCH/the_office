@@ -94,6 +94,51 @@ body {
 .msg.assistant hr { border: none; border-top: 1px solid #28353a; margin: 8px 0; }
 .ipc.busy { color: #f5a524; }
 
+/* globo de estado sobre el personaje */
+.bubble3d {
+  position: relative;
+  background: rgba(14, 20, 23, 0.94); color: #e9f1ee;
+  border: 1px solid #3b4d55; border-radius: 12px;
+  padding: 6px 12px; font-size: 12px; white-space: nowrap;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  box-shadow: 0 4px 14px rgba(10, 20, 25, 0.35);
+}
+.bubble3d::after {
+  content: ""; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+  border: 7px solid transparent; border-top-color: rgba(14, 20, 23, 0.94); border-bottom: none;
+}
+.bubble3d.busy { border-color: #2dd4bf; animation: bubble-pulse 1.6s ease-in-out infinite; }
+@keyframes bubble-pulse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+/* panel de historial */
+.drawer {
+  position: absolute; left: 14px; top: 14px; bottom: 14px;
+  width: min(320px, 44%); overflow-y: auto; z-index: 5;
+  background: rgba(14, 20, 23, 0.96); border: 1px solid #28353a; border-radius: 12px;
+  padding: 10px;
+}
+.drawer-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 2px 4px 10px; font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+}
+.drawer-head button { background: none; border: none; color: #93a6a1; cursor: pointer; font-size: 14px; }
+.hist-item {
+  position: relative; padding: 9px 34px 9px 10px; border-radius: 9px; cursor: pointer;
+  border: 1px solid transparent;
+}
+.hist-item:hover { background: #16222a; border-color: #28353a; }
+.hist-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-meta { font-size: 11px; color: #93a6a1; font-family: ui-monospace, Menlo, monospace; margin-top: 2px; }
+.hist-del {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  background: none; border: none; cursor: pointer; font-size: 13px; opacity: 0.4;
+}
+.hist-del:hover { opacity: 1; }
+.hist-empty { color: #93a6a1; font-size: 12.5px; padding: 8px; font-family: ui-monospace, Menlo, monospace; }
+
 /* chip de herramienta en uso, flotando sobre la escena */
 .toolchip {
   position: absolute; left: 16px; top: 16px;

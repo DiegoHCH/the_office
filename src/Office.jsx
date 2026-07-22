@@ -1,7 +1,7 @@
 import { Suspense, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { MathUtils } from 'three'
-import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox } from '@react-three/drei'
+import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
 import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
 
@@ -272,7 +272,7 @@ function Swivel({ working, children }) {
   )
 }
 
-export default function Office({ working = false }) {
+export default function Office({ working = false, status = '' }) {
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={['#b9ccd3']} />
@@ -325,6 +325,13 @@ export default function Office({ working = false }) {
           />
         </Swivel>
       </Suspense>
+
+      {/* globo de estado sobre la cabeza del personaje */}
+      {status && (
+        <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+          <div className={working ? 'bubble3d busy' : 'bubble3d'}>{status}</div>
+        </Html>
+      )}
 
       <ContactShadows position={[0, 0.004, 0]} opacity={0.4} scale={6} blur={2.5} far={3} />
     </Canvas>

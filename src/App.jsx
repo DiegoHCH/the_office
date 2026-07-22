@@ -47,6 +47,10 @@ export default function App() {
   const [project, setProject] = useState('')
   const [writeMode, setWriteMode] = useState(true) // edición por defecto (flujo normal de trabajo)
   const [model, setModel] = useState(FALLBACK_MODEL)
+  const [sessionId, setSessionId] = useState(null) // session de claude (para --resume al retomar)
+  const [histOpen, setHistOpen] = useState(false)
+  const [histList, setHistList] = useState([])
+  const convIdRef = useRef(null) // id de la conversación actual en el historial
   const logRef = useRef(null)
 
   const projects = cfg?.projectsByProfile?.[profile] || []
@@ -78,14 +82,64 @@ export default function App() {
 
   const newChat = () => {
     setMessages([])
+    convIdRef.current = null
+    setSessionId(null)
     window.oficina?.reset?.()
     setStatus('conversación nueva')
+  }
+
+  // ── Historial ──────────────────────────────────────────────────────────────
+  // Guardado automático al terminar cada respuesta.
+  useEffect(() => {
+    if (busy || !messages.length || !convIdRef.current) return
+    const title = messages.find((m) => m.role === 'user')?.text.slice(0, 60) || 'conversación'
+    window.oficina?.history?.save({
+      id: convIdRef.current,
+      title,
+      profile,
+      project,
+      model,
+      sessionId,
+      updatedAt: Date.now(),
+      messages: messages.map(({ role, text }) => ({ role, text })),
+    })
+  }, [busy, messages, profile, project, model, sessionId])
+
+  const toggleHist = async () => {
+    if (!histOpen) setHistList((await window.oficina?.history?.list()) || [])
+    setHistOpen((o) => !o)
+  }
+
+  const loadConvo = async (id) => {
+    if (busy) return
+    const c = await window.oficina?.history?.get(id)
+    if (!c) return
+    convIdRef.current = c.id
+    if (c.profile && cfg?.profiles?.includes(c.profile)) setProfile(c.profile)
+    if (c.project) setProject(c.project)
+    if (c.model) setModel(c.model)
+    setSessionId(c.sessionId || null)
+    setMessages(c.messages || [])
+    // restaurar la sesión en el main → el próximo mensaje hace --resume
+    await window.oficina?.setSession?.({ sessionId: c.sessionId, profile: c.profile, cwd: c.project })
+    setHistOpen(false)
+    setStatus(c.sessionId ? 'conversación retomada — Claude recuerda el contexto' : 'conversación cargada')
+  }
+
+  const deleteConvo = async (e, id) => {
+    e.stopPropagation()
+    await window.oficina?.history?.remove(id)
+    // si borras la conversación abierta, limpiar también el chat en pantalla
+    // (si no, el auto-guardado la volvería a crear en el próximo mensaje)
+    if (id === convIdRef.current) newChat()
+    setHistList((await window.oficina?.history?.list()) || [])
   }
 
   useEffect(() => {
     if (!window.oficina?.onEvent) return
     return window.oficina.onEvent((e) => {
       if (e.kind === 'init') {
+        if (e.sessionId) setSessionId(e.sessionId)
         setStatus('pensando…')
       } else if (e.kind === 'tool') {
         setTool(e.name)
@@ -161,6 +215,7 @@ export default function App() {
       setStatus('sin Electron — corre npm run dev')
       return
     }
+    if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     setMessages((ms) => [...ms, { role: 'user', text }])
     setInput('')
     setBusy(true)
@@ -208,14 +263,37 @@ export default function App() {
         >
           {writeMode ? '✏️ edición' : '🔒 lectura'}
         </button>
+        <button type="button" className="newchat" onClick={toggleHist} disabled={busy} title="Historial de conversaciones">
+          🕘
+        </button>
         <button type="button" className="newchat" onClick={newChat} disabled={busy} title="Conversación nueva">
           ✚ nueva
         </button>
-        <span className={busy ? 'ipc busy' : 'ipc'}>{status}</span>
       </header>
 
       <div className="stage">
-        <Office working={busy} />
+        <Office working={busy} status={status} />
+        {histOpen && (
+          <div className="drawer">
+            <div className="drawer-head">
+              <b>Historial</b>
+              <button onClick={() => setHistOpen(false)}>✕</button>
+            </div>
+            {histList.length === 0 && <div className="hist-empty">sin conversaciones guardadas</div>}
+            {histList.map((h) => (
+              <div key={h.id} className="hist-item" onClick={() => loadConvo(h.id)}>
+                <div className="hist-title">{h.title}</div>
+                <div className="hist-meta">
+                  {h.profile === 'work' ? '💼' : '🔒'} {h.project?.split('/').pop()} · {h.count} msgs ·{' '}
+                  {h.updatedAt ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                </div>
+                <button className="hist-del" title="Borrar" onClick={(e) => deleteConvo(e, h.id)}>
+                  🗑
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         {tool && (
           <div className="toolchip" key={tool}>
             <span className="toolchip-icon">{toolInfo(tool)[0]}</span>

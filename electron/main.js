@@ -142,6 +142,71 @@ ipcMain.handle('claude:reset', () => {
   return { ok: true }
 })
 
+// Restaura una sesión guardada (para continuar una conversación del historial).
+ipcMain.handle('claude:setSession', (_e, { sessionId: sid, profile, cwd }) => {
+  const workdir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
+  sessionId = sid || null
+  sessionKey = `${profile}::${workdir}`
+  return { ok: true }
+})
+
+// ── Historial de conversaciones (JSON por conversación en userData) ─────────
+const HIST_DIR = path.join(app.getPath('userData'), 'history')
+
+ipcMain.handle('history:save', (_e, convo) => {
+  try {
+    fs.mkdirSync(HIST_DIR, { recursive: true })
+    fs.writeFileSync(path.join(HIST_DIR, `${convo.id}.json`), JSON.stringify(convo, null, 2))
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('history:list', () => {
+  try {
+    return fs
+      .readdirSync(HIST_DIR)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => {
+        try {
+          const c = JSON.parse(fs.readFileSync(path.join(HIST_DIR, f), 'utf8'))
+          return {
+            id: c.id,
+            title: c.title,
+            profile: c.profile,
+            project: c.project,
+            updatedAt: c.updatedAt,
+            count: c.messages?.length ?? 0,
+          }
+        } catch {
+          return null
+        }
+      })
+      .filter(Boolean)
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('history:get', (_e, id) => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(HIST_DIR, `${id}.json`), 'utf8'))
+  } catch {
+    return null
+  }
+})
+
+ipcMain.handle('history:delete', (_e, id) => {
+  try {
+    fs.unlinkSync(path.join(HIST_DIR, `${id}.json`))
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 ipcMain.handle('claude:ask', (_e, payload) => {
   if (child) return { ok: false, error: 'Claude ya está procesando un mensaje' }
 
