@@ -7,6 +7,8 @@ contextBridge.exposeInMainWorld('oficina', {
   getConfig: () => ipcRenderer.invoke('config:get'),
   // Envía un prompt a Claude Code (headless). Respuestas llegan por onEvent.
   ask: (payload) => ipcRenderer.invoke('claude:ask', payload),
+  // Detiene la tarea en curso de un tripulante.
+  stop: (role) => ipcRenderer.invoke('claude:stop', role),
   // Empieza una conversación nueva (olvida el session_id actual).
   reset: () => ipcRenderer.invoke('claude:reset'),
   // Restaura una sesión guardada para continuarla (--resume).

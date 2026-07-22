@@ -172,6 +172,21 @@ body {
 .hist-del:hover { opacity: 1; }
 .hist-empty { color: #93a6a1; font-size: 12.5px; padding: 8px; font-family: ui-monospace, Menlo, monospace; }
 
+/* chips para detener tareas en curso */
+.stopbar {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 8px; z-index: 6;
+}
+.stopchip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(14, 20, 23, 0.92); color: #e05252;
+  border: 1px solid rgba(224, 82, 82, 0.55); border-radius: 999px;
+  padding: 6px 13px; font-size: 12px; font-weight: 600; cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  animation: chip-in 0.25s ease-out;
+}
+.stopchip:hover { background: rgba(224, 82, 82, 0.15); }
+
 /* toast transitorio (avisos que aparecen y se van solos) */
 .toast {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);

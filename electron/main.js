@@ -256,6 +256,17 @@ ipcMain.handle('squad:save', (_e, { profile, roster }) => {
   }
 })
 
+// Detiene la tarea en curso de un tripulante (mata su proceso claude).
+ipcMain.handle('claude:stop', (_e, role) => {
+  const child = children.get(role)
+  if (!child) return { ok: false, error: 'no hay tarea corriendo' }
+  child.stoppedByUser = true // para que el close no se reporte como error
+  child.kill('SIGTERM')
+  children.delete(role)
+  emit({ kind: 'stopped', role })
+  return { ok: true }
+})
+
 ipcMain.handle('claude:reset', () => {
   sessions.clear()
   return { ok: true }
@@ -332,7 +343,8 @@ ipcMain.handle('claude:ask', (_e, payload) => {
     children.delete(role)
   })
   child.on('close', (code) => {
-    if (code !== 0 && code !== null) {
+    // una detención del usuario no es un error (SIGTERM sale con 143)
+    if (code !== 0 && code !== null && !child.stoppedByUser) {
       emit({ kind: 'error', role, message: `claude terminó con código ${code} (mira la terminal)` })
       notify(displayName, `⚠️ terminó con error (código ${code})`)
     }

@@ -319,9 +319,11 @@ export default function App() {
   )
   const principal = squad[0]?.id || 'dev'
   const principalRef = useRef(principal)
+  const squadRef = useRef(squad)
   useEffect(() => {
     principalRef.current = principal
-  }, [principal])
+    squadRef.current = squad
+  }, [principal, squad])
   const memberOf = (id) => squad.find((m) => m.id === id) || { name: id, emoji: '🤖', color: '#93a6a1', label: id }
 
   const projects = cfg?.projectsByProfile?.[profile] || []
@@ -405,6 +407,24 @@ export default function App() {
         if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
         setTool((t) => (t?.role === who ? null : t))
         dingSound()
+        if (isP) setStatus('esperándote')
+      } else if (e.kind === 'stopped') {
+        // tarea cancelada por el usuario: cerrar el mensaje a medias y limpiar
+        setMessages((ms) => {
+          const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
+          if (idx < 0) return ms
+          const copy = [...ms]
+          copy[idx] = { ...copy[idx], streaming: false, text: `${copy[idx].text}\n\n⏹ *(detenido)*` }
+          return copy
+        })
+        handoffsRef.current = handoffsRef.current.filter((h) => !(h.from === who && h.result == null))
+        setRS(who, 'idle')
+        setTool((t) => (t?.role === who ? null : t))
+        buzzSound()
+        const name = squadRef.current.find((m) => m.id === who)?.name || who
+        setToast(`⏹ ${name}: tarea cancelada`)
+        clearTimeout(toastTimer.current)
+        toastTimer.current = setTimeout(() => setToast(null), 3500)
         if (isP) setStatus('esperándote')
       } else if (e.kind === 'error') {
         setMessages((ms) => [...ms, { role: 'assistant', who, text: `⚠️ ${e.message}` }])
@@ -916,6 +936,19 @@ export default function App() {
         {toast && (
           <div className="toast" key={toast}>
             {toast}
+          </div>
+        )}
+
+        {/* chips para detener a quien esté trabajando */}
+        {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
+          <div className="stopbar">
+            {running
+              .filter((r) => roleStates[r] !== 'delivering')
+              .map((r) => (
+                <button key={r} className="stopchip" onClick={() => window.oficina?.stop?.(r)} title={`Detener a ${memberOf(r).name}`}>
+                  ⏹ {memberOf(r).name}
+                </button>
+              ))}
           </div>
         )}
 
