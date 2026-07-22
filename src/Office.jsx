@@ -1,6 +1,7 @@
 import { Suspense, useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { MathUtils } from 'three'
+import { Canvas, useFrame, useLoader } from '@react-three/fiber'
+import { MathUtils, Shape, ExtrudeGeometry, DoubleSide } from 'three'
+import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
 import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
@@ -67,7 +68,7 @@ function Room() {
 
 function Window() {
   return (
-    <group position={[-HALF + 0.04, 1.3, -1.4]} rotation={[0, Math.PI / 2, 0]}>
+    <group position={[-HALF + 0.04, 1.3, 0]} rotation={[0, Math.PI / 2, 0]}>
       <RB args={[1.05, 1.15, 0.08]} r={0.03} castShadow>{mat(WHITE)}</RB>
       <mesh position={[0, 0, 0.045]}>
         <planeGeometry args={[0.85, 0.95]} />
@@ -85,8 +86,66 @@ function Window() {
   )
 }
 
+// ── Cuadro de Flutter: carga el SVG oficial y lo pinta tal cual ─────────────
+function FlutterFrame({ position, rotation = [0, 0, 0] }) {
+  const { paths } = useLoader(SVGLoader, '/flutter-logo.svg')
+  // viewBox del SVG: .29 .22 77.26 95.75 → centro (38.92, 48.1)
+  const s = 0.0062
+  return (
+    <group position={position} rotation={rotation}>
+      {/* marco + lienzo */}
+      <RB args={[0.72, 0.88, 0.05]} r={0.02} castShadow>{mat(WHITE)}</RB>
+      <mesh position={[0, 0, 0.026]}>
+        <planeGeometry args={[0.6, 0.76]} />
+        {mat('#eef4f7')}
+      </mesh>
+      {/* logo real, centrado y plano contra el lienzo (Y del SVG va hacia abajo → se voltea) */}
+      <group position={[-38.92 * s, 48.1 * s, 0.03]} scale={[s, -s, 1]}>
+        {paths.map((p, i) =>
+          SVGLoader.createShapes(p).map((shape, j) => {
+            const opacity = p.userData.style.fillOpacity ?? 1
+            return (
+              <mesh key={`${i}-${j}`} position={[0, 0, i * 0.0015]}>
+                <shapeGeometry args={[shape]} />
+                <meshStandardMaterial
+                  color={p.userData.style.fill}
+                  transparent={opacity < 1}
+                  opacity={opacity}
+                  roughness={0.6}
+                  side={DoubleSide}
+                />
+              </mesh>
+            )
+          })
+        )}
+      </group>
+    </group>
+  )
+}
+
 // ── Escritorio en L genérico ─────────────────────────────────────────────────
-// Esquina del L en el origen local; alas hacia +z y +x. Se rota por estación.
+// Superficie de UNA sola pieza (polígono en L extruido con bisel), no dos
+// tablones cruzados. Esquina del L en el origen local; alas hacia +z y +x.
+const L_TOP_GEOM = (() => {
+  const W = 0.275 // media anchura del ala
+  const LEN = 1.7 // largo de cada ala
+  const s = new Shape()
+  s.moveTo(-W, -W)
+  s.lineTo(LEN, -W)
+  s.lineTo(LEN, W)
+  s.lineTo(W, W)
+  s.lineTo(W, LEN)
+  s.lineTo(-W, LEN)
+  s.closePath()
+  return new ExtrudeGeometry(s, {
+    depth: 0.05,
+    bevelEnabled: true,
+    bevelThickness: 0.006,
+    bevelSize: 0.006,
+    bevelSegments: 2,
+  })
+})()
+
 function LDesk({ position, rotation = [0, 0, 0] }) {
   const legs = [
     [0.15, 1.58],
@@ -95,12 +154,10 @@ function LDesk({ position, rotation = [0, 0, 0] }) {
   ]
   return (
     <group position={position} rotation={rotation}>
-      <RB args={[0.55, 0.05, 1.7]} r={0.02} position={[0, DESK_H, 0.85]} castShadow receiveShadow>
+      {/* tabla en L continua (el shape XY se acuesta al plano XZ) */}
+      <mesh geometry={L_TOP_GEOM} position={[0, DESK_H + 0.028, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
         {mat(DESK)}
-      </RB>
-      <RB args={[1.7, 0.05, 0.55]} r={0.02} position={[0.85, DESK_H + 0.001, 0]} castShadow receiveShadow>
-        {mat(DESK)}
-      </RB>
+      </mesh>
       {legs.map(([x, z], i) => (
         <RB key={i} args={[0.05, DESK_H, 0.05]} r={0.015} position={[x, DESK_H / 2, z]} castShadow>
           {mat(METAL, { metal: 0.5, rough: 0.4 })}
@@ -228,14 +285,34 @@ function FiddlePlant({ position, scale = 0.5 }) {
   )
 }
 
-// Props chicos de Kenney sobre el escritorio principal + estante.
+// Props chicos de Kenney: escritorio principal + estante + decoración de estaciones.
 const PROPS = [
+  // ── escritorio principal ──
   { url: '/models/furniture/computerKeyboard.glb', position: [-1.62, TOP, -1.95] },
   { url: '/models/furniture/computerMouse.glb', position: [-1.28, TOP, -1.98] },
   { url: '/models/furniture/plantSmall3.glb', position: [-1.05, TOP, -2.32] },
   { url: '/models/furniture/pottedPlant.glb', position: [-2.28, TOP, -2.28], scale: 0.6 },
   { url: '/models/furniture/plantSmall2.glb', position: [-2.3, TOP, -0.75] },
   { url: '/models/furniture/books.glb', position: [1.55, 1.325, -2.5], scale: 1.4 },
+  // ── estación fondo-derecha (research) ──
+  { url: '/models/furniture/computerKeyboard.glb', position: [1.26, TOP, -2.05] },
+  { url: '/models/furniture/computerMouse.glb', position: [1.62, TOP, -2.1] },
+  { url: '/models/furniture/radio.glb', position: [0.72, TOP, -2.42] },
+  { url: '/models/furniture/books.glb', position: [2.2, TOP, -1.7], scale: 1.2 },
+  { url: '/models/furniture/plantSmall1.glb', position: [2.28, TOP, -0.95] },
+  // ── estación frontal-izquierda (design) ──
+  { url: '/models/furniture/computerKeyboard.glb', position: [-2.16, TOP, 1.55], rotation: [0, Math.PI / 2, 0] },
+  { url: '/models/furniture/computerMouse.glb', position: [-2.12, TOP, 1.8], rotation: [0, Math.PI / 2, 0] },
+  { url: '/models/furniture/books.glb', position: [-1.7, TOP, 2.32] },
+  { url: '/models/furniture/plantSmall2.glb', position: [-0.85, TOP, 2.3] },
+  // ── estación frontal-derecha (qa) ──
+  { url: '/models/furniture/computerKeyboard.glb', position: [1.28, TOP, 2.16] },
+  { url: '/models/furniture/computerMouse.glb', position: [1.65, TOP, 2.14] },
+  { url: '/models/furniture/speakerSmall.glb', position: [2.22, TOP, 1.25] },
+  { url: '/models/furniture/plantSmall3.glb', position: [2.28, TOP, 0.78] },
+  { url: '/models/furniture/trashcan.glb', position: [2.38, 0, 0.42], scale: 0.5 },
+  // ── plantas de piso extra ──
+  { url: '/models/furniture/pottedPlant.glb', position: [-2.32, 0, -0.05], scale: 0.85 },
 ]
 
 // ── Estación principal (dev) ────────────────────────────────────────────────
@@ -246,29 +323,37 @@ const YAW_DESK = Math.atan2(MONITOR_POS[0] - CHAIR_POS[0], MONITOR_POS[2] - CHAI
 
 // ── Puestos de trabajo (geometría fija). Quién los ocupa viene del squad ⚙️ ──
 // Cada puesto tiene su L en una esquina, monitor en diagonal y punto de entrega.
+// Igual que el principal: monitor recto SOBRE un ala de la L (no en diagonal)
+// y la silla de frente a esa ala.
 const SLOTS = [
   {
+    // trasera-derecha: monitor en el ala de la pared del fondo, mirando +z
     desk: [HALF - 0.32, 0, -HALF + 0.32],
     deskRot: [0, -Math.PI / 2, 0], // alas hacia -x (pared fondo) y +z
-    monitor: [1.95, TOP, -1.95],
-    monitorRot: [0, -Math.PI / 4, 0],
-    chair: [1.4, 0, -1.4],
+    monitor: [1.4, TOP, -2.32],
+    monitorRot: [0, 0, 0],
+    chair: [1.4, 0, -1.5],
+    mat: { position: [1.4, 0.012, -1.45], args: [1.05, 0.02, 0.95] },
     deliver: [-0.6, -0.95], // a dónde camina a entregarle al principal
   },
   {
+    // frontal-izquierda: monitor en el ala de la pared izquierda, mirando +x
     desk: [-HALF + 0.32, 0, HALF - 0.32],
     deskRot: [0, Math.PI / 2, 0], // alas hacia -z (pared izq) y +x
-    monitor: [-1.95, TOP, 1.95],
-    monitorRot: [0, (Math.PI * 3) / 4, 0],
-    chair: [-1.4, 0, 1.4],
+    monitor: [-2.32, TOP, 1.4],
+    monitorRot: [0, Math.PI / 2, 0],
+    chair: [-1.5, 0, 1.4],
+    mat: { position: [-1.45, 0.012, 1.4], args: [0.95, 0.02, 1.05] },
     deliver: [-1.05, -0.4],
   },
   {
+    // frontal-derecha (isla): monitor en el ala frontal, mirando -z
     desk: [HALF - 0.32, 0, HALF - 0.32],
-    deskRot: [0, Math.PI, 0], // alas hacia -x y -z (isla en la esquina frontal)
-    monitor: [1.95, TOP, 1.95],
-    monitorRot: [0, (-Math.PI * 3) / 4, 0],
-    chair: [1.4, 0, 1.4],
+    deskRot: [0, Math.PI, 0], // alas hacia -x y -z
+    monitor: [1.4, TOP, 2.32],
+    monitorRot: [0, Math.PI, 0],
+    chair: [1.4, 0, 1.5],
+    mat: { position: [1.4, 0.012, 1.45], args: [1.05, 0.02, 0.95] },
     deliver: [-0.45, -0.65],
   },
 ]
@@ -325,6 +410,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
       <LDesk position={[-HALF + 0.32, 0, -HALF + 0.32]} />
       <Monitor working={devState === 'working'} position={MONITOR_POS.map((v, i) => (i === 1 ? TOP : v))} />
       <Laptop position={[-2.3, TOP, -1.3]} rotation={[0, Math.PI / 2, 0]} />
+      {/* laptop secundaria del diseñador (ala frontal de su L) */}
+      <Laptop position={[-1.3, TOP, 2.28]} rotation={[0, Math.PI, 0]} />
       {/* gabinete y archivadores bajo el ala del fondo */}
       <RB args={[0.35, 0.3, 0.42]} r={0.02} position={[-0.75, 0.15, -2.28]} castShadow>{mat(DARK)}</RB>
       {['#3a4750', '#51616c', '#2e3a42'].map((c, i) => (
@@ -334,8 +421,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
       ))}
       <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-1.5, 0.012, -1.45]} receiveShadow>{mat(MAT_BLUE)}</RB>
       <FiddlePlant position={[2.3, 0, 0.1]} />
+      <FiddlePlant position={[0.05, 0, -2.28]} scale={0.38} />
+      <FiddlePlant position={[0, 0, 2.45]} scale={0.42} />
 
       <Suspense fallback={null}>
+        <FlutterFrame position={[-0.7, 1.35, -HALF + 0.07]} />
         {PROPS.map((p, i) => (
           <GltfProp key={i} {...p} />
         ))}
@@ -381,6 +471,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
           return (
             <group key={i}>
               <LDesk position={s.desk} rotation={s.deskRot} />
+              <RB args={s.mat.args} r={0.03} position={s.mat.position} receiveShadow>{mat(MAT_BLUE)}</RB>
               <Monitor working={st === 'working'} position={s.monitor} rotation={s.monitorRot} />
               <Turn position={s.chair} yaw={yawFor(st, yawScreen)}>
                 <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
