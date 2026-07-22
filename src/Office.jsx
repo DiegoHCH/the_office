@@ -1,5 +1,6 @@
-import { Suspense } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Suspense, useRef } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { MathUtils } from 'three'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox } from '@react-three/drei'
 import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
@@ -242,12 +243,27 @@ const PROPS = [
   { url: '/models/furniture/books.glb', position: [1.15, 1.225, -1.7], scale: 1.4 },
 ]
 
-// Silla y personaje comparten pose. Posición inicial: mirando al frente
-// (hacia la cámara), como esperando; al trabajar (F2) girará hacia el escritorio.
+// Silla y personaje comparten pose. Mirando al frente cuando espera; al
+// trabajar, la silla gira suavemente hacia el escritorio (y de vuelta).
 const CHAIR_POS = [-0.72, 0, -0.66]
-const CHAIR_ROT = [0, Math.PI / 4, 0]
+const YAW_FRONT = Math.PI / 4 // hacia la cámara
+const YAW_DESK = -Math.PI * 0.75 // hacia la esquina del escritorio
 
-export default function Office() {
+function Swivel({ working, children }) {
+  const ref = useRef()
+  useFrame((_, dt) => {
+    if (!ref.current) return
+    const target = working ? YAW_DESK : YAW_FRONT
+    ref.current.rotation.y = MathUtils.damp(ref.current.rotation.y, target, 3.5, dt)
+  })
+  return (
+    <group ref={ref} position={CHAIR_POS} rotation={[0, YAW_FRONT, 0]}>
+      {children}
+    </group>
+  )
+}
+
+export default function Office({ working = false }) {
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={['#b9ccd3']} />
@@ -277,25 +293,27 @@ export default function Office() {
       <Monitor />
       <Laptop />
       <Shelf />
-      {/* tapete azul + silla + personaje sentado */}
+      {/* tapete azul + silla giratoria con el personaje sentado */}
       <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-0.72, 0.012, -0.66]} receiveShadow>{mat(MAT_BLUE)}</RB>
-      <Chair position={CHAIR_POS} rotation={CHAIR_ROT} />
       <FiddlePlant position={[-1.38, 0, 0.85]} />
 
       <Suspense fallback={null}>
         {PROPS.map((p, i) => (
           <GltfProp key={i} {...p} />
         ))}
-        <Character3D
-          url="/models/pj/Casual_Male.gltf"
-          clip="SitDown"
-          once
-          scale={0.27}
-          position={[-0.72, 0, -0.66]}
-          rotation={CHAIR_ROT}
-          sitAt={[-0.72, 0.3, -0.66]}
-          colors={{ Skin: '#e8b890', Face: '#5c402e' }}
-        />
+        <Swivel working={working}>
+          <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
+          <Character3D
+            url="/models/pj/Casual_Male.gltf"
+            clip="SitDown"
+            once
+            scale={0.27}
+            position={[0, 0, 0]}
+            rotation={[0, 0, 0]}
+            sitAt={[-0.72, 0.3, -0.66]}
+            colors={{ Skin: '#e8b890', Face: '#5c402e' }}
+          />
+        </Swivel>
       </Suspense>
 
       <ContactShadows position={[0, 0.004, 0]} opacity={0.4} scale={6} blur={2.5} far={3} />

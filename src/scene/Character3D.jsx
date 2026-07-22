@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { LoopOnce, Vector3 } from 'three'
+import { LoopOnce, Vector3, Quaternion } from 'three'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, useAnimations } from '@react-three/drei'
 
@@ -74,13 +74,24 @@ export default function Character3D({
   }, [actions, names, clip, once])
 
   // Anclar la cadera al punto del asiento (corrige el root-motion de SitDown).
-  const tmp = useRef(new Vector3())
+  // El delta se calcula en mundo y se convierte al espacio local del padre,
+  // para que funcione también dentro de grupos rotados (silla giratoria).
+  const tmpV = useRef(new Vector3())
+  const tmpQ = useRef(new Quaternion())
   useFrame(() => {
     if (!sitAt || !hipsBone.current || !group.current) return
-    hipsBone.current.getWorldPosition(tmp.current)
-    group.current.position.x += sitAt[0] - tmp.current.x
-    group.current.position.y += sitAt[1] - tmp.current.y
-    group.current.position.z += sitAt[2] - tmp.current.z
+    hipsBone.current.getWorldPosition(tmpV.current)
+    const delta = tmpV.current.set(
+      sitAt[0] - tmpV.current.x,
+      sitAt[1] - tmpV.current.y,
+      sitAt[2] - tmpV.current.z
+    )
+    const parent = group.current.parent
+    if (parent) {
+      parent.getWorldQuaternion(tmpQ.current).invert()
+      delta.applyQuaternion(tmpQ.current)
+    }
+    group.current.position.add(delta)
   })
 
   return (
