@@ -118,6 +118,18 @@ function notify(displayName, body) {
 const READ_TOOLS = 'Read,Glob,Grep,WebSearch,WebFetch'
 const WRITE_TOOLS = `${READ_TOOLS},Edit,Write,NotebookEdit,Bash`
 
+// Pizarra compartida: memoria común del squad en la raíz del proyecto.
+let boardEnabled = true
+ipcMain.handle('prefs:board', (_e, v) => {
+  boardEnabled = !!v
+  return { ok: true }
+})
+const SQUAD_BOARD_NOTE =
+  'MEMORIA COMPARTIDA DEL SQUAD: el equipo comparte un archivo `SQUAD.md` en la raíz del proyecto (cwd) como pizarra común. ' +
+  'Si es relevante para tu tarea, LÉELO al empezar (con Read) para ver en qué anda el resto. ' +
+  'Cuando tomes una decisión importante, termines algo notable o dejes algo pendiente, AÑADE una línea breve al final de `SQUAD.md` firmando con tu nombre y la fecha (crea el archivo si no existe). ' +
+  'No lo uses para tareas triviales ni lo llenes de ruido.'
+
 // Perfiles = mismos alias que en zsh: claude-work / claude-private.
 const PROFILE_DIRS = {
   work: () => path.join(app.getPath('home'), '.claude-work'),
@@ -328,7 +340,8 @@ ipcMain.handle('claude:ask', (_e, payload) => {
 
   const member = getSquad(profile).find((r) => r.id === role)
   const displayName = member?.name || role
-  const persona = (ROLE_TEMPLATES[role] || ROLE_TEMPLATES.dev)(displayName)
+  let persona = (ROLE_TEMPLATES[role] || ROLE_TEMPLATES.dev)(displayName)
+  if (boardEnabled) persona += `\n\n${SQUAD_BOARD_NOTE}`
 
   const args = [
     '-p', prompt,
@@ -553,7 +566,7 @@ ipcMain.handle('stats:refreshUsage', () => {
 })
 ipcMain.handle('stats:get', async (_e, profile = 'work') => {
   const c = (usageCache[profile] ||= { at: 0, data: null })
-  if (Date.now() - c.at > 5 * 60_000) {
+  if (Date.now() - c.at > 60_000) {
     c.at = Date.now()
     fetchClaudeUsage(profile).then((d) => {
       c.data = d // null si no hay token → el renderer oculta la sección
@@ -597,6 +610,24 @@ ipcMain.handle('image:save', (_e, { name, data }) => {
     const ext = (name && path.extname(name)) || '.png'
     const file = path.join(dir, `${Date.now()}-${Math.random().toString(36).slice(2, 8)}${ext}`)
     fs.writeFileSync(file, Buffer.from(data))
+    return { ok: true, path: file }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// Abre la pizarra compartida SQUAD.md del proyecto (la crea si no existe).
+ipcMain.handle('board:open', (_e, cwd) => {
+  const dir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
+  const file = path.join(dir, 'SQUAD.md')
+  try {
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(file, '# 🧠 Pizarra del squad\n\nMemoria común del equipo. Cada quien anota aquí lo importante.\n')
+    }
+    // -t abre en el editor de texto por defecto (fiable para .md); fallback a open normal
+    execFile('open', ['-t', file], (err) => {
+      if (err) execFile('open', [file], () => {})
+    })
     return { ok: true, path: file }
   } catch (err) {
     return { ok: false, error: err.message }

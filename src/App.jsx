@@ -53,9 +53,16 @@ function SysMonitor({ modelLabel, profile }) {
     }
     tick()
     const iv = setInterval(tick, 3000)
+    // al volver a la ventana, refrescar el % (por si la sesión se reinició fuera)
+    const onFocus = () => {
+      window.oficina?.refreshUsage?.()
+      tick()
+    }
+    window.addEventListener('focus', onFocus)
     return () => {
       on = false
       clearInterval(iv)
+      window.removeEventListener('focus', onFocus)
     }
   }, [profile])
   if (!s) return null
@@ -300,7 +307,9 @@ export default function App() {
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
   const [sound, setSound] = useState(() => localStorage.getItem('oficina-sound') !== '0')
-  const [theme, setTheme] = useState(() => localStorage.getItem('oficina-theme') || 'clasico')
+  const [theme, setTheme] = useState('clasico') // se carga por perfil al iniciar/cambiar
+  const themeLoaded = useRef(false) // evita machacar el guardado antes de hidratar
+  const [board, setBoard] = useState(() => localStorage.getItem('oficina-board') !== '0')
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [squadOpen, setSquadOpen] = useState(false)
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
@@ -362,9 +371,16 @@ export default function App() {
     window.oficina?.setNotify?.(sound) // también los avisos del sistema
   }, [sound])
 
+  // el tema se guarda POR PERFIL (cada cuenta puede tener el suyo), solo tras hidratar
   useEffect(() => {
-    localStorage.setItem('oficina-theme', theme)
-  }, [theme])
+    if (!themeLoaded.current) return
+    localStorage.setItem(`oficina-theme-${profile}`, theme)
+  }, [theme, profile])
+
+  useEffect(() => {
+    localStorage.setItem('oficina-board', board ? '1' : '0')
+    window.oficina?.setBoard?.(board)
+  }, [board])
 
   const loadSquad = async (p) => {
     const r = (await window.oficina?.squad?.get(p)) || []
@@ -378,6 +394,8 @@ export default function App() {
       setProfile(first)
       setProject(c.projectsByProfile[first]?.[0]?.path || '')
       setModel(c.defaultModels?.[first] || FALLBACK_MODEL)
+      themeLoaded.current = true
+      setTheme(localStorage.getItem(`oficina-theme-${first}`) || 'clasico')
       loadSquad(first)
     })
   }, [])
@@ -566,6 +584,7 @@ export default function App() {
     setProfile(p)
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
     setModel(cfg?.defaultModels?.[p] || FALLBACK_MODEL)
+    setTheme(localStorage.getItem(`oficina-theme-${p}`) || 'clasico') // tema por cuenta
     setMessages([])
     convIdRef.current = null
     sessionsRef.current = {}
@@ -911,6 +930,29 @@ export default function App() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Pizarra:</span>
+              <button
+                type="button"
+                className={board ? 'pref-toggle on' : 'pref-toggle'}
+                onClick={() => setBoard((b) => !b)}
+                title="Memoria común del squad en SQUAD.md (leen y anotan lo importante)"
+              >
+                {board ? '🧠 SQUAD.md activa' : '🧠 desactivada'}
+              </button>
+              <button
+                type="button"
+                className="newchat"
+                style={{ flex: 'none' }}
+                onClick={async () => {
+                  const res = await window.oficina?.openBoard?.(project)
+                  showToast(res?.ok ? '🧠 abriendo SQUAD.md…' : '⚠️ reinicia la app (npm run dev)')
+                }}
+                title="Ver/editar SQUAD.md del proyecto"
+              >
+                abrir
+              </button>
             </div>
             <div className="pref-row">
               <span className="pref-label">Notificaciones:</span>

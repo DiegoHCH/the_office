@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld('oficina', {
   refreshUsage: () => ipcRenderer.invoke('stats:refreshUsage'),
   // Preferencias: activar/desactivar notificaciones del sistema.
   setNotify: (v) => ipcRenderer.invoke('prefs:notify', v),
+  // Pizarra compartida: activar/desactivar y abrir SQUAD.md del proyecto.
+  setBoard: (v) => ipcRenderer.invoke('prefs:board', v),
+  openBoard: (cwd) => ipcRenderer.invoke('board:open', cwd),
   // Configuración del squad (roster por perfil: nombres y activos).
   squad: {
     get: (profile) => ipcRenderer.invoke('squad:get', profile),

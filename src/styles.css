@@ -159,9 +159,9 @@ body {
 /* panel de historial */
 .drawer {
   position: absolute; left: 14px; top: 14px; bottom: 14px;
-  width: min(320px, 44%); overflow-y: auto; z-index: 5;
+  width: min(420px, 52%); overflow-y: auto; z-index: 5;
   background: rgba(14, 20, 23, 0.96); border: 1px solid #28353a; border-radius: 12px;
-  padding: 10px;
+  padding: 12px 14px;
 }
 .drawer-head {
   display: flex; justify-content: space-between; align-items: center;
@@ -248,7 +248,7 @@ body {
 .squad-avatar-btn:hover, .squad-avatar-btn.open { color: #2dd4bf; border-color: #2dd4bf; }
 
 /* galería de personajes (panel derecho) */
-.drawer.right { left: auto; right: 14px; width: min(380px, 48%); }
+.drawer.right { left: auto; right: 14px; width: min(420px, 52%); }
 .avatar-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; padding: 4px;
 }
