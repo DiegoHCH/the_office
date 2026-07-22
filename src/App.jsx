@@ -14,7 +14,7 @@ export default function App() {
       <header className="hud">
         <span className="dot" />
         <b>LA OFICINA</b>
-        <span className="muted">· Fase 0 · scaffold</span>
+        <span className="muted">· Fase 1 · arte</span>
         <span className="ipc">
           {window.oficina ? `IPC ok · app v${version}` : 'sin Electron (modo navegador)'}
         </span>

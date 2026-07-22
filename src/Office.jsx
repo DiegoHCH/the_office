@@ -1,187 +1,304 @@
-import { useRef } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, OrthographicCamera, ContactShadows } from '@react-three/drei'
+import { Suspense } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox } from '@react-three/drei'
+import GltfProp from './scene/GltfProp.jsx'
+import Character3D from './scene/Character3D.jsx'
 
-// Paleta inspirada en la referencia (diorama acogedor).
-const WOOD = '#c69a6d'
-const WALL_BACK = '#6a808d'
-const WALL_LEFT = '#586d78'
-const TEAL = '#2dd4bf'
-const WHITE = '#e8edf0'
+// ── Paleta calcada de la referencia ─────────────────────────────────────────
+const FLOOR = '#c9917b' // piso rosado-terracota
+const WALL_BACK = '#3d5866' // azul acero oscuro
+const WALL_LEFT = '#35505d'
+const BASE = '#2f434e'
+const DESK = '#cf9b7e' // madera rosada del escritorio
+const METAL = '#b9c2c7'
+const DARK = '#22282c'
+const WHITE = '#eef2f4'
+const MAT_BLUE = '#3c6b82' // tapete azul bajo la silla
+const POT = '#ece6db'
+const GREEN1 = '#3a8f5f'
+const GREEN2 = '#49a56d'
 
+const DESK_H = 0.38 // altura de la superficie del escritorio
+const TOP = DESK_H + 0.025 // cara superior de la tabla
+
+const mat = (color, opts = {}) => (
+  <meshStandardMaterial color={color} roughness={opts.rough ?? 0.8} metalness={opts.metal ?? 0} {...opts.extra} />
+)
+
+function RB({ args, r = 0.02, children, ...props }) {
+  const radius = Math.max(Math.min(r, Math.min(...args) / 2 - 0.001), 0.004)
+  return (
+    <RoundedBox args={args} radius={radius} smoothness={3} {...props}>
+      {children}
+    </RoundedBox>
+  )
+}
+
+// ── Sala ─────────────────────────────────────────────────────────────────────
 function Room() {
   return (
     <group>
-      {/* piso */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <planeGeometry args={[7, 7]} />
-        <meshStandardMaterial color={WOOD} />
+        <planeGeometry args={[3.6, 3.6]} />
+        {mat(FLOOR)}
       </mesh>
-      {/* pared trasera */}
-      <mesh position={[0, 2, -3.5]} receiveShadow>
-        <boxGeometry args={[7, 4, 0.15]} />
-        <meshStandardMaterial color={WALL_BACK} />
+      <mesh position={[0, 0.9, -1.8]} receiveShadow castShadow>
+        <boxGeometry args={[3.6, 1.8, 0.08]} />
+        {mat(WALL_BACK)}
       </mesh>
-      {/* pared izquierda */}
-      <mesh position={[-3.5, 2, 0]} receiveShadow>
-        <boxGeometry args={[0.15, 4, 7]} />
-        <meshStandardMaterial color={WALL_LEFT} />
+      <mesh position={[-1.8, 0.9, 0]} receiveShadow castShadow>
+        <boxGeometry args={[0.08, 1.8, 3.6]} />
+        {mat(WALL_LEFT)}
       </mesh>
-      {/* ventana (hueco claro en la pared trasera) */}
-      <mesh position={[-1.4, 2.4, -3.4]}>
-        <planeGeometry args={[1.6, 1.6]} />
-        <meshStandardMaterial color="#dff0f4" emissive="#dff0f4" emissiveIntensity={0.35} />
+      <mesh position={[0, 0.05, -1.75]}>
+        <boxGeometry args={[3.6, 0.1, 0.03]} />
+        {mat(BASE)}
       </mesh>
-      {/* alfombra */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0.3, 0.011, 0.7]} receiveShadow>
-        <planeGeometry args={[2.8, 2.4]} />
-        <meshStandardMaterial color="#31586b" />
+      <mesh position={[-1.75, 0.05, 0]}>
+        <boxGeometry args={[0.03, 0.1, 3.6]} />
+        {mat(BASE)}
       </mesh>
     </group>
   )
 }
 
-function Desk() {
+// Ventana en la pared IZQUIERDA (como la referencia), sobre el ala del escritorio.
+function Window() {
+  return (
+    <group position={[-1.75, 1.25, -0.85]} rotation={[0, Math.PI / 2, 0]}>
+      <RB args={[1.05, 1.15, 0.08]} r={0.03} castShadow>{mat(WHITE)}</RB>
+      <mesh position={[0, 0, 0.045]}>
+        <planeGeometry args={[0.85, 0.95]} />
+        <meshStandardMaterial color="#eaf6fa" emissive="#eaf6fa" emissiveIntensity={0.55} />
+      </mesh>
+      <mesh position={[0, 0, 0.06]}>
+        <boxGeometry args={[0.87, 0.05, 0.02]} />
+        {mat(WHITE)}
+      </mesh>
+      <mesh position={[0, 0, 0.06]}>
+        <boxGeometry args={[0.05, 0.97, 0.02]} />
+        {mat(WHITE)}
+      </mesh>
+    </group>
+  )
+}
+
+// ── Escritorio en L (ancho, color propio) ────────────────────────────────────
+function DeskL() {
   const legs = [
-    [-2.35, -2.1],
-    [0.35, -2.1],
-    [1.45, 0.6],
-    [0.35, 0.6],
+    [-1.19, -0.05],
+    [0.13, -1.19],
+    [-1.19, -1.19],
   ]
   return (
     <group>
-      {/* superficie en L */}
-      <mesh position={[-1, 1, -1.6]} castShadow receiveShadow>
-        <boxGeometry args={[3, 0.12, 1.2]} />
-        <meshStandardMaterial color="#8a5a33" />
+      {/* ala contra la pared izquierda */}
+      <RB args={[0.55, 0.05, 1.7]} r={0.02} position={[-1.42, DESK_H, -0.85]} castShadow receiveShadow>
+        {mat(DESK)}
+      </RB>
+      {/* ala contra la pared del fondo */}
+      <RB args={[1.9, 0.05, 0.55]} r={0.02} position={[-0.75, DESK_H, -1.42]} castShadow receiveShadow>
+        {mat(DESK)}
+      </RB>
+      {legs.map(([x, z], i) => (
+        <RB key={i} args={[0.05, DESK_H, 0.05]} r={0.015} position={[x, DESK_H / 2, z]} castShadow>
+          {mat(METAL, { metal: 0.5, rough: 0.4 })}
+        </RB>
+      ))}
+      {/* caja oscura bajo el ala del fondo (como la referencia) */}
+      <RB args={[0.35, 0.3, 0.42]} r={0.02} position={[0.0, 0.15, -1.42]} castShadow>{mat(DARK)}</RB>
+      {/* archivadores bajo el ala izquierda */}
+      {['#3a4750', '#51616c', '#2e3a42'].map((c, i) => (
+        <RB key={c} args={[0.05, 0.26, 0.18]} r={0.012} position={[-1.32 + i * 0.07, 0.13, -0.25]} castShadow>
+          {mat(c)}
+        </RB>
+      ))}
+    </group>
+  )
+}
+
+// Monitor estilo iMac (oscuro, como la referencia).
+function Monitor() {
+  return (
+    <group position={[-0.55, TOP, -1.48]}>
+      <RB args={[0.16, 0.015, 0.12]} r={0.006} position={[0, 0.008, 0.03]} castShadow>{mat(METAL, { metal: 0.5 })}</RB>
+      <RB args={[0.035, 0.16, 0.025]} r={0.01} position={[0, 0.09, 0.01]} castShadow>{mat(METAL, { metal: 0.5 })}</RB>
+      <RB args={[0.5, 0.32, 0.03]} r={0.012} position={[0, 0.26, 0]} castShadow>{mat('#c9d2d6', { metal: 0.3 })}</RB>
+      <mesh position={[0, 0.265, 0.017]}>
+        <planeGeometry args={[0.45, 0.27]} />
+        <meshStandardMaterial color="#171e24" emissive="#1d3a44" emissiveIntensity={0.35} roughness={0.3} />
       </mesh>
-      <mesh position={[0.9, 1, -0.4]} castShadow receiveShadow>
-        <boxGeometry args={[1.2, 0.12, 2.4]} />
-        <meshStandardMaterial color="#8a5a33" />
+    </group>
+  )
+}
+
+// Laptop abierta sobre el ala izquierda, mirando hacia la sala.
+function Laptop() {
+  return (
+    <group position={[-1.42, TOP, -0.5]} rotation={[0, Math.PI / 2, 0]}>
+      <RB args={[0.3, 0.018, 0.2]} r={0.008} castShadow>{mat('#aab4b9', { metal: 0.6, rough: 0.35 })}</RB>
+      <group position={[0, 0.1, -0.095]} rotation={[-0.4, 0, 0]}>
+        <RB args={[0.3, 0.2, 0.012]} r={0.008} castShadow>{mat('#aab4b9', { metal: 0.6, rough: 0.35 })}</RB>
+        <mesh position={[0, 0, 0.008]}>
+          <planeGeometry args={[0.26, 0.16]} />
+          <meshStandardMaterial color="#171e24" emissive="#1d3a44" emissiveIntensity={0.3} />
+        </mesh>
+      </group>
+    </group>
+  )
+}
+
+// Silla ergonómica blanca con base de 5 ruedas (como la referencia).
+function Chair({ position, rotation }) {
+  return (
+    <group position={position} rotation={rotation}>
+      <RB args={[0.34, 0.05, 0.32]} r={0.02} position={[0, 0.225, 0]} castShadow>{mat(WHITE, { rough: 0.5 })}</RB>
+      <RB args={[0.32, 0.4, 0.05]} r={0.02} position={[0, 0.47, -0.155]} rotation={[-0.06, 0, 0]} castShadow>
+        {mat(WHITE, { rough: 0.5 })}
+      </RB>
+      {[-0.185, 0.185].map((x) => (
+        <RB key={x} args={[0.04, 0.05, 0.2]} r={0.012} position={[x, 0.31, 0]} castShadow>{mat('#cfd6da')}</RB>
+      ))}
+      <mesh position={[0, 0.115, 0]} castShadow>
+        <cylinderGeometry args={[0.02, 0.02, 0.17, 10]} />
+        {mat(METAL, { metal: 0.6, rough: 0.3 })}
       </mesh>
-      {/* patas */}
-      {legs.map((p, i) => (
-        <mesh key={i} position={[p[0], 0.5, p[1]]} castShadow>
-          <boxGeometry args={[0.1, 1, 0.1]} />
-          <meshStandardMaterial color="#5a6b73" />
+      {[0, 1, 2, 3, 4].map((i) => (
+        <group key={i} rotation={[0, (i * Math.PI * 2) / 5, 0]}>
+          <RB args={[0.035, 0.02, 0.17]} r={0.008} position={[0, 0.03, 0.09]} castShadow>
+            {mat(METAL, { metal: 0.5 })}
+          </RB>
+          <mesh position={[0, 0.028, 0.17]} castShadow>
+            <sphereGeometry args={[0.028, 10, 10]} />
+            {mat(DARK)}
+          </mesh>
+        </group>
+      ))}
+    </group>
+  )
+}
+
+// Estante flotante con cuadro y libros (pared del fondo, lado derecho).
+function Shelf() {
+  return (
+    <group position={[0.75, 1.2, -1.68]}>
+      <RB args={[1.25, 0.05, 0.28]} r={0.015} castShadow receiveShadow>{mat(DESK)}</RB>
+      {/* cuadro apoyado */}
+      <group position={[-0.38, 0.21, -0.02]} rotation={[0.08, 0, 0]}>
+        <RB args={[0.28, 0.36, 0.03]} r={0.01} castShadow>{mat('#e3e8ea')}</RB>
+        <mesh position={[0, 0, 0.017]}>
+          <planeGeometry args={[0.2, 0.28]} />
+          {mat('#9fb7c4')}
+        </mesh>
+      </group>
+      {/* libros de pie (azul / blanco / índigo, como la referencia) */}
+      {[
+        ['#3b62a8', 0.28, 0.05],
+        ['#e8edf0', 0.24, 0.14],
+        ['#4550a8', 0.26, 0.22],
+      ].map(([c, h, x]) => (
+        <RB key={c} args={[0.055, h, 0.18]} r={0.01} position={[x, h / 2 + 0.025, 0]} castShadow>{mat(c)}</RB>
+      ))}
+    </group>
+  )
+}
+
+// Planta grande tipo fiddle-leaf en maceta blanca (junto a la ventana).
+function FiddlePlant({ position, scale = 0.5 }) {
+  const leaves = [
+    [0.0, 1.55, 0.0, 0, 0],
+    [0.28, 1.25, 0.05, 0.5, 0.4],
+    [-0.26, 1.3, -0.05, -0.5, -0.4],
+    [0.1, 1.0, 0.26, 0.3, 0.9],
+    [-0.12, 1.05, -0.24, -0.3, -0.9],
+  ]
+  return (
+    <group position={position} scale={scale}>
+      <mesh position={[0, 0.35, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.34, 0.26, 0.7, 16]} />
+        {mat(POT)}
+      </mesh>
+      <mesh position={[0, 1.05, 0]} castShadow>
+        <cylinderGeometry args={[0.05, 0.06, 0.9, 8]} />
+        {mat('#6b7d4a')}
+      </mesh>
+      {leaves.map(([x, y, z, rz, ry], i) => (
+        <mesh key={i} position={[x, y, z]} rotation={[0.2, ry, rz]} scale={[0.42, 0.6, 0.14]} castShadow>
+          <sphereGeometry args={[1, 16, 16]} />
+          {mat(i % 2 ? GREEN1 : GREEN2, { extra: { flatShading: true } })}
         </mesh>
       ))}
-      {/* monitor */}
-      <group position={[-1, 1.06, -1.85]}>
-        <mesh position={[0, 0.6, 0]} castShadow>
-          <boxGeometry args={[1.4, 0.9, 0.08]} />
-          <meshStandardMaterial color="#11171b" />
-        </mesh>
-        <mesh position={[0, 0.6, 0.05]}>
-          <boxGeometry args={[1.25, 0.75, 0.02]} />
-          <meshStandardMaterial color={TEAL} emissive={TEAL} emissiveIntensity={0.4} />
-        </mesh>
-        <mesh position={[0, 0.12, 0]} castShadow>
-          <boxGeometry args={[0.15, 0.35, 0.15]} />
-          <meshStandardMaterial color="#11171b" />
-        </mesh>
-      </group>
     </group>
   )
 }
 
-function Chair() {
-  return (
-    <group position={[0.35, 0, 0.5]}>
-      <mesh position={[0, 0.62, 0]} castShadow>
-        <boxGeometry args={[0.72, 0.12, 0.72]} />
-        <meshStandardMaterial color={WHITE} />
-      </mesh>
-      <mesh position={[0, 1.1, -0.32]} castShadow>
-        <boxGeometry args={[0.72, 0.95, 0.12]} />
-        <meshStandardMaterial color={WHITE} />
-      </mesh>
-      <mesh position={[0, 0.32, 0]} castShadow>
-        <cylinderGeometry args={[0.06, 0.06, 0.6, 10]} />
-        <meshStandardMaterial color="#9aa5ab" />
-      </mesh>
-      <mesh position={[0, 0.06, 0]} castShadow>
-        <cylinderGeometry args={[0.36, 0.36, 0.06, 14]} />
-        <meshStandardMaterial color="#9aa5ab" />
-      </mesh>
-    </group>
-  )
-}
+// Props chicos de Kenney sobre el escritorio.
+const PROPS = [
+  { url: '/models/furniture/computerKeyboard.glb', position: [-0.75, TOP, -1.16] },
+  { url: '/models/furniture/computerMouse.glb', position: [-0.32, TOP, -1.2] },
+  { url: '/models/furniture/plantSmall3.glb', position: [-0.15, TOP, -1.45] },
+  { url: '/models/furniture/pottedPlant.glb', position: [-1.45, TOP, -1.42], scale: 0.6 },
+  { url: '/models/furniture/plantSmall2.glb', position: [-1.45, TOP, -0.15] },
+  { url: '/models/furniture/books.glb', position: [1.15, 1.225, -1.7], scale: 1.4 },
+]
 
-function Plant({ position }) {
-  return (
-    <group position={position}>
-      <mesh position={[0, 0.3, 0]} castShadow>
-        <cylinderGeometry args={[0.28, 0.2, 0.6, 12]} />
-        <meshStandardMaterial color="#e8e2d8" />
-      </mesh>
-      <mesh position={[0, 0.9, 0]} castShadow>
-        <icosahedronGeometry args={[0.5, 0]} />
-        <meshStandardMaterial color="#2f8f5b" flatShading />
-      </mesh>
-      <mesh position={[0.25, 1.15, 0.1]} castShadow>
-        <icosahedronGeometry args={[0.34, 0]} />
-        <meshStandardMaterial color="#37a066" flatShading />
-      </mesh>
-    </group>
-  )
-}
-
-// Personaje placeholder con un leve "respiro" (idle). En F1 se reemplaza por un glTF (Mixamo).
-function Character() {
-  const ref = useRef()
-  useFrame(({ clock }) => {
-    if (ref.current) ref.current.position.y = Math.sin(clock.elapsedTime * 2) * 0.03
-  })
-  return (
-    <group position={[0.35, 0, 0.62]}>
-      <group ref={ref}>
-        <mesh position={[0, 1.15, 0]} castShadow>
-          <capsuleGeometry args={[0.28, 0.5, 4, 12]} />
-          <meshStandardMaterial color={TEAL} />
-        </mesh>
-        <mesh position={[0, 1.78, 0]} castShadow>
-          <sphereGeometry args={[0.26, 20, 20]} />
-          <meshStandardMaterial color="#e9c39a" />
-        </mesh>
-      </group>
-    </group>
-  )
-}
+// Silla y personaje comparten pose. Posición inicial: mirando al frente
+// (hacia la cámara), como esperando; al trabajar (F2) girará hacia el escritorio.
+const CHAIR_POS = [-0.72, 0, -0.66]
+const CHAIR_ROT = [0, Math.PI / 4, 0]
 
 export default function Office() {
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={['#b9ccd3']} />
 
-      {/* Cámara ortográfica en ángulo isométrico */}
-      <OrthographicCamera makeDefault position={[9, 8, 9]} zoom={70} near={0.1} far={100} />
-      <OrbitControls target={[0, 1, 0]} enablePan={false} minZoom={40} maxZoom={150} />
+      <OrthographicCamera makeDefault position={[9, 8, 9]} zoom={150} near={0.1} far={100} />
+      <OrbitControls target={[0, 0.35, 0]} enablePan={false} minZoom={80} maxZoom={320} />
 
-      {/* Luz: suave + direccional con sombras para el look de diorama */}
-      <ambientLight intensity={0.95} />
+      <ambientLight intensity={0.9} />
       <hemisphereLight args={['#dbe8ec', '#4a3b2f', 0.7]} />
       <directionalLight
-        position={[6, 11, 6]}
-        intensity={2.2}
+        position={[4, 7, 4]}
+        intensity={2.1}
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-8}
+        shadow-bias={-0.0004}
+        shadow-camera-left={-3}
+        shadow-camera-right={3}
+        shadow-camera-top={3}
+        shadow-camera-bottom={-3}
         shadow-camera-near={0.1}
-        shadow-camera-far={40}
+        shadow-camera-far={20}
       />
 
       <Room />
-      <Desk />
-      <Chair />
-      <Character />
-      <Plant position={[-2.7, 0, 2.1]} />
-      <Plant position={[2.6, 0, -2.2]} />
+      <Window />
+      <DeskL />
+      <Monitor />
+      <Laptop />
+      <Shelf />
+      {/* tapete azul + silla + personaje sentado */}
+      <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-0.72, 0.012, -0.66]} receiveShadow>{mat(MAT_BLUE)}</RB>
+      <Chair position={CHAIR_POS} rotation={CHAIR_ROT} />
+      <FiddlePlant position={[-1.38, 0, 0.85]} />
 
-      <ContactShadows position={[0, 0.02, 0]} opacity={0.4} scale={12} blur={2.4} far={4} />
+      <Suspense fallback={null}>
+        {PROPS.map((p, i) => (
+          <GltfProp key={i} {...p} />
+        ))}
+        <Character3D
+          url="/models/pj/Casual_Male.gltf"
+          clip="SitDown"
+          once
+          scale={0.27}
+          position={[-0.72, 0, -0.66]}
+          rotation={CHAIR_ROT}
+          sitAt={[-0.72, 0.3, -0.66]}
+          colors={{ Skin: '#e8b890', Face: '#5c402e' }}
+        />
+      </Suspense>
+
+      <ContactShadows position={[0, 0.004, 0]} opacity={0.4} scale={6} blur={2.5} far={3} />
     </Canvas>
   )
 }
