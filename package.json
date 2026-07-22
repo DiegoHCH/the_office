@@ -11,7 +11,9 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "NODE_ENV=production electron .",
-    "dist:app": "vite build && electron-builder --mac dir"
+    "dist:app": "vite build && electron-builder --mac dir",
+    "dist:mac": "vite build && electron-builder --mac dmg",
+    "dist:win": "vite build && electron-builder --win nsis"
   },
   "build": {
     "appId": "com.diegohoyos.laoficina",
@@ -27,9 +29,26 @@
       "!node_modules/**/*"
     ],
     "mac": {
-      "target": "dir",
+      "target": [
+        "dir",
+        "dmg"
+      ],
       "identity": null,
       "icon": "build/icon.icns"
+    },
+    "dmg": {
+      "title": "La Oficina"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "build/icon-1024.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "La Oficina"
     }
   },
   "dependencies": {

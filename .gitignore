@@ -6,3 +6,5 @@ dist-electron
 .env
 .env.local
 release
+build/icon-1024.png
+build/icon.icns
