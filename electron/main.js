@@ -17,6 +17,10 @@ let win = null
 let child = null // proceso claude en curso (uno a la vez)
 let sessionId = null // para multi-turno con --resume
 
+// Herramientas permitidas en headless (read-only: puede investigar, no tocar).
+// Para modo escritura, añadir Edit/Write/Bash o usar --permission-mode acceptEdits.
+const ALLOWED_TOOLS = 'Read,Glob,Grep,WebSearch,WebFetch'
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1100,
@@ -91,7 +95,13 @@ function handleLine(line) {
 ipcMain.handle('claude:ask', (_e, prompt) => {
   if (child) return { ok: false, error: 'Claude ya está procesando un mensaje' }
 
-  const args = ['-p', prompt, '--output-format', 'stream-json', '--verbose', '--include-partial-messages']
+  const args = [
+    '-p', prompt,
+    '--output-format', 'stream-json',
+    '--verbose',
+    '--include-partial-messages',
+    '--allowedTools', ALLOWED_TOOLS,
+  ]
   if (sessionId) args.push('--resume', sessionId)
 
   // Sin API key en el entorno → usa el login de la suscripción ($0 por token).

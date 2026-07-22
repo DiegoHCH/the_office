@@ -118,8 +118,15 @@ function DeskL() {
   )
 }
 
-// Monitor estilo iMac (oscuro, como la referencia).
-function Monitor() {
+// Monitor estilo iMac (oscuro). Mientras Claude trabaja, la pantalla "late".
+function Monitor({ working = false }) {
+  const screen = useRef()
+  useFrame(({ clock }) => {
+    if (!screen.current) return
+    screen.current.emissiveIntensity = working
+      ? 0.55 + Math.sin(clock.elapsedTime * 3.2) * 0.3
+      : 0.35
+  })
   return (
     <group position={[-0.55, TOP, -1.48]}>
       <RB args={[0.16, 0.015, 0.12]} r={0.006} position={[0, 0.008, 0.03]} castShadow>{mat(METAL, { metal: 0.5 })}</RB>
@@ -127,7 +134,7 @@ function Monitor() {
       <RB args={[0.5, 0.32, 0.03]} r={0.012} position={[0, 0.26, 0]} castShadow>{mat('#c9d2d6', { metal: 0.3 })}</RB>
       <mesh position={[0, 0.265, 0.017]}>
         <planeGeometry args={[0.45, 0.27]} />
-        <meshStandardMaterial color="#171e24" emissive="#1d3a44" emissiveIntensity={0.35} roughness={0.3} />
+        <meshStandardMaterial ref={screen} color="#171e24" emissive="#2dd4bf" emissiveIntensity={0.35} roughness={0.3} />
       </mesh>
     </group>
   )
@@ -246,8 +253,10 @@ const PROPS = [
 // Silla y personaje comparten pose. Mirando al frente cuando espera; al
 // trabajar, la silla gira suavemente hacia el escritorio (y de vuelta).
 const CHAIR_POS = [-0.72, 0, -0.66]
+const MONITOR_POS = [-0.55, 0, -1.48]
 const YAW_FRONT = Math.PI / 4 // hacia la cámara
-const YAW_DESK = -Math.PI * 0.75 // hacia la esquina del escritorio
+// yaw exacto hacia el monitor (no hacia la esquina)
+const YAW_DESK = Math.atan2(MONITOR_POS[0] - CHAIR_POS[0], MONITOR_POS[2] - CHAIR_POS[2])
 
 function Swivel({ working, children }) {
   const ref = useRef()
@@ -290,7 +299,7 @@ export default function Office({ working = false }) {
       <Room />
       <Window />
       <DeskL />
-      <Monitor />
+      <Monitor working={working} />
       <Laptop />
       <Shelf />
       {/* tapete azul + silla giratoria con el personaje sentado */}
@@ -312,6 +321,7 @@ export default function Office({ working = false }) {
             rotation={[0, 0, 0]}
             sitAt={[-0.72, 0.3, -0.66]}
             colors={{ Skin: '#e8b890', Face: '#5c402e' }}
+            sway={working}
           />
         </Swivel>
       </Suspense>

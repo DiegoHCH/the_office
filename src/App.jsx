@@ -1,10 +1,25 @@
 import { useEffect, useRef, useState } from 'react'
 import Office from './Office.jsx'
 
+// Cómo se muestra cada herramienta de Claude en pantalla.
+const TOOL_INFO = {
+  Read: ['📖', 'leyendo archivos'],
+  Glob: ['🔍', 'buscando archivos'],
+  Grep: ['🔍', 'buscando en el código'],
+  WebSearch: ['🌐', 'buscando en la web'],
+  WebFetch: ['🌐', 'consultando la web'],
+  Bash: ['💻', 'ejecutando comandos'],
+  Edit: ['✍️', 'editando código'],
+  Write: ['✍️', 'escribiendo archivos'],
+  Task: ['🤖', 'delegando a un agente'],
+}
+const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `usando ${name}`]
+
 export default function App() {
   const [messages, setMessages] = useState([]) // {role, text, streaming?}
   const [status, setStatus] = useState('esperándote')
   const [busy, setBusy] = useState(false)
+  const [tool, setTool] = useState(null) // herramienta en uso (chip sobre la escena)
   const [input, setInput] = useState('')
   const logRef = useRef(null)
 
@@ -14,8 +29,10 @@ export default function App() {
       if (e.kind === 'init') {
         setStatus('pensando…')
       } else if (e.kind === 'tool') {
-        setStatus(`usando ${e.name}…`)
+        setTool(e.name)
+        setStatus(`${toolInfo(e.name)[1]}…`)
       } else if (e.kind === 'text') {
+        setTool(null)
         setStatus('respondiendo…')
         setMessages((ms) => {
           const last = ms[ms.length - 1]
@@ -34,10 +51,12 @@ export default function App() {
           return e.result ? [...ms, { role: 'assistant', text: e.result }] : ms
         })
         setBusy(false)
+        setTool(null)
         setStatus('esperándote')
       } else if (e.kind === 'error') {
         setMessages((ms) => [...ms, { role: 'assistant', text: `⚠️ ${e.message}` }])
         setBusy(false)
+        setTool(null)
         setStatus('error — mira la terminal')
       }
     })
@@ -78,6 +97,12 @@ export default function App() {
 
       <div className="stage">
         <Office working={busy} />
+        {tool && (
+          <div className="toolchip" key={tool}>
+            <span className="toolchip-icon">{toolInfo(tool)[0]}</span>
+            {toolInfo(tool)[1]}…
+          </div>
+        )}
         {messages.length > 0 && (
           <div className="chat" ref={logRef}>
             {messages.map((m, i) => (

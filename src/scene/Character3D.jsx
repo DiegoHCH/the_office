@@ -14,6 +14,7 @@ import { useGLTF, useAnimations } from '@react-three/drei'
  *   cadera queda exactamente sobre el asiento sin adivinar offsets.
  * - colors: { [nombreMaterial]: '#hex' } — recolorea materiales por nombre
  *   (p.ej. { Skin: '#e8b890' } para el tono de piel; Quaternius usa #242424).
+ * - sway: mece suavemente el torso (efecto "tecleando") mientras sea true.
  */
 export default function Character3D({
   url = '/models/character.glb',
@@ -21,6 +22,7 @@ export default function Character3D({
   once = false,
   sitAt = null,
   colors = null,
+  sway = false,
   position = [0, 0, 0],
   rotation = [0, 0, 0],
   scale = 1,
@@ -78,7 +80,12 @@ export default function Character3D({
   // para que funcione también dentro de grupos rotados (silla giratoria).
   const tmpV = useRef(new Vector3())
   const tmpQ = useRef(new Quaternion())
-  useFrame(() => {
+  useFrame(({ clock }) => {
+    if (group.current) {
+      // vaivén sutil de "tecleando" (rotación pura: no afecta el ancla de cadera)
+      const target = sway ? Math.sin(clock.elapsedTime * 5) * 0.022 : 0
+      group.current.rotation.x += (target - group.current.rotation.x) * 0.1
+    }
     if (!sitAt || !hipsBone.current || !group.current) return
     hipsBone.current.getWorldPosition(tmpV.current)
     const delta = tmpV.current.set(
