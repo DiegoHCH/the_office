@@ -24,13 +24,15 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace; outline: none; cursor: pointer;
 }
 .sel:focus { border-color: #2dd4bf; }
-.newchat {
+.newchat, .mode {
   background: transparent; color: #93a6a1; border: 1px solid #28353a;
   border-radius: 8px; padding: 4px 10px; font-size: 12px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace; cursor: pointer;
 }
 .newchat:hover { color: #2dd4bf; border-color: #2dd4bf; }
-.sel:disabled, .newchat:disabled { opacity: 0.45; cursor: not-allowed; }
+.mode:hover { border-color: #f5a524; }
+.mode.write { color: #f5a524; border-color: #f5a524; background: rgba(245, 165, 36, 0.1); }
+.sel:disabled, .newchat:disabled, .mode:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .stage { flex: 1; min-height: 0; position: relative; }
 
@@ -56,6 +58,12 @@ body {
   align-self: flex-start; max-width: 100%;
   background: rgba(18, 26, 31, 0.92); color: #e9f1ee;
   border: 1px solid #28353a; border-bottom-left-radius: 4px;
+}
+.msg.system {
+  align-self: center; max-width: 95%;
+  background: transparent; box-shadow: none; border: 1px dashed #28353a;
+  color: #93a6a1; font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 /* markdown dentro de las burbujas del asistente */

@@ -18,9 +18,10 @@ let child = null // proceso claude en curso (uno a la vez)
 let sessionId = null // para multi-turno con --resume
 let sessionKey = null // perfil+cwd de la sesión actual (si cambia, conversación nueva)
 
-// Herramientas permitidas en headless (read-only: puede investigar, no tocar).
-// Para modo escritura, añadir Edit/Write/Bash o usar --permission-mode acceptEdits.
-const ALLOWED_TOOLS = 'Read,Glob,Grep,WebSearch,WebFetch'
+// Herramientas por modo. Lectura: investigar sin tocar nada.
+// Escritura: puede editar archivos y correr comandos (con acceptEdits).
+const READ_TOOLS = 'Read,Glob,Grep,WebSearch,WebFetch'
+const WRITE_TOOLS = `${READ_TOOLS},Edit,Write,NotebookEdit,Bash`
 
 // Perfiles = mismos alias que en zsh: claude-work / claude-private
 // (cada CLAUDE_CONFIG_DIR tiene su propio login y sesiones).
@@ -130,7 +131,8 @@ ipcMain.handle('claude:reset', () => {
 ipcMain.handle('claude:ask', (_e, payload) => {
   if (child) return { ok: false, error: 'Claude ya está procesando un mensaje' }
 
-  const { prompt, profile = 'work', cwd } = typeof payload === 'string' ? { prompt: payload } : payload
+  const { prompt, profile = 'work', cwd, writeMode = false, model = '' } =
+    typeof payload === 'string' ? { prompt: payload } : payload
   const workdir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
 
   // cambiar de perfil o de proyecto = conversación nueva (las sesiones no cruzan)
@@ -145,8 +147,10 @@ ipcMain.handle('claude:ask', (_e, payload) => {
     '--output-format', 'stream-json',
     '--verbose',
     '--include-partial-messages',
-    '--allowedTools', ALLOWED_TOOLS,
+    '--allowedTools', writeMode ? WRITE_TOOLS : READ_TOOLS,
   ]
+  if (writeMode) args.push('--permission-mode', 'acceptEdits')
+  if (model) args.push('--model', model)
   if (sessionId) args.push('--resume', sessionId)
 
   // Sin API key en el entorno → usa el login de la suscripción ($0 por token).

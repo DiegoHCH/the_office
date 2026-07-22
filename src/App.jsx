@@ -17,6 +17,16 @@ const TOOL_INFO = {
 }
 const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `usando ${name}`]
 
+// Modelos disponibles para --model ('' = el default del perfil).
+const MODELS = [
+  ['', '🧠 auto'],
+  ['opus', 'Opus 4.8'],
+  ['sonnet', 'Sonnet 5'],
+  ['haiku', 'Haiku 4.5'],
+  ['claude-fable-5', 'Fable 5'],
+]
+const MODEL_ALIASES = { fable: 'claude-fable-5', auto: '', default: '' }
+
 export default function App() {
   const [messages, setMessages] = useState([]) // {role, text, streaming?}
   const [status, setStatus] = useState('esperándote')
@@ -26,6 +36,8 @@ export default function App() {
   const [cfg, setCfg] = useState(null) // {profiles, projectsByProfile}
   const [profile, setProfile] = useState('work')
   const [project, setProject] = useState('')
+  const [writeMode, setWriteMode] = useState(true) // edición por defecto (flujo normal de trabajo)
+  const [model, setModel] = useState('') // '' = default del perfil
   const logRef = useRef(null)
 
   const projects = cfg?.projectsByProfile?.[profile] || []
@@ -102,10 +114,40 @@ export default function App() {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
+  const addSystem = (text) => setMessages((ms) => [...ms, { role: 'system', text }])
+
+  // Comandos locales (los interactivos de la CLI no existen en headless).
+  // Cualquier otro /comando pasa directo a Claude → tus skills funcionan.
+  const handleLocalCommand = (text) => {
+    const [cmd, ...rest] = text.split(/\s+/)
+    if (cmd === '/model') {
+      const arg = rest[0]?.toLowerCase()
+      if (!arg) {
+        addSystem(
+          `modelo actual: ${model || 'auto (default del perfil)'} · usa /model opus | sonnet | haiku | fable | auto`
+        )
+        return true
+      }
+      const resolved = MODEL_ALIASES[arg] ?? arg
+      setModel(resolved)
+      addSystem(`modelo → ${resolved || 'auto (default del perfil)'}`)
+      return true
+    }
+    if (cmd === '/clear' || cmd === '/nueva') {
+      newChat()
+      return true
+    }
+    return false
+  }
+
   const send = async (ev) => {
     ev.preventDefault()
     const text = input.trim()
     if (!text || busy) return
+    if (text.startsWith('/') && handleLocalCommand(text)) {
+      setInput('')
+      return
+    }
     if (!window.oficina?.ask) {
       setStatus('sin Electron — corre npm run dev')
       return
@@ -114,7 +156,7 @@ export default function App() {
     setInput('')
     setBusy(true)
     setStatus('pensando…')
-    const res = await window.oficina.ask({ prompt: text, profile, cwd: project })
+    const res = await window.oficina.ask({ prompt: text, profile, cwd: project, writeMode, model })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', text: `⚠️ ${res?.error || 'error desconocido'}` }])
       setBusy(false)
@@ -141,6 +183,22 @@ export default function App() {
             </option>
           ))}
         </select>
+        <select className="sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy} title="Modelo (--model)">
+          {MODELS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          className={writeMode ? 'mode write' : 'mode'}
+          onClick={() => setWriteMode((w) => !w)}
+          disabled={busy}
+          title={writeMode ? 'Puede editar archivos y correr comandos (acceptEdits)' : 'Solo lectura: investigar sin tocar nada'}
+        >
+          {writeMode ? '✏️ edición' : '🔒 lectura'}
+        </button>
         <button type="button" className="newchat" onClick={newChat} disabled={busy} title="Conversación nueva">
           ✚ nueva
         </button>
