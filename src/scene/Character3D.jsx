@@ -15,8 +15,9 @@ const nearAngle = (from, to) => {
  * Personaje glTF con animaciones (Quaternius) y estados:
  * - Sentado: clip inicial (SitDown clampeado), gira suave hacia `yaw`,
  *   `sway` de tecleo y cadera anclada a `sitAt`.
- * - `tour`: {to:[x,z], face:[x,z], onDone} — se para, camina hasta `to`,
- *   celebra (Victory) mirando a `face`, vuelve a su silla y se sienta.
+ * - `tour`: {to:[x,z], face?:[x,z], pose?, pauseMs?, onDone} — se para, camina
+ *   hasta `to`; allí celebra (pose 'Victory', default) o se queda un rato de
+ *   pie (pose 'Idle' + pauseMs, para paseos); luego vuelve a su silla.
  * - colors: { [nombreMaterial]: '#hex' } recolorea (Skin/Hair/Face/Shirt...).
  * - children: se renderizan dentro del grupo (nametag/globos siguen al personaje).
  */
@@ -37,7 +38,8 @@ export default function Character3D({
 }) {
   const group = useRef()
   const hipsBone = useRef(null)
-  const phase = useRef('seated') // seated | standup | walkTo | victory | walkBack | sitdown
+  const phase = useRef('seated') // seated | standup | walkTo | pose | pause | walkBack | sitdown
+  const pauseLeft = useRef(0)
   const tourRef = useRef(null)
   const standPos = useRef(null)
   const home = useRef(position)
@@ -128,7 +130,7 @@ export default function Character3D({
       if (phase.current === 'standup' && name === 'StandUp') {
         phase.current = 'walkTo'
         play('Walk', true)
-      } else if (phase.current === 'victory' && name === 'Victory') {
+      } else if (phase.current === 'pose' && name === (tourRef.current?.pose ?? 'Victory')) {
         phase.current = 'walkBack'
         play('Walk', true)
       } else if (phase.current === 'sitdown' && name === 'SitDown') {
@@ -182,10 +184,18 @@ export default function Character3D({
       const d = Math.hypot(dx, dz)
       if (d < 0.06) {
         if (ph === 'walkTo') {
-          phase.current = 'victory'
-          if (!play('Victory')) {
-            phase.current = 'walkBack'
-            play('Walk', true)
+          const pose = tourRef.current?.pose ?? 'Victory'
+          if (pose === 'Idle' || tourRef.current?.pauseMs) {
+            // pausa contemplativa (paseo): de pie un rato y de vuelta
+            phase.current = 'pause'
+            pauseLeft.current = (tourRef.current?.pauseMs ?? 3000) / 1000
+            play('Idle', true)
+          } else {
+            phase.current = 'pose'
+            if (!play(pose)) {
+              phase.current = 'walkBack'
+              play('Walk', true)
+            }
           }
         } else {
           g.position.x = t[0]
@@ -205,11 +215,18 @@ export default function Character3D({
         const wyaw = Math.atan2(dx, dz)
         g.rotation.y += (nearAngle(g.rotation.y, wyaw) - g.rotation.y) * Math.min(1, dt * 8)
       }
-    } else if (ph === 'victory') {
+    } else if (ph === 'pose' || ph === 'pause') {
       const f = tourRef.current?.face
       if (f) {
         const wyaw = Math.atan2(f[0] - g.position.x, f[1] - g.position.z)
         g.rotation.y += (nearAngle(g.rotation.y, wyaw) - g.rotation.y) * k
+      }
+      if (ph === 'pause') {
+        pauseLeft.current -= dt
+        if (pauseLeft.current <= 0) {
+          phase.current = 'walkBack'
+          play('Walk', true)
+        }
       }
     }
   })

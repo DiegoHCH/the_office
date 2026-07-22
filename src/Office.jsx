@@ -1,4 +1,4 @@
-import { Suspense, useRef } from 'react'
+import { Suspense, useEffect, useRef, useState } from 'react'
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
 import { MathUtils, Shape, ExtrudeGeometry, DoubleSide } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
@@ -358,6 +358,28 @@ const SLOTS = [
   },
 ]
 
+// ── Vida ambiental: mientras nadie trabaja, la oficina respira ───────────────
+const PHRASES = [
+  '☕ necesito otro café',
+  '🎵 ♪ ♫',
+  '🤔 mmm…',
+  '🐛 ese bug de ayer…',
+  '🍕 ¿pedimos algo?',
+  '✨ hoy compila a la primera',
+  '👀 ¿vieron el deploy?',
+  '💭 refactor… refactor…',
+  '🥱 qué sueño',
+  '🔥 en racha hoy',
+]
+const WANDER_SPOTS = [
+  { to: [0.2, 0.2], text: '💭' },
+  { to: [2.0, -0.55], text: '🌿' },
+  { to: [-1.95, 0.15], text: '🪟' },
+  { to: [0.45, 1.95], text: '🚶' },
+  { to: [-0.5, -0.3], text: '💬' },
+]
+const rand = (arr) => arr[Math.floor(Math.random() * arr.length)]
+
 // Grupo silla+personaje que gira suavemente hacia el yaw objetivo.
 function Turn({ position, yaw, children }) {
   const ref = useRef()
@@ -379,6 +401,63 @@ const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talkin
 export default function Office({ roleStates = {}, status = '', squad = [], onTourDone }) {
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
+
+  // ── vida ambiental: {roleId: {kind, text?, tour?}} solo mientras están libres ──
+  const [ambient, setAmbient] = useState({})
+  const ambientRef = useRef(ambient)
+  useEffect(() => {
+    ambientRef.current = ambient
+  }, [ambient])
+  const timers = useRef({})
+  const clearAmbient = (id) => {
+    clearTimeout(timers.current[id])
+    setAmbient((a) => {
+      if (!a[id]) return a
+      const copy = { ...a }
+      delete copy[id]
+      return copy
+    })
+  }
+
+  // al recibir trabajo, se cancela lo que estuvieran haciendo (vuelven al puesto)
+  useEffect(() => {
+    for (const id of Object.keys(ambientRef.current)) {
+      if (roleStates[id]) clearAmbient(id)
+    }
+  }, [roleStates])
+
+  useEffect(() => {
+    const iv = setInterval(() => {
+      squad.forEach((m, idx) => {
+        if (!m || roleStates[m.id] || ambientRef.current[m.id]) return
+        if (Math.random() > 0.4) return // ratos de calma
+        const roll = Math.random()
+        if (roll < 0.35) {
+          // frase casual
+          setAmbient((a) => ({ ...a, [m.id]: { kind: 'phrase', text: rand(PHRASES) } }))
+          timers.current[m.id] = setTimeout(() => clearAmbient(m.id), 3800)
+        } else if (roll < 0.6) {
+          // escuchar música (con meneo)
+          setAmbient((a) => ({ ...a, [m.id]: { kind: 'music', text: '🎧 ♪ ♫' } }))
+          timers.current[m.id] = setTimeout(() => clearAmbient(m.id), 8000)
+        } else if (idx > 0) {
+          // paseo por la oficina (el principal no deja su puesto)
+          const spot = rand(WANDER_SPOTS)
+          const to = [spot.to[0] + (Math.random() - 0.5) * 0.3, spot.to[1] + (Math.random() - 0.5) * 0.3]
+          setAmbient((a) => ({
+            ...a,
+            [m.id]: {
+              kind: 'wander',
+              text: spot.text,
+              tour: { to, pose: 'Idle', pauseMs: 2500 + Math.random() * 2500, onDone: () => clearAmbient(m.id) },
+            },
+          }))
+        }
+      })
+    }, 5000)
+    return () => clearInterval(iv)
+  }, [squad, roleStates])
+
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={['#b9ccd3']} />
@@ -444,9 +523,15 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
                 rotation={[0, 0, 0]}
                 sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
                 colors={{ Skin: '#e8b890', Face: main.hair, Hair: main.hair, Shirt: main.color }}
-                sway={devState === 'working'}
+                sway={devState === 'working' || (devState === 'idle' && ambient[main.id]?.kind === 'music')}
               />
             </Turn>
+            {/* globito ambiental del principal (frases / música) */}
+            {devState === 'idle' && ambient[main.id]?.text && (
+              <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                <div className="bubble3d">{ambient[main.id].text}</div>
+              </Html>
+            )}
             <Html position={[CHAIR_POS[0], 0.82, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
               <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
             </Html>
@@ -457,6 +542,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
         {SLOTS.map((s, i) => {
           const m = squad[i + 1] // ocupante del puesto (o vacío)
           const st = (m && roleStates[m.id]) || 'idle'
+          const amb = m ? ambient[m.id] : null
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
           const bubble =
             st === 'working'
@@ -467,7 +553,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
                   ? '💬'
                   : st === 'delivering'
                     ? `${m.emoji} ¡listo!`
-                    : null
+                    : amb?.text || null
+          const busyBubble = st !== 'idle'
           return (
             <group key={i}>
               <LDesk position={s.desk} rotation={s.deskRot} />
@@ -490,11 +577,13 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
                   yaw={yawFor(st, yawScreen)}
                   sitAt={[s.chair[0], 0.3, s.chair[2]]}
                   colors={{ Skin: '#e8b890', Face: m.hair, Hair: m.hair, Shirt: m.color }}
-                  sway={st === 'working'}
+                  sway={st === 'working' || (st === 'idle' && amb?.kind === 'music')}
                   tour={
                     st === 'delivering'
                       ? { to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(m.id) }
-                      : null
+                      : st === 'idle'
+                        ? amb?.tour || null
+                        : null
                   }
                 >
                   <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
@@ -502,7 +591,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], onTou
                   </Html>
                   {bubble && (
                     <Html position={[0, 4.0, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-                      <div className="bubble3d busy">{bubble}</div>
+                      <div className={busyBubble ? 'bubble3d busy' : 'bubble3d'}>{bubble}</div>
                     </Html>
                   )}
                 </Character3D>
