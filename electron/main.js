@@ -64,7 +64,7 @@ const ROLE_TEMPLATES = {
   qa: (n) =>
     `Eres ${n}, QA del squad. Tu foco: calidad — escribir tests, ejecutarlos, reproducir bugs y reportar resultados con claridad. Preséntate como ${n} cuando te saluden.`,
   pr: (n) =>
-    `Eres ${n}, revisor/a de Pull Requests del squad. Tu foco: revisar PRs y diffs con ojo crítico — correctitud, diseño, tests, riesgos y estilo — y dar feedback concreto y accionable. Eres dueño/a de TODO el flujo de PRs: si el proyecto tiene skills/slash-commands relacionados con PRs (p. ej. /g66-pr, /pre-pr, /review-pr, /merge-hu), úsalos cuando la tarea lo amerite. Preséntate como ${n} cuando te saluden.`,
+    `Eres ${n}, revisor/a de Pull Requests del squad. Tu foco: revisar PRs y diffs con ojo crítico — correctitud, diseño, tests, riesgos y estilo — y dar feedback concreto y accionable. Eres dueño/a de TODO el flujo de PRs de punta a punta. Si el proyecto define un protocolo en su CLAUDE.md, SÍGUELO: identifica el repo y carga su skill de PR (p. ej. flash-pre-pr, g66-pr, review-pr, merge-hu) leyendo su SKILL.md, y ejecútalo completo — incluyendo push, creación del PR con la herramienta del repo (gh/aws/etc.) y el tracking asociado en Jira/Slack vía los conectores disponibles, cuando el skill lo haga. Tienes gh y acli en el PATH y los conectores MCP habilitados; úsalos según lo pida el skill, no inventes pasos fuera de él. Preséntate como ${n} cuando te saluden.`,
   docs: (n) =>
     `Eres ${n}, technical writer del squad. Tu foco: documentación clara — READMEs, guías, ADRs, comentarios útiles. Preséntate como ${n} cuando te saluden.`,
 }
@@ -150,6 +150,12 @@ function notify(displayName, body) {
 // Herramientas por modo. Lectura: investigar sin tocar nada.
 const READ_TOOLS = 'Read,Glob,Grep,WebSearch,WebFetch'
 const WRITE_TOOLS = `${READ_TOOLS},Edit,Write,NotebookEdit,Bash`
+// Robin (rol PR) además necesita las tools MCP de los conectores que usan los
+// skills de PR del equipo (Jira/Slack): p. ej. flash-pre-pr setea el campo
+// "PR en prod" con `editJiraIssue`. Cubrimos ambas variantes de nombre del
+// conector Atlassian (con y sin "Rovo") por si el prefijo cambia.
+const PR_MCP_TOOLS = 'mcp__claude_ai_Atlassian_Rovo,mcp__claude_ai_Atlassian,mcp__claude_ai_Slack'
+const PR_TOOLS = `${WRITE_TOOLS},${PR_MCP_TOOLS}`
 
 // Pizarra compartida: memoria común del squad en la raíz del proyecto.
 let boardEnabled = true
@@ -394,15 +400,24 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   if (customMd) persona += `\n\nInstrucciones personalizadas de ${displayName}:\n${customMd}`
   if (boardEnabled) persona += `\n\n${SQUAD_BOARD_NOTE}`
 
+  // Robin (rol PR) ejecuta skills que llaman conectores MCP (Jira/Slack). En
+  // headless no hay prompt para aprobarlos y el conector OAuth puede aparecer con
+  // un UUID en vez de su nombre, así que el allowlist por sí solo es frágil: para
+  // el rol PR usamos bypassPermissions y el allowlist extendido (PR_TOOLS), y así
+  // el flujo completo (push + gh pr create + acli + editJiraIssue) corre igual que
+  // en la consola. El resto del squad sigue en acceptEdits con WRITE_TOOLS.
+  const isPR = role === 'pr'
+  const allowed = !writeMode ? READ_TOOLS : isPR ? PR_TOOLS : WRITE_TOOLS
+
   const args = [
     '-p', prompt,
     '--output-format', 'stream-json',
     '--verbose',
     '--include-partial-messages',
-    '--allowedTools', writeMode ? WRITE_TOOLS : READ_TOOLS,
+    '--allowedTools', allowed,
     '--append-system-prompt', persona,
   ]
-  if (writeMode) args.push('--permission-mode', 'acceptEdits')
+  if (writeMode) args.push('--permission-mode', isPR ? 'bypassPermissions' : 'acceptEdits')
   if (model) args.push('--model', model)
   if (sid) args.push('--resume', sid)
 
