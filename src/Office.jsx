@@ -46,7 +46,7 @@ const GREEN2 = '#49a56d'
 
 const DESK_H = 0.38
 const TOP = DESK_H + 0.025
-const ROOM = 5.2 // piso ROOM x ROOM, paredes en ±ROOM/2
+const ROOM = 7.0 // piso ROOM x ROOM, paredes en ±ROOM/2 (sala amplia para 6 puestos)
 const HALF = ROOM / 2
 
 const mat = (color, opts = {}) => (
@@ -362,38 +362,56 @@ function FiddlePlant({ position, scale = 0.5 }) {
 }
 
 // Props chicos de Kenney: escritorio principal + estante + decoración de estaciones.
+// Decoración pequeña de cada escritorio, ubicada sobre un BRAZO de la L (no en el
+// hueco, que está vacío). El teclado y el mouse NO van aquí: se derivan del monitor
+// en el render (KbMouse) para caer siempre sobre el brazo.
 const PROPS = [
-  // ── escritorio principal ──
-  { url: '/models/furniture/computerKeyboard.glb', position: [-1.62, TOP, -1.95] },
-  { url: '/models/furniture/computerMouse.glb', position: [-1.28, TOP, -1.98] },
-  { url: '/models/furniture/plantSmall3.glb', position: [-1.05, TOP, -2.32] },
-  { url: '/models/furniture/pottedPlant.glb', position: [-2.28, TOP, -2.28], scale: 0.6 },
-  { url: '/models/furniture/plantSmall2.glb', position: [-2.3, TOP, -0.75] },
-  { url: '/models/furniture/books.glb', position: [1.55, 1.325, -2.5], scale: 1.4 },
-  // ── estación fondo-derecha (research) ──
-  { url: '/models/furniture/computerKeyboard.glb', position: [1.26, TOP, -2.05] },
-  { url: '/models/furniture/computerMouse.glb', position: [1.62, TOP, -2.1] },
-  { url: '/models/furniture/radio.glb', position: [0.72, TOP, -2.42] },
-  { url: '/models/furniture/books.glb', position: [2.2, TOP, -1.7], scale: 1.2 },
-  { url: '/models/furniture/plantSmall1.glb', position: [2.28, TOP, -0.95] },
-  // ── estación frontal-izquierda (design) ──
-  { url: '/models/furniture/computerKeyboard.glb', position: [-2.16, TOP, 1.55], rotation: [0, Math.PI / 2, 0] },
-  { url: '/models/furniture/computerMouse.glb', position: [-2.12, TOP, 1.8], rotation: [0, Math.PI / 2, 0] },
-  { url: '/models/furniture/books.glb', position: [-1.7, TOP, 2.32] },
-  { url: '/models/furniture/plantSmall2.glb', position: [-0.85, TOP, 2.3] },
-  // ── estación frontal-derecha (qa) ──
-  { url: '/models/furniture/computerKeyboard.glb', position: [1.28, TOP, 2.16] },
-  { url: '/models/furniture/computerMouse.glb', position: [1.65, TOP, 2.14] },
-  { url: '/models/furniture/speakerSmall.glb', position: [2.22, TOP, 1.25] },
-  { url: '/models/furniture/plantSmall3.glb', position: [2.28, TOP, 0.78] },
-  { url: '/models/furniture/trashcan.glb', position: [2.38, 0, 0.42], scale: 0.5 },
-  // ── plantas de piso extra ──
-  { url: '/models/furniture/pottedPlant.glb', position: [-2.32, 0, -0.05], scale: 0.85 },
+  // ── principal: rincón tras-izq, mira -z ──
+  { url: '/models/furniture/plantSmall3.glb', position: [-3.0, TOP, -2.0] },
+  { url: '/models/furniture/books.glb', position: [-1.8, TOP, -3.0], scale: 1.0 },
+  // ── SLOTS[0]: rincón tras-der, mira -z ──
+  { url: '/models/furniture/plantSmall1.glb', position: [3.0, TOP, -2.0] },
+  { url: '/models/furniture/radio.glb', position: [1.95, TOP, -3.0] },
+  // ── SLOTS[1]: rincón frontal-izq, mira -x ──
+  { url: '/models/furniture/books.glb', position: [-3.0, TOP, 1.9] },
+  { url: '/models/furniture/plantSmall2.glb', position: [-1.9, TOP, 2.95] },
+  // ── SLOTS[2]: rincón frontal-der (isla), mira +z ──
+  { url: '/models/furniture/speakerSmall.glb', position: [3.0, TOP, 1.9] },
+  { url: '/models/furniture/plantSmall3.glb', position: [1.9, TOP, 2.95] },
+  // ── SLOTS[3]: pared izquierda (medio, bajo ventana), mira -x ──
+  { url: '/models/furniture/plantSmall2.glb', position: [-3.0, TOP, 0.4] },
+  // ── SLOTS[4]: lado derecho (medio), mira +x ──
+  { url: '/models/furniture/plantSmall1.glb', position: [3.0, TOP, -0.8] },
 ]
 
+// Teclado + mouse derivados del monitor: se apoyan sobre el brazo de la L (media
+// anchura 0.275), a un pasito del monitor hacia la silla. Garantiza que no floten.
+function KbMouse({ monitor, chair }) {
+  const [mx, , mz] = monitor
+  const [cx, , cz] = chair
+  const dx = cx - mx
+  const dz = cz - mz
+  const len = Math.hypot(dx, dz) || 1
+  const ux = dx / len
+  const uz = dz / len // dirección hacia la silla
+  const FWD = 0.28 // avance sobre el brazo (≤0.31 para no salirse)
+  const LAT = 0.24 // separación lateral teclado↔mouse
+  const rot = [0, Math.atan2(ux, uz), 0]
+  const kb = [mx + ux * FWD, TOP, mz + uz * FWD]
+  const ms = [kb[0] - uz * LAT, TOP, kb[2] + ux * LAT]
+  return (
+    <>
+      <GltfProp url="/models/furniture/computerKeyboard.glb" position={kb} rotation={rot} />
+      <GltfProp url="/models/furniture/computerMouse.glb" position={ms} rotation={rot} />
+    </>
+  )
+}
+
 // ── Estación principal (dev) ────────────────────────────────────────────────
-const CHAIR_POS = [-1.5, 0, -1.5]
-const MONITOR_POS = [-1.5, 0, -2.32]
+// Puesto en la esquina trasera-izquierda, mirando -z (la pantalla contra la pared).
+// La L del escritorio (origen = esquina interior, brazos ~1.58) cubre x[-3.18,-1.6] z[-3.18,-1.6].
+const CHAIR_POS = [-2.3, 0, -2.4]
+const MONITOR_POS = [-2.3, 0, -3.22]
 const YAW_FRONT = Math.PI / 4
 const YAW_DESK = Math.atan2(MONITOR_POS[0] - CHAIR_POS[0], MONITOR_POS[2] - CHAIR_POS[2])
 
@@ -401,38 +419,114 @@ const YAW_DESK = Math.atan2(MONITOR_POS[0] - CHAIR_POS[0], MONITOR_POS[2] - CHAI
 // Cada puesto tiene su L en una esquina, monitor en diagonal y punto de entrega.
 // Igual que el principal: monitor recto SOBRE un ala de la L (no en diagonal)
 // y la silla de frente a esa ala.
+// 5 puestos secundarios (el principal va aparte): 4 esquinas + 2 medios (izq/der).
+// El centro y el frente quedan libres para caminar/reunirse. WALL = borde interior.
+// Cada escritorio (L de brazos ~1.58, origen = esquina interior) queda co-ubicado
+// con su monitor y su silla: no flotan.
+const WALL = HALF - 0.28
 const SLOTS = [
   {
-    // trasera-derecha: monitor en el ala de la pared del fondo, mirando +z
+    // esquina trasera-derecha: mira -z (pantalla contra la pared del fondo)
     desk: [HALF - 0.32, 0, -HALF + 0.32],
-    deskRot: [0, -Math.PI / 2, 0], // alas hacia -x (pared fondo) y +z
-    monitor: [1.4, TOP, -2.32],
+    deskRot: [0, -Math.PI / 2, 0], // cubre x[1.6,3.18] z[-3.18,-1.6]
+    monitor: [2.3, TOP, -WALL],
     monitorRot: [0, 0, 0],
-    chair: [1.4, 0, -1.5],
-    mat: { position: [1.4, 0.012, -1.45], args: [1.05, 0.02, 0.95] },
-    deliver: [-0.6, -0.95], // a dónde camina a entregarle al principal
+    chair: [2.3, 0, -2.4],
+    mat: { position: [2.3, 0.012, -2.35], args: [1.05, 0.02, 0.95] },
+    deliver: [0.6, -1.3], // camina hacia el principal para entregar
   },
   {
-    // frontal-izquierda: monitor en el ala de la pared izquierda, mirando +x
+    // esquina frontal-izquierda: mira -x (pantalla contra la pared izquierda)
     desk: [-HALF + 0.32, 0, HALF - 0.32],
-    deskRot: [0, Math.PI / 2, 0], // alas hacia -z (pared izq) y +x
-    monitor: [-2.32, TOP, 1.4],
+    deskRot: [0, Math.PI / 2, 0], // cubre x[-3.18,-1.6] z[1.6,3.18]
+    monitor: [-WALL, TOP, 2.3],
     monitorRot: [0, Math.PI / 2, 0],
-    chair: [-1.5, 0, 1.4],
-    mat: { position: [-1.45, 0.012, 1.4], args: [0.95, 0.02, 1.05] },
-    deliver: [-1.05, -0.4],
+    chair: [-2.4, 0, 2.3],
+    mat: { position: [-2.35, 0.012, 2.3], args: [0.95, 0.02, 1.05] },
+    deliver: [-1.3, 0.6],
   },
   {
-    // frontal-derecha (isla): monitor en el ala frontal, mirando -z
+    // esquina frontal-derecha (isla): mira +z (borde abierto del frente)
     desk: [HALF - 0.32, 0, HALF - 0.32],
-    deskRot: [0, Math.PI, 0], // alas hacia -x y -z
-    monitor: [1.4, TOP, 2.32],
+    deskRot: [0, Math.PI, 0], // cubre x[1.6,3.18] z[1.6,3.18]
+    monitor: [2.3, TOP, WALL],
     monitorRot: [0, Math.PI, 0],
-    chair: [1.4, 0, 1.5],
-    mat: { position: [1.4, 0.012, 1.45], args: [1.05, 0.02, 0.95] },
-    deliver: [-0.45, -0.65],
+    chair: [2.3, 0, 2.4],
+    mat: { position: [2.3, 0.012, 2.35], args: [1.05, 0.02, 0.95] },
+    deliver: [1.3, 0.6],
+  },
+  {
+    // pared izquierda (medio, bajo la ventana): mira -x
+    desk: [-HALF + 0.32, 0, 0.6],
+    deskRot: [0, Math.PI / 2, 0], // cubre x[-3.18,-1.6] z[-0.98,0.6]
+    monitor: [-WALL, TOP, -0.2],
+    monitorRot: [0, Math.PI / 2, 0],
+    chair: [-2.4, 0, -0.2],
+    mat: { position: [-2.35, 0.012, -0.2], args: [0.95, 0.02, 1.05] },
+    deliver: [-1.3, -0.3],
+  },
+  {
+    // lado derecho (medio, borde abierto +x): mira +x
+    desk: [HALF - 0.32, 0, -1.0],
+    deskRot: [0, -Math.PI / 2, 0], // cubre x[1.6,3.18] z[-1.0,0.58]
+    monitor: [WALL, TOP, -0.2],
+    monitorRot: [0, -Math.PI / 2, 0],
+    chair: [2.4, 0, -0.2],
+    mat: { position: [2.35, 0.012, -0.2], args: [0.95, 0.02, 1.05] },
+    deliver: [1.3, -0.3],
   },
 ]
+
+// ── Detección de obstáculos al caminar (zonas prohibidas = escritorios) ──────
+// AABB (con margen) de cada escritorio en L. La caja local del top de la L es
+// [-0.275, 1.7] en x y z; con deskRot múltiplo de 90° la AABB sigue alineada.
+const DESK_MARGIN = 0.35
+function deskAABB([dx, , dz], rot) {
+  const W = 0.275
+  const LEN = 1.7
+  const q = ((Math.round((rot?.[1] ?? 0) / (Math.PI / 2)) % 4) + 4) % 4 // 0=0°,1=90°,2=180°,3=270°
+  let xr, zr
+  if (q === 0) { xr = [-W, LEN]; zr = [-W, LEN] }
+  else if (q === 1) { xr = [-W, LEN]; zr = [-LEN, W] }
+  else if (q === 2) { xr = [-LEN, W]; zr = [-LEN, W] }
+  else { xr = [-LEN, W]; zr = [-W, LEN] }
+  return { x0: dx + xr[0] - DESK_MARGIN, x1: dx + xr[1] + DESK_MARGIN, z0: dz + zr[0] - DESK_MARGIN, z1: dz + zr[1] + DESK_MARGIN }
+}
+const DESK_ZONES = [
+  deskAABB([-HALF + 0.32, 0, -HALF + 0.32], [0, 0, 0]), // principal
+  ...SLOTS.map((s) => deskAABB(s.desk, s.deskRot)),
+]
+const zoneHas = (z, [x, zz]) => x >= z.x0 && x <= z.x1 && zz >= z.z0 && zz <= z.z1
+// ¿el segmento a→b corta el rectángulo z? (recorte de Liang–Barsky)
+function segHitsZone([ax, az], [bx, bz], z) {
+  const dx = bx - ax
+  const dz = bz - az
+  let t0 = 0
+  let t1 = 1
+  const edges = [[-dx, ax - z.x0], [dx, z.x1 - ax], [-dz, az - z.z0], [dz, z.z1 - az]]
+  for (const [p, q] of edges) {
+    if (p === 0) {
+      if (q < 0) return false
+      continue
+    }
+    const r = q / p
+    if (p < 0) {
+      if (r > t1) return false
+      if (r > t0) t0 = r
+    } else {
+      if (r < t0) return false
+      if (r < t1) t1 = r
+    }
+  }
+  return t0 <= t1
+}
+// Waypoints intermedios para ir de `from` a `to` esquivando escritorios: si la
+// línea recta cruza algún escritorio (que no sea el de origen/destino) desvía por
+// el centro abierto. Devuelve un array de [x,z] o null si el camino ya está libre.
+function routeVia(from, to) {
+  const blocks = DESK_ZONES.some((z) => !zoneHas(z, from) && !zoneHas(z, to) && segHitsZone(from, to, z))
+  return blocks ? [[0, 0]] : null
+}
 
 // ── Vida ambiental: mientras nadie trabaja, la oficina respira ───────────────
 const PHRASES = [
@@ -456,11 +550,13 @@ const phraseFor = (id) => {
   const own = PHRASES_BY_ROLE[id] || []
   return rand([...own, ...own, ...PHRASES]) // doble peso a las del rol
 }
+// Puntos de paseo en el centro abierto de la sala (lejos de los escritorios,
+// que ocupan la periferia) para que la vida ambiental no atraviese los muebles.
 const WANDER_SPOTS = [
   { to: [0.2, 0.2], text: '💭' },
-  { to: [2.0, -0.55], text: '🌿' },
-  { to: [-1.95, 0.15], text: '🪟' },
-  { to: [0.45, 1.95], text: '🚶' },
+  { to: [1.1, -0.5], text: '🌿' },
+  { to: [-1.1, 0.3], text: '🪟' },
+  { to: [0.4, 1.2], text: '🚶' },
   { to: [-0.5, -0.3], text: '💬' },
 ]
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)]
@@ -564,6 +660,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               kind: 'visit',
               text: '🗣️ ¿cómo vas?',
               tour: {
+                // si el camino recto cruza un escritorio, desvía por el centro
+                via: routeVia(standNear(chairFor(m.id)), standNear(chair)),
                 to: standNear(chair),
                 face: [chair[0], chair[2]],
                 pose: 'Idle',
@@ -584,8 +682,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={[T.bg]} />
 
-      <OrthographicCamera makeDefault position={[9, 8, 9]} zoom={105} near={0.1} far={100} />
-      <OrbitControls target={[0, 0.35, 0]} enablePan={false} minZoom={60} maxZoom={280} />
+      <OrthographicCamera makeDefault position={[11, 9.5, 11]} zoom={80} near={0.1} far={100} />
+      <OrbitControls target={[0, 0.35, 0]} enablePan={false} minZoom={45} maxZoom={280} />
 
       <ambientLight intensity={T.ambient} />
       <hemisphereLight args={T.hemi} />
@@ -595,10 +693,10 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
-        shadow-camera-left={-5}
-        shadow-camera-right={5}
-        shadow-camera-top={5}
-        shadow-camera-bottom={-5}
+        shadow-camera-left={-7}
+        shadow-camera-right={7}
+        shadow-camera-top={7}
+        shadow-camera-bottom={-7}
         shadow-camera-near={0.1}
         shadow-camera-far={25}
       />
@@ -610,33 +708,33 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       {/* estación principal (dev): L en la esquina trasera-izquierda */}
       <LDesk position={[-HALF + 0.32, 0, -HALF + 0.32]} />
       <Monitor working={devState === 'working'} position={MONITOR_POS.map((v, i) => (i === 1 ? TOP : v))} />
-      <Laptop position={[-2.3, TOP, -1.3]} rotation={[0, Math.PI / 2, 0]} />
-      {/* laptop secundaria del diseñador (ala frontal de su L) */}
-      <Laptop position={[-1.3, TOP, 2.28]} rotation={[0, Math.PI, 0]} />
-      {/* gabinete y archivadores bajo el ala del fondo */}
-      <RB args={[0.35, 0.3, 0.42]} r={0.02} position={[-0.75, 0.15, -2.28]} castShadow>{mat(DARK)}</RB>
+      {/* laptop en el ala izquierda del escritorio principal */}
+      <Laptop position={[-WALL + 0.2, TOP, -1.9]} rotation={[0, Math.PI / 2, 0]} />
+      {/* gabinete y archivadores contra la pared trasera (hueco central) */}
+      <RB args={[0.35, 0.3, 0.42]} r={0.02} position={[-0.9, 0.15, -HALF + 0.32]} castShadow>{mat(DARK)}</RB>
       {['#3a4750', '#51616c', '#2e3a42'].map((c, i) => (
-        <RB key={c} args={[0.05, 0.26, 0.18]} r={0.012} position={[-1.95 + i * 0.07, 0.13, -2.28]} castShadow>
+        <RB key={c} args={[0.05, 0.26, 0.18]} r={0.012} position={[-2.7 + i * 0.07, 0.13, -HALF + 0.32]} castShadow>
           {mat(c)}
         </RB>
       ))}
-      <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-1.5, 0.012, -1.45]} receiveShadow>{mat(T.matColor)}</RB>
-      <FiddlePlant position={[2.3, 0, 0.1]} />
-      <FiddlePlant position={[0.05, 0, -2.28]} scale={0.38} />
-      <FiddlePlant position={[0, 0, 2.45]} scale={0.42} />
-      {/* lámparas de piso (encendidas en el tema Noche) */}
-      <FloorLamp position={[0.42, 0, -2.32]} on={!!T.lampsOn} />
-      <FloorLamp position={[-0.5, 0, 2.36]} on={!!T.lampsOn} />
-      <FloorLamp position={[-2.35, 0, 0.42]} on={!!T.lampsOn} />
-      <FloorLamp position={[2.42, 0, -0.42]} on={!!T.lampsOn} />
-      {/* lamparitas de escritorio, una por puesto */}
-      <DeskLamp position={[-0.68, TOP, -2.35]} rotation={[0, Math.PI * 0.9, 0]} on={!!T.lampsOn} />
-      <DeskLamp position={[2.3, TOP, -1.35]} rotation={[0, -Math.PI / 2, 0]} on={!!T.lampsOn} />
-      <DeskLamp position={[-2.3, TOP, 2.0]} rotation={[0, Math.PI / 2, 0]} on={!!T.lampsOn} />
-      <DeskLamp position={[2.2, TOP, 2.35]} rotation={[0, Math.PI, 0]} on={!!T.lampsOn} />
+      {/* alfombra del principal (bajo su silla) */}
+      <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-2.3, 0.012, -2.35]} receiveShadow>{mat(T.matColor)}</RB>
+      {/* plantas en huecos entre escritorios */}
+      <FiddlePlant position={[0.4, 0, -HALF + 0.45]} scale={0.4} />
+      <FiddlePlant position={[0, 0, HALF - 0.45]} scale={0.46} />
+      <FiddlePlant position={[-HALF + 0.35, 0, 1.1]} scale={0.4} />
+      {/* lámparas de piso en los huecos entre escritorios (encendidas en Noche) */}
+      <FloorLamp position={[-HALF + 0.35, 0, -1.3]} on={!!T.lampsOn} />
+      <FloorLamp position={[HALF - 0.35, 0, -1.3]} on={!!T.lampsOn} />
+      <FloorLamp position={[HALF - 0.35, 0, 1.1]} on={!!T.lampsOn} />
+      <FloorLamp position={[-1.5, 0, HALF - 0.35]} on={!!T.lampsOn} />
+      {/* lamparita de escritorio del principal */}
+      <DeskLamp position={[-2.3, TOP, -HALF + 0.34]} rotation={[0, Math.PI * 0.9, 0]} on={!!T.lampsOn} />
 
       <Suspense fallback={null}>
         <FlutterFrame position={[-0.7, 1.35, -HALF + 0.07]} />
+        {/* teclado+mouse del principal (dentro de Suspense: carga modelos) */}
+        <KbMouse monitor={MONITOR_POS} chair={CHAIR_POS} />
         {PROPS.map((p, i) => (
           <GltfProp key={i} {...p} />
         ))}
@@ -664,8 +762,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   ? (() => {
                       const tc = deliverTargets[main.id] ? chairFor(deliverTargets[main.id]) : null
                       return tc
-                        ? { to: standNear(tc), face: [tc[0], tc[2]], onDone: () => onTourDone?.(main.id) }
-                        : { to: [-0.6, -0.6], onDone: () => onTourDone?.(main.id) }
+                        ? { via: routeVia(standNear(CHAIR_POS), standNear(tc)), to: standNear(tc), face: [tc[0], tc[2]], onDone: () => onTourDone?.(main.id) }
+                        : { via: routeVia(standNear(CHAIR_POS), [-0.6, -0.6]), to: [-0.6, -0.6], onDone: () => onTourDone?.(main.id) }
                     })()
                   : devState === 'idle'
                     ? ambient[main.id]?.tour || null
@@ -706,6 +804,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               <LDesk position={s.desk} rotation={s.deskRot} />
               <RB args={s.mat.args} r={0.03} position={s.mat.position} receiveShadow>{mat(T.matColor)}</RB>
               <Monitor working={st === 'working'} position={s.monitor} rotation={s.monitorRot} />
+              <KbMouse monitor={s.monitor} chair={s.chair} />
               <Turn position={s.chair} yaw={yawFor(st, yawScreen)}>
                 <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
               </Turn>
@@ -730,8 +829,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                           // entrega dirigida: camina hacia el compañero destinatario
                           const targetChair = deliverTargets[m.id] ? chairFor(deliverTargets[m.id]) : null
                           return targetChair
-                            ? { to: standNear(targetChair), face: [targetChair[0], targetChair[2]], onDone: () => onTourDone?.(m.id) }
-                            : { to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(m.id) }
+                            ? { via: routeVia(standNear(s.chair), standNear(targetChair)), to: standNear(targetChair), face: [targetChair[0], targetChair[2]], onDone: () => onTourDone?.(m.id) }
+                            : { via: routeVia(standNear(s.chair), s.deliver), to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(m.id) }
                         })()
                       : st === 'idle'
                         ? amb?.tour || null

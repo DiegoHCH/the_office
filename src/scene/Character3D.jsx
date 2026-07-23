@@ -44,6 +44,10 @@ export default function Character3D({
   const tourRef = useRef(null)
   const standPos = useRef(null)
   const home = useRef(position)
+  // waypoints intermedios (`tour.via` = array de [x,z]): se recorren en orden a la
+  // ida y en orden inverso a la vuelta, para esquivar escritorios. Índice de avance.
+  const viaIdx = useRef(0)
+  const backIdx = useRef(0)
   const { scene: source, animations } = useGLTF(url)
   // clon con esqueleto propio: permite usar el MISMO modelo en varios personajes
   const scene = useMemo(() => skeletonClone(source), [source])
@@ -109,6 +113,8 @@ export default function Character3D({
   useEffect(() => {
     if (tour && phase.current === 'seated') {
       tourRef.current = tour
+      viaIdx.current = 0
+      backIdx.current = 0
       // punto "de pie": un pasito desde la silla hacia el centro de la sala
       const [hx, , hz] = home.current
       const len = Math.hypot(hx, hz) || 1
@@ -180,13 +186,24 @@ export default function Character3D({
       g.position.z += (standPos.current[1] - g.position.z) * k
       g.position.y += (0 - g.position.y) * k
     } else if (ph === 'walkTo' || ph === 'walkBack') {
-      const t = ph === 'walkTo' ? tourRef.current?.to : [home.current[0], home.current[2]]
+      // si el tour define `via` (lista de waypoints), se recorren en orden a la ida
+      // y en orden inverso a la vuelta, esquivando escritorios; luego destino/casa.
+      const via = tourRef.current?.via
+      let t
+      if (ph === 'walkTo') t = via && viaIdx.current < via.length ? via[viaIdx.current] : tourRef.current?.to
+      else t = via && backIdx.current < via.length ? via[via.length - 1 - backIdx.current] : [home.current[0], home.current[2]]
       if (!t) return
       const dx = t[0] - g.position.x
       const dz = t[1] - g.position.z
       const d = Math.hypot(dx, dz)
       if (d < 0.06) {
-        if (ph === 'walkTo') {
+        if (ph === 'walkTo' && via && viaIdx.current < via.length) {
+          // llegó a un waypoint: avanzar al siguiente (sigue caminando)
+          viaIdx.current += 1
+        } else if (ph === 'walkBack' && via && backIdx.current < via.length) {
+          // waypoint de la vuelta alcanzado: seguir al siguiente / a casa
+          backIdx.current += 1
+        } else if (ph === 'walkTo') {
           const pose = tourRef.current?.pose ?? 'Victory'
           if (pose === 'Idle' || tourRef.current?.pauseMs) {
             // pausa contemplativa (paseo): de pie un rato y de vuelta

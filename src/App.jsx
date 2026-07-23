@@ -189,9 +189,17 @@ export const ROLE_META = {
     url: '/models/pj/Doctor_Male_Young.gltf',
     kw: /\bdocs?\b|documentacion|readme|guia|manual|\badr\b/,
   },
+  publish: {
+    label: 'Publicador',
+    emoji: '🚀',
+    color: '#0ea5e9',
+    hair: '#38bdf8', // Franky: pelo azul
+    url: '/models/pj/BlueSoldier_Male.gltf',
+    kw: /publica|publicar|pages|github pages|despliega|deploy|hostea|sube.*(artifact|web|pagina)/,
+  },
 }
 
-const MAX_ACTIVE = 4
+const MAX_ACTIVE = 6
 
 // Todos los personajes del pack (se excluyen accesorios y mascotas).
 const AVATARS = [
@@ -691,7 +699,7 @@ export default function App() {
       d.map((r) => {
         if (r.id !== id) return r
         if (r.enabled && draftEnabled <= 1) return r // mínimo 1
-        if (!r.enabled && draftEnabled >= MAX_ACTIVE) return r // máximo 4
+        if (!r.enabled && draftEnabled >= MAX_ACTIVE) return r // máximo MAX_ACTIVE
         return { ...r, enabled: !r.enabled }
       })
     )
