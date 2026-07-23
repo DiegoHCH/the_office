@@ -168,7 +168,7 @@ function FloorLamp({ position, on = false }) {
           side={DoubleSide}
         />
       </mesh>
-      {on && <pointLight position={[0, 1.1, 0]} color="#ffb27a" intensity={5} distance={4.5} decay={1.8} />}
+      {on && <pointLight position={[0, 1.15, 0]} color="#ffb27a" intensity={9} distance={6.5} decay={1.5} castShadow={false} />}
     </group>
   )
 }
@@ -368,10 +368,10 @@ function FiddlePlant({ position, scale = 0.5 }) {
 const PROPS = [
   // ── principal: rincón tras-izq, mira -z ──
   { url: '/models/furniture/plantSmall3.glb', position: [-3.0, TOP, -2.0] },
-  { url: '/models/furniture/books.glb', position: [-1.8, TOP, -3.0], scale: 1.0 },
+  { url: '/models/furniture/books.glb', position: [-3.05, TOP, -2.55], scale: 1.0 },
   // ── SLOTS[0]: rincón tras-der, mira -z ──
   { url: '/models/furniture/plantSmall1.glb', position: [3.0, TOP, -2.0] },
-  { url: '/models/furniture/radio.glb', position: [1.95, TOP, -3.0] },
+  { url: '/models/furniture/radio.glb', position: [3.0, TOP, -1.55] },
   // ── SLOTS[1]: rincón frontal-izq, mira -x ──
   { url: '/models/furniture/books.glb', position: [-3.0, TOP, 1.9] },
   { url: '/models/furniture/plantSmall2.glb', position: [-1.9, TOP, 2.95] },
@@ -520,12 +520,65 @@ function segHitsZone([ax, az], [bx, bz], z) {
   }
   return t0 <= t1
 }
-// Waypoints intermedios para ir de `from` a `to` esquivando escritorios: si la
-// línea recta cruza algún escritorio (que no sea el de origen/destino) desvía por
-// el centro abierto. Devuelve un array de [x,z] o null si el camino ya está libre.
+// ¿el tramo a→b está libre? (puede atravesar el escritorio propio del origen o
+// del destino, pero no un tercero en medio)
+function segClear(a, b) {
+  return !DESK_ZONES.some((z) => !zoneHas(z, a) && !zoneHas(z, b) && segHitsZone(a, b, z))
+}
+// Nodos "de pasillo" en la zona abierta: centro + corredores frente/fondo. Los
+// laterales quedan tapados por los escritorios medios, así que se rodea por aquí.
+const NAV_NODES = [
+  [0, 0],
+  [0, -1.35],
+  [0, 1.35],
+  [1.05, 0],
+  [-1.05, 0],
+]
+// Waypoints para ir de `from` a `to` esquivando escritorios. Si la recta está
+// libre → null (va directo). Si no, BFS sobre los nodos de pasillo para hallar el
+// camino con menos saltos; devuelve los nodos intermedios (o [centro] de respaldo).
+// Camino SIN cruzar escritorios: [] si la recta ya está libre, array de waypoints
+// si el BFS encuentra ruta por los pasillos, o null si NO hay forma sin cruzar.
+function navPath(from, to) {
+  if (segClear(from, to)) return []
+  const nodes = [from, ...NAV_NODES, to]
+  const N = nodes.length
+  const TARGET = N - 1
+  const prev = new Array(N).fill(-1)
+  const seen = new Array(N).fill(false)
+  const queue = [0]
+  seen[0] = true
+  while (queue.length) {
+    const u = queue.shift()
+    if (u === TARGET) break
+    for (let v = 0; v < N; v++) {
+      if (!seen[v] && segClear(nodes[u], nodes[v])) {
+        seen[v] = true
+        prev[v] = u
+        queue.push(v)
+      }
+    }
+  }
+  if (!seen[TARGET]) return null
+  const path = []
+  for (let at = prev[TARGET]; at > 0; at = prev[at]) path.unshift(nodes[at])
+  return path
+}
+// ¿existe una ruta sin cruzar escritorios entre `from` y `to`?
+const isReachable = (from, to) => navPath(from, to) !== null
+// Waypoints para el tour. Si no hay ruta limpia (entrega obligatoria), va por el
+// centro como último recurso. Devuelve null cuando la recta ya está libre.
 function routeVia(from, to) {
-  const blocks = DESK_ZONES.some((z) => !zoneHas(z, from) && !zoneHas(z, to) && segHitsZone(from, to, z))
-  return blocks ? [[0, 0]] : null
+  const p = navPath(from, to)
+  if (p === null) return [[0, 0]]
+  return p.length ? p : null
+}
+
+// Yaw para que la silla mire hacia donde el personaje va a caminar (primer punto
+// del recorrido). Null si no hay tour → la silla usa su orientación normal.
+function tourFacing(chair, tour) {
+  const t = tour?.via?.[0] || tour?.to
+  return t ? Math.atan2(t[0] - chair[0], t[1] - chair[2]) : null
 }
 
 // ── Vida ambiental: mientras nadie trabaja, la oficina respira ───────────────
@@ -643,13 +696,21 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
             [m.id]: {
               kind: 'wander',
               text: spot.text,
-              tour: { to, pose: 'Idle', pauseMs: 2500 + Math.random() * 2500, onDone: () => clearAmbient(m.id) },
+              tour: { via: routeVia(standNear(chairFor(m.id)), to), to, pose: 'Idle', pauseMs: 2500 + Math.random() * 2500, onDone: () => clearAmbient(m.id) },
             },
           }))
         } else {
-          // visita social: caminar al puesto de CUALQUIER compañero libre
-          // (vale aunque esté en frase/música — se le interrumpe con un 👋)
-          const hosts = squad.filter((o) => o && o.id !== m.id && !roleStates[o.id] && !ambientRef.current[o.id]?.tour)
+          // visita social: caminar al puesto de un compañero libre, pero SOLO si
+          // se puede llegar sin cruzar escritorios (los laterales quedan tapados).
+          const fromPt = standNear(chairFor(m.id))
+          const hosts = squad.filter(
+            (o) =>
+              o &&
+              o.id !== m.id &&
+              !roleStates[o.id] &&
+              !ambientRef.current[o.id]?.tour &&
+              isReachable(fromPt, standNear(chairFor(o.id))),
+          )
           const host = hosts.length ? rand(hosts) : null
           const chair = host && chairFor(host.id)
           if (!chair) return
@@ -677,6 +738,25 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
     }, 5000)
     return () => clearInterval(iv)
   }, [squad, roleStates])
+
+  // Construye el tour de ENTREGA (con desvío por el centro si hace falta).
+  const deliverTour = (chair, id, fbTo, fbFace) => {
+    const tc = deliverTargets[id] ? chairFor(deliverTargets[id]) : null
+    return tc
+      ? { via: routeVia(standNear(chair), standNear(tc)), to: standNear(tc), face: [tc[0], tc[2]], onDone: () => onTourDone?.(id) }
+      : { via: routeVia(standNear(chair), fbTo), to: fbTo, face: fbFace, onDone: () => onTourDone?.(id) }
+  }
+  // Tour activo del principal (una sola vez) + yaw de su silla: al pararse mira
+  // hacia donde va a caminar; sin tour, vuelve a mirar su pantalla.
+  const mainTour = !main
+    ? null
+    : devState === 'delivering'
+      ? deliverTour(CHAIR_POS, main.id, [-0.6, -0.6])
+      : devState === 'idle'
+        ? ambient[main.id]?.tour || null
+        : null
+  const mainFace = mainTour ? tourFacing(CHAIR_POS, mainTour) : null
+  const mainChairYaw = mainFace == null ? yawFor(devState, YAW_DESK) : mainFace
 
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
@@ -719,17 +799,18 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       ))}
       {/* alfombra del principal (bajo su silla) */}
       <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-2.3, 0.012, -2.35]} receiveShadow>{mat(T.matColor)}</RB>
-      {/* plantas en huecos entre escritorios */}
-      <FiddlePlant position={[0.4, 0, -HALF + 0.45]} scale={0.4} />
+      {/* plantas en los pasillos frente/fondo (verificado: fuera de las huellas) */}
+      <FiddlePlant position={[0.6, 0, -HALF + 0.45]} scale={0.4} />
       <FiddlePlant position={[0, 0, HALF - 0.45]} scale={0.46} />
-      <FiddlePlant position={[-HALF + 0.35, 0, 1.1]} scale={0.4} />
-      {/* lámparas de piso en los huecos entre escritorios (encendidas en Noche) */}
-      <FloorLamp position={[-HALF + 0.35, 0, -1.3]} on={!!T.lampsOn} />
-      <FloorLamp position={[HALF - 0.35, 0, -1.3]} on={!!T.lampsOn} />
-      <FloorLamp position={[HALF - 0.35, 0, 1.1]} on={!!T.lampsOn} />
-      <FloorLamp position={[-1.5, 0, HALF - 0.35]} on={!!T.lampsOn} />
-      {/* lamparita de escritorio del principal */}
-      <DeskLamp position={[-2.3, TOP, -HALF + 0.34]} rotation={[0, Math.PI * 0.9, 0]} on={!!T.lampsOn} />
+      <FiddlePlant position={[-0.7, 0, -HALF + 0.45]} scale={0.38} />
+      {/* lámparas de piso grandes en la franja central abierta, repartidas hacia
+          las 4 esquinas (el perímetro está ocupado por los escritorios) */}
+      <FloorLamp position={[-1.05, 0, -2.4]} on={!!T.lampsOn} />
+      <FloorLamp position={[1.05, 0, -2.4]} on={!!T.lampsOn} />
+      <FloorLamp position={[-1.05, 0, 2.4]} on={!!T.lampsOn} />
+      <FloorLamp position={[1.05, 0, 2.4]} on={!!T.lampsOn} />
+      {/* lamparita de escritorio del principal (en la esquina de su L, NO frente al monitor) */}
+      <DeskLamp position={[-3.02, TOP, -2.95]} rotation={[0, -Math.PI / 4, 0]} on={!!T.lampsOn} />
 
       <Suspense fallback={null}>
         <FlutterFrame position={[-0.7, 1.35, -HALF + 0.07]} />
@@ -741,7 +822,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
         {main && (
           <>
-            <Turn position={CHAIR_POS} yaw={yawFor(devState, YAW_DESK)}>
+            <Turn position={CHAIR_POS} yaw={mainChairYaw}>
               <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
             </Turn>
             {/* el principal también vive fuera del Turn: puede pasear, visitar y entregar */}
@@ -757,18 +838,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               sitAt={[CHAIR_POS[0], 0.3, CHAIR_POS[2]]}
               colors={{ ...(main.human !== false ? { Skin: '#e8b890' } : {}), Face: main.hair, Hair: main.hair, Shirt: main.color }}
               sway={devState === 'working' || (devState === 'idle' && ambient[main.id]?.kind === 'music')}
-              tour={
-                devState === 'delivering'
-                  ? (() => {
-                      const tc = deliverTargets[main.id] ? chairFor(deliverTargets[main.id]) : null
-                      return tc
-                        ? { via: routeVia(standNear(CHAIR_POS), standNear(tc)), to: standNear(tc), face: [tc[0], tc[2]], onDone: () => onTourDone?.(main.id) }
-                        : { via: routeVia(standNear(CHAIR_POS), [-0.6, -0.6]), to: [-0.6, -0.6], onDone: () => onTourDone?.(main.id) }
-                    })()
-                  : devState === 'idle'
-                    ? ambient[main.id]?.tour || null
-                    : null
-              }
+              tour={mainTour}
             >
               <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                 <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
@@ -799,13 +869,23 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                     ? `${m.emoji} ¡listo!`
                     : amb?.text || null
           const busyBubble = st !== 'idle'
+          // tour activo del ocupante (entrega/paseo/visita), una sola vez
+          const slotTour = !m
+            ? null
+            : st === 'delivering'
+              ? deliverTour(s.chair, m.id, s.deliver, [CHAIR_POS[0], CHAIR_POS[2]])
+              : st === 'idle'
+                ? amb?.tour || null
+                : null
+          const slotFace = slotTour ? tourFacing(s.chair, slotTour) : null
+          const chairYaw = slotFace == null ? yawFor(st, yawScreen) : slotFace
           return (
             <group key={i}>
               <LDesk position={s.desk} rotation={s.deskRot} />
               <RB args={s.mat.args} r={0.03} position={s.mat.position} receiveShadow>{mat(T.matColor)}</RB>
               <Monitor working={st === 'working'} position={s.monitor} rotation={s.monitorRot} />
               <KbMouse monitor={s.monitor} chair={s.chair} />
-              <Turn position={s.chair} yaw={yawFor(st, yawScreen)}>
+              <Turn position={s.chair} yaw={chairYaw}>
                 <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
               </Turn>
               {/* el personaje vive fuera del Turn para poder levantarse y caminar;
@@ -823,19 +903,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   sitAt={[s.chair[0], 0.3, s.chair[2]]}
                   colors={{ ...(m.human !== false ? { Skin: '#e8b890' } : {}), Face: m.hair, Hair: m.hair, Shirt: m.color }}
                   sway={st === 'working' || (st === 'idle' && amb?.kind === 'music')}
-                  tour={
-                    st === 'delivering'
-                      ? (() => {
-                          // entrega dirigida: camina hacia el compañero destinatario
-                          const targetChair = deliverTargets[m.id] ? chairFor(deliverTargets[m.id]) : null
-                          return targetChair
-                            ? { via: routeVia(standNear(s.chair), standNear(targetChair)), to: standNear(targetChair), face: [targetChair[0], targetChair[2]], onDone: () => onTourDone?.(m.id) }
-                            : { via: routeVia(standNear(s.chair), s.deliver), to: s.deliver, face: [CHAIR_POS[0], CHAIR_POS[2]], onDone: () => onTourDone?.(m.id) }
-                        })()
-                      : st === 'idle'
-                        ? amb?.tour || null
-                        : null
-                  }
+                  tour={slotTour}
                 >
                   <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                     <div className="nametag" style={{ borderColor: m.color }}>{m.name}</div>
