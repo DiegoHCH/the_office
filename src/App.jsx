@@ -209,6 +209,11 @@ const AVATARS = [
   'Elf.gltf', 'Witch.gltf', 'Wizard.gltf', 'Goblin_Male.gltf', 'Goblin_Female.gltf',
   'Zombie_Male.gltf', 'Zombie_Female.gltf', 'BaseCharacter.gltf',
 ]
+// "nami-lo-que-me-gusta.html" → "Nami lo que me gusta"
+const prettyArtifact = (f = '') => {
+  const s = f.replace(/\.html?$/i, '').replace(/[-_]+/g, ' ').trim()
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : f
+}
 const avatarLabel = (f) =>
   f.replace('.gltf', '').replace(/_/g, ' ').replace('Female', '♀').replace('Male', '♂')
 
@@ -306,6 +311,9 @@ export default function App() {
   const [model, setModel] = useState(FALLBACK_MODEL)
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
+  const [artsOpen, setArtsOpen] = useState(false)
+  const [artsList, setArtsList] = useState([])
+  const [artsDir, setArtsDir] = useState('')
   const [sound, setSound] = useState(() => localStorage.getItem('oficina-sound') !== '0')
   const [theme, setTheme] = useState('clasico') // se carga por perfil al iniciar/cambiar
   const themeLoaded = useRef(false) // evita machacar el guardado antes de hidratar
@@ -319,7 +327,10 @@ export default function App() {
   const doneChipTimer = useRef(null)
   const [deliverTargets, setDeliverTargets] = useState({}) // a quién camina cada entrega
   const [attachments, setAttachments] = useState([]) // imágenes pegadas/arrastradas
+  const [refs, setRefs] = useState([]) // carpetas/archivos del disco arrastrados
   const handoffsRef = useRef([]) // [{from, to, original, result?}]
+  const queuesRef = useRef({}) // role → [jobs] pendientes cuando está ocupado
+  const pendingArtifactRef = useRef({}) // role → true si generó un artifact en este turno
   const toastTimer = useRef(null)
   const sessionsRef = useRef({})
   const convIdRef = useRef(null)
@@ -388,6 +399,25 @@ export default function App() {
   }
 
   useEffect(() => {
+    window.oficina?.artifacts?.getDir?.().then(setArtsDir)
+  }, [])
+
+  const refreshArtifacts = async () => setArtsList((await window.oficina?.artifacts?.list?.()) || [])
+  const toggleArts = async () => {
+    if (!artsOpen) await refreshArtifacts()
+    setArtsOpen((o) => !o)
+    setHistOpen(false)
+    setSquadOpen(false)
+  }
+  const pickArtsDir = async () => {
+    const res = await window.oficina?.artifacts?.pickDir?.()
+    if (res?.ok) {
+      setArtsDir(res.dir)
+      showToast('📁 carpeta de artifacts actualizada')
+    }
+  }
+
+  useEffect(() => {
     window.oficina?.getConfig?.().then((c) => {
       setCfg(c)
       const first = c.profiles[0]
@@ -410,6 +440,11 @@ export default function App() {
         if (isP) setStatus('pensando…')
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name, detail: e.detail || null })
+        // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
+        if (e.name === 'Write' && /\.html?$/i.test(e.detail || '')) {
+          pendingArtifactRef.current[who] = true
+          setTimeout(refreshArtifacts, 400)
+        }
         setRS(who, 'working')
         if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
       } else if (e.kind === 'text') {
@@ -435,6 +470,18 @@ export default function App() {
           }
           return e.result ? [...ms, { role: 'assistant', who, text: e.result }] : ms
         })
+        // si generó un artifact este turno, adjuntar su enlace al mensaje del agente
+        if (pendingArtifactRef.current[who]) {
+          delete pendingArtifactRef.current[who]
+          window.oficina?.artifacts?.list?.().then((list) => {
+            const art = list?.[0]
+            if (!art) return
+            setMessages((ms) => {
+              const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && !m.artifact)
+              return idx < 0 ? ms : ms.map((m, i) => (i === idx ? { ...m, artifact: art } : m))
+            })
+          })
+        }
         // ¿hay un handoff pendiente de este rol? guardar su resultado
         const entry = handoffsRef.current.find((h) => h.from === who && h.result == null)
         if (entry) entry.result = (e.result || '').slice(0, 6000) || '(sin salida)'
@@ -452,13 +499,13 @@ export default function App() {
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
         if (isP) setStatus('esperándote')
       } else if (e.kind === 'stopped') {
-        // tarea cancelada por el usuario: cerrar el mensaje a medias y limpiar
+        // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
         setMessages((ms) => {
-          const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
-          if (idx < 0) return ms
-          const copy = [...ms]
-          copy[idx] = { ...copy[idx], streaming: false, text: `${copy[idx].text}\n\n⏹ *(detenido)*` }
-          return copy
+          const aIdx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
+          let out = aIdx < 0 ? ms : ms.filter((_, i) => i !== aIdx)
+          const uIdx = out.findLastIndex((m) => m.role === 'user' && m.to === who && !m.cancelled)
+          if (uIdx >= 0) out = out.map((m, i) => (i === uIdx ? { ...m, cancelled: true } : m))
+          return out
         })
         handoffsRef.current = handoffsRef.current.filter((h) => !(h.from === who && h.result == null))
         setRS(who, 'idle')
@@ -513,6 +560,17 @@ export default function App() {
     }
   }, [roleStates, profile, project, writeMode, model, squad])
 
+  // Procesador de cola: cuando un tripulante queda libre, toma su siguiente
+  // mensaje en cola (como la consola: se procesa al terminar el turno actual).
+  useEffect(() => {
+    for (const role of Object.keys(queuesRef.current)) {
+      const q = queuesRef.current[role]
+      if (q?.length && !roleStates[role]) {
+        dispatchJob(q.shift())
+      }
+    }
+  }, [roleStates, profile, project, writeMode, model])
+
   // Atajos: ⌘K nueva · ⌘1-4 miembro del squad · ⌘Y historial · Esc cierra paneles
   useEffect(() => {
     const onKey = (e) => {
@@ -559,9 +617,21 @@ export default function App() {
       }
     }
   }
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault()
-    for (const f of e.dataTransfer?.files || []) addImageFile(f)
+    for (const f of e.dataTransfer?.files || []) {
+      if (f.type?.startsWith('image/')) {
+        addImageFile(f)
+        continue
+      }
+      // carpeta o archivo del disco → lo pasamos por ruta (el agente lo lee)
+      const p = window.oficina?.pathForFile?.(f)
+      if (!p) continue
+      const info = await window.oficina?.pathInfo?.(p)
+      if (!info?.ok) continue
+      setRefs((r) => (r.some((x) => x.path === p) ? r : [...r, info]))
+      popSound()
+    }
   }
 
   // aviso transitorio: aparece y se desvanece solo (no ensucia el chat)
@@ -588,6 +658,7 @@ export default function App() {
     setMessages([])
     convIdRef.current = null
     sessionsRef.current = {}
+    queuesRef.current = {}
     window.oficina?.reset?.()
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
@@ -597,6 +668,7 @@ export default function App() {
     setMessages([])
     convIdRef.current = null
     sessionsRef.current = {}
+    queuesRef.current = {}
     window.oficina?.reset?.()
   }
 
@@ -662,7 +734,7 @@ export default function App() {
       model,
       sessions: { ...sessionsRef.current },
       updatedAt: Date.now(),
-      messages: messages.map(({ role, text, who, to }) => ({ role, text, who, to })),
+      messages: messages.map(({ role, text, who, to, artifact, atts }) => ({ role, text, who, to, artifact, atts })),
     })
   }, [busy, messages, profile, project, model])
 
@@ -745,29 +817,46 @@ export default function App() {
     return false
   }
 
-  // Respuesta rápida: envía una opción elegida directo al tripulante indicado.
-  const quickReply = async (option, target) => {
-    if (roleStates[target]) {
-      const m = memberOf(target)
-      showToast(`${m.emoji} ${m.name} está ocupado — espera a que termine`)
-      return
-    }
-    if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
-    setMessages((ms) => [...ms, { role: 'user', text: option, to: target }])
-    setRS(target, 'listening')
+  // Lanza un job a su tripulante (o lo ENCOLA si está ocupado — como la consola).
+  const enqueueJob = (job) => {
+    setMessages((ms) => [...ms, { role: 'user', text: job.display, to: job.target, atts: job.atts, jobId: job.id, queued: true }])
+    ;(queuesRef.current[job.target] ||= []).push(job)
+    showToast(`⏳ en cola para ${memberOf(job.target).name}`)
+  }
+  const dispatchJob = async (job) => {
+    if (job.handoffTo) handoffsRef.current.push({ from: job.target, to: job.handoffTo, original: job.text, result: null })
+    setMessages((ms) => {
+      const has = ms.some((m) => m.jobId === job.id)
+      const cleared = ms.map((m) => (m.jobId === job.id ? { ...m, queued: false } : m))
+      return has ? cleared : [...cleared, { role: 'user', text: job.display, to: job.target, atts: job.atts, jobId: job.id }]
+    })
+    setRS(job.target, 'listening')
     popSound()
-    if (target === principal) setStatus('pensando…')
-    const res = await window.oficina.ask({ prompt: option, profile, cwd: project, writeMode, model, role: target })
+    if (job.target === principal) setStatus('pensando…')
+    const res = await window.oficina.ask({ prompt: job.prompt, profile, cwd: project, writeMode, model, role: job.target, standup: job.standup })
     if (!res?.ok) {
-      setRS(target, 'idle')
-      showToast(`⚠️ ${res?.error || 'error'}`)
+      setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'error desconocido'}` }])
+      setRS(job.target, 'idle')
+      if (job.target === principal) setStatus('esperándote')
     }
   }
+  // sitúa un job: si el tripulante está libre y sin cola → va; si no → encola
+  const routeJob = (job) => {
+    const busyOrQueued = !!roleStates[job.target] || (queuesRef.current[job.target]?.length > 0)
+    if (busyOrQueued) enqueueJob(job)
+    else dispatchJob(job)
+  }
 
-  const send = async (ev) => {
+  // Respuesta rápida: envía una opción elegida al tripulante (encola si ocupado).
+  const quickReply = (option, target) => {
+    if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+    routeJob({ id: crypto.randomUUID(), target, text: option, display: option, prompt: option, atts: [] })
+  }
+
+  const send = (ev) => {
     ev.preventDefault()
     const text = input.trim()
-    if (!text && !attachments.length) return
+    if (!text && !attachments.length && !refs.length) return
     if (text.startsWith('/') && handleLocalCommand(text)) {
       setInput('')
       return
@@ -777,34 +866,31 @@ export default function App() {
       return
     }
     const target = routeMessage(text, squad, principal)
-    if (roleStates[target]) {
-      const m = memberOf(target)
-      showToast(`${m.emoji} ${m.name} está ocupado — espera a que termine`)
-      return
-    }
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     const handoffTo = detectHandoff(text, squad, target)
-    if (handoffTo) handoffsRef.current.push({ from: target, to: handoffTo, original: text, result: null })
-    // imágenes adjuntas: el tripulante las lee con su herramienta Read
+    // adjuntos: imágenes (Read) y carpetas/archivos del disco (Glob/Read)
     const atts = attachments
-    let prompt = text || 'Describe y analiza las imágenes adjuntas.'
-    if (atts.length) {
-      prompt = `He adjuntado ${atts.length} imagen(es). Léelas con la herramienta Read antes de responder:\n${atts
-        .map((a) => `- ${a.path}`)
-        .join('\n')}\n\n${prompt}`
+    const rfs = refs
+    let prompt = text || (rfs.length ? 'Haz un breve resumen de los documentos.' : 'Describe y analiza las imágenes adjuntas.')
+    if (rfs.length) {
+      const list = rfs.map((r) => `- ${r.isDir ? '📁 carpeta' : '📄 archivo'}: ${r.path}`).join('\n')
+      prompt = `Tengo estos elementos en mi disco (léelos con Glob para listar y Read para su contenido; en carpetas revisa los documentos que haya):\n${list}\n\n${prompt}`
     }
-    setMessages((ms) => [...ms, { role: 'user', text: text || '🖼', to: target, atts: atts.map((a) => a.name) }])
+    if (atts.length) {
+      prompt = `He adjuntado ${atts.length} imagen(es). Léelas con la herramienta Read:\n${atts.map((a) => `- ${a.path}`).join('\n')}\n\n${prompt}`
+    }
+    routeJob({
+      id: crypto.randomUUID(),
+      target,
+      text,
+      display: text || (rfs.length ? '📁' : '🖼'),
+      prompt,
+      handoffTo,
+      atts: [...atts.map((a) => a.name), ...rfs.map((r) => r.name)],
+    })
     setInput('')
     setAttachments([])
-    setRS(target, 'listening')
-    popSound()
-    if (target === principal) setStatus('pensando…')
-    const res = await window.oficina.ask({ prompt, profile, cwd: project, writeMode, model, role: target })
-    if (!res?.ok) {
-      setMessages((ms) => [...ms, { role: 'assistant', who: target, text: `⚠️ ${res?.error || 'error desconocido'}` }])
-      setRS(target, 'idle')
-      if (target === principal) setStatus('esperándote')
-    }
+    setRefs([])
   }
 
   return (
@@ -826,6 +912,13 @@ export default function App() {
             </option>
           ))}
         </select>
+        <button type="button" className="newchat" onClick={toggleArts} title="Artifacts creados por el squad">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" />
+            <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
+          </svg>
+          Artifacts
+        </button>
         <button type="button" className="newchat" onClick={toggleHist} disabled={busy} title="Historial (⌘Y)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10" />
@@ -930,6 +1023,12 @@ export default function App() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Artifacts:</span>
+              <button type="button" className="pref-toggle" onClick={pickArtsDir} title={artsDir}>
+                📁 …{artsDir.slice(-30) || 'carpeta por defecto'}
+              </button>
             </div>
             <div className="pref-row">
               <span className="pref-label">Pizarra:</span>
@@ -1050,6 +1149,38 @@ export default function App() {
             )
           })()}
 
+        {artsOpen && (
+          <div className="drawer">
+            <div className="drawer-head">
+              <b>🔗 Artifacts</b>
+              <button onClick={() => setArtsOpen(false)}>✕</button>
+            </div>
+            {artsList.length === 0 && <div className="hist-empty">aún no hay artifacts · pídele uno a un agente</div>}
+            {artsList.map((a) => (
+              <div key={a.path} className="hist-item art-item">
+                <div onClick={() => window.oficina?.artifacts?.open?.(a.path)} style={{ cursor: 'pointer' }}>
+                  <div className="hist-title">🔗 {prettyArtifact(a.name)}</div>
+                  <div className="hist-meta">
+                    {a.at ? new Date(a.at).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                  </div>
+                </div>
+                <div className="art-actions">
+                  <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title="Revelar en Finder">📂</button>
+                  <button
+                    onClick={async () => {
+                      const r = await window.oficina?.artifacts?.zip?.(a.path)
+                      showToast(r?.ok ? '📦 zip exportado' : '⚠️ exportación cancelada')
+                    }}
+                    title="Exportar como .zip (con imágenes) para compartir"
+                  >
+                    📦
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {histOpen && (
           <div className="drawer">
             <div className="drawer-head">
@@ -1115,11 +1246,18 @@ export default function App() {
                   </div>
                 )}
                 {m.role === 'user' && m.to && m.to !== principal && <div className="who to">→ {memberOf(m.to).name}</div>}
+                {m.role === 'user' && m.queued && <div className="who to">⏳ en cola</div>}
+                {m.role === 'user' && m.cancelled && <div className="who to">⏹ cancelado</div>}
                 {m.role === 'user' && m.atts?.length > 0 && (
                   <div className="msg-atts">{m.atts.map((n, j) => <span key={j}>🖼 {n}</span>)}</div>
                 )}
                 {m.role === 'assistant' ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown> : m.text}
                 {m.streaming ? '▍' : ''}
+                {m.artifact && (
+                  <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
+                    🔗 Abrir · {prettyArtifact(m.artifact.name)}
+                  </button>
+                )}
                 {options.length > 0 && (
                   <div className="quickreplies">
                     {options.map((opt, j) => (
@@ -1136,12 +1274,18 @@ export default function App() {
         )}
       </div>
 
-      {attachments.length > 0 && (
+      {(attachments.length > 0 || refs.length > 0) && (
         <div className="attachbar">
           {attachments.map((a, i) => (
             <span key={a.path} className="attachchip">
               🖼 {a.name}
               <button type="button" onClick={() => setAttachments((arr) => arr.filter((_, j) => j !== i))}>✕</button>
+            </span>
+          ))}
+          {refs.map((r, i) => (
+            <span key={r.path} className="attachchip">
+              {r.isDir ? '📁' : '📄'} {r.name}
+              <button type="button" onClick={() => setRefs((arr) => arr.filter((_, j) => j !== i))}>✕</button>
             </span>
           ))}
         </div>

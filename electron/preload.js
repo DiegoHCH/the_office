@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron')
+const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 // Puente seguro entre el proceso principal (Node) y el renderer (React).
 contextBridge.exposeInMainWorld('oficina', {
@@ -17,6 +17,25 @@ contextBridge.exposeInMainWorld('oficina', {
   openTerminal: (cwd) => ipcRenderer.invoke('terminal:open', cwd),
   // Guarda una imagen adjunta y devuelve su ruta local.
   saveImage: (name, data) => ipcRenderer.invoke('image:save', { name, data }),
+  // Ruta absoluta de un File arrastrado (Electron 32+: vía webUtils).
+  pathForFile: (file) => {
+    try {
+      return webUtils.getPathForFile(file)
+    } catch {
+      return null
+    }
+  },
+  // ¿la ruta es archivo o carpeta? (para el chip y el prompt)
+  pathInfo: (p) => ipcRenderer.invoke('path:info', p),
+  // Artifacts locales: carpeta configurable, listado y abrir en ventana.
+  artifacts: {
+    getDir: () => ipcRenderer.invoke('artifacts:getDir'),
+    pickDir: () => ipcRenderer.invoke('artifacts:pickDir'),
+    list: () => ipcRenderer.invoke('artifacts:list'),
+    open: (file) => ipcRenderer.invoke('artifacts:open', file),
+    reveal: (file) => ipcRenderer.invoke('artifacts:reveal', file),
+    zip: (file) => ipcRenderer.invoke('artifacts:zip', file),
+  },
   // Abre la guía de uso en su propia ventana.
   openHelp: () => ipcRenderer.invoke('help:open'),
   // Monitor: recursos del sistema + % de uso de la suscripción de Claude.

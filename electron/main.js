@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net, Notification } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog } = require('electron')
 const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -374,6 +374,21 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   const member = getSquad(profile).find((r) => r.id === role)
   const displayName = member?.name || role
   let persona = (ROLE_TEMPLATES[role] || ROLE_TEMPLATES.dev)(displayName)
+  // instrucción de artifacts: si el usuario pide un "artifact"/página/dashboard/visual,
+  // generar un HTML autocontenido (CSS/JS inline) en esta carpeta.
+  const artDir = getArtifactsDir()
+  try {
+    fs.mkdirSync(artDir, { recursive: true })
+  } catch {}
+  persona +=
+    `\n\nARTIFACTS: si te piden un "artifact", una página web, un dashboard, un diagrama o algo visual, ` +
+    `créalo como un archivo HTML y guárdalo con la herramienta Write en la carpeta: ${artDir} ` +
+    `(nombre descriptivo terminado en .html). El CSS y el JS van INLINE (sin CDNs ni librerías externas). ` +
+    `IMÁGENES: puedes y debes usar imágenes cuando aporten. Busca en la web imágenes relevantes con WebSearch/WebFetch ` +
+    `y consigue la URL DIRECTA del archivo de imagen (que termine en .png/.jpg/.svg/.webp). ` +
+    `Para máxima fiabilidad, si tienes Bash disponible, descárgalas con curl a una subcarpeta 'assets/' junto al HTML y refiérelas con ruta relativa; ` +
+    `si no, úsalas por su URL directa en <img src>. Si no consigues una imagen fiable, usa un emoji, un SVG inline o un placeholder — nunca dejes imágenes rotas. ` +
+    `No publiques a internet ni uses .md para esto; la app abrirá el HTML renderizado.`
   // personalidad personalizada del usuario (userData/personas/<profile>/<role>.md)
   const customMd = readPersonaMd(profile, role)
   if (customMd) persona += `\n\nInstrucciones personalizadas de ${displayName}:\n${customMd}`
@@ -636,6 +651,77 @@ ipcMain.handle('help:open', () => {
     helpWin = null
   })
   return { ok: true }
+})
+
+// ── Artifacts locales ────────────────────────────────────────────────────────
+// Carpeta donde el squad guarda los artifacts HTML (configurable desde ⚙️).
+const artifactsDirFile = () => path.join(app.getPath('userData'), 'artifacts-dir.txt')
+function getArtifactsDir() {
+  try {
+    const d = fs.readFileSync(artifactsDirFile(), 'utf8').trim()
+    if (d && fs.existsSync(d)) return d
+  } catch {}
+  return path.join(app.getPath('userData'), 'artifacts') // por defecto
+}
+ipcMain.handle('artifacts:getDir', () => getArtifactsDir())
+ipcMain.handle('artifacts:pickDir', async () => {
+  const res = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })
+  if (res.canceled || !res.filePaths[0]) return { ok: false }
+  fs.writeFileSync(artifactsDirFile(), res.filePaths[0])
+  return { ok: true, dir: res.filePaths[0] }
+})
+ipcMain.handle('artifacts:list', () => {
+  const dir = getArtifactsDir()
+  try {
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.toLowerCase().endsWith('.html'))
+      .map((f) => {
+        const st = fs.statSync(path.join(dir, f))
+        return { name: f, path: path.join(dir, f), at: st.mtimeMs }
+      })
+      .sort((a, b) => b.at - a.at)
+  } catch {
+    return []
+  }
+})
+ipcMain.handle('artifacts:open', (_e, file) => {
+  if (!file || !fs.existsSync(file)) return { ok: false }
+  const w = new BrowserWindow({ width: 1000, height: 780, backgroundColor: '#ffffff', title: path.basename(file) })
+  w.loadFile(file)
+  return { ok: true }
+})
+// Revela el artifact en Finder (seleccionado).
+ipcMain.handle('artifacts:reveal', (_e, file) => {
+  if (!file || !fs.existsSync(file)) return { ok: false }
+  require('electron').shell.showItemInFolder(file)
+  return { ok: true }
+})
+// Exporta el artifact + su carpeta assets/ en un .zip para compartir.
+ipcMain.handle('artifacts:zip', async (_e, file) => {
+  if (!file || !fs.existsSync(file)) return { ok: false }
+  const base = path.basename(file, path.extname(file))
+  const res = await dialog.showSaveDialog(win, { defaultPath: `${base}.zip` })
+  if (res.canceled || !res.filePath) return { ok: false }
+  const dir = path.dirname(file)
+  // incluye el .html y, si existe, la carpeta assets/ (imágenes descargadas)
+  const items = [path.basename(file)]
+  if (fs.existsSync(path.join(dir, 'assets'))) items.push('assets')
+  return new Promise((resolve) => {
+    execFile('zip', ['-r', '-q', res.filePath, ...items], { cwd: dir }, (err) => {
+      resolve(err ? { ok: false, error: err.message } : { ok: true, path: res.filePath })
+    })
+  })
+})
+
+// Info de una ruta arrastrada (archivo vs carpeta).
+ipcMain.handle('path:info', (_e, p) => {
+  try {
+    const st = fs.statSync(p)
+    return { ok: true, path: p, name: path.basename(p), isDir: st.isDirectory() }
+  } catch {
+    return { ok: false }
+  }
 })
 
 // Guarda una imagen pegada/arrastrada para que el squad la pueda leer.

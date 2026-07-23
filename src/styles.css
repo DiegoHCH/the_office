@@ -120,6 +120,16 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 
+/* botón para abrir un artifact generado (en ventana de Electron) */
+.artifact-btn {
+  display: block; margin-top: 10px; width: 100%; text-align: left;
+  background: linear-gradient(180deg, rgba(45,212,191,0.16), rgba(45,212,191,0.08));
+  color: #2dd4bf; border: 1px solid #2dd4bf; border-radius: 10px;
+  padding: 9px 13px; font-size: 13px; font-weight: 600; cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.artifact-btn:hover { background: rgba(45, 212, 191, 0.25); }
+
 /* botones de respuesta rápida bajo un mensaje con opciones */
 .quickreplies { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .quickreplies button {
@@ -180,7 +190,15 @@ body {
   background: none; border: none; cursor: pointer; font-size: 13px; opacity: 0.4;
 }
 .hist-del:hover { opacity: 1; }
+.art-item { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
+.art-item > div:first-child { flex: 1; min-width: 0; }
+.art-actions { display: flex; gap: 4px; flex: none; }
+.art-actions button {
+  background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.6; padding: 4px;
+}
+.art-actions button:hover { opacity: 1; }
 .hist-empty { color: #93a6a1; font-size: 12.5px; padding: 8px; font-family: ui-monospace, Menlo, monospace; }
+.linkish { color: #2dd4bf; cursor: pointer; text-decoration: underline; }
 
 /* chips para detener tareas en curso */
 .stopbar {
