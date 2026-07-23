@@ -574,13 +574,6 @@ function routeVia(from, to) {
   return p.length ? p : null
 }
 
-// Yaw para que la silla mire hacia donde el personaje va a caminar (primer punto
-// del recorrido). Null si no hay tour → la silla usa su orientación normal.
-function tourFacing(chair, tour) {
-  const t = tour?.via?.[0] || tour?.to
-  return t ? Math.atan2(t[0] - chair[0], t[1] - chair[2]) : null
-}
-
 // ── Vida ambiental: mientras nadie trabaja, la oficina respira ───────────────
 const PHRASES = [
   '☕ necesito otro café',
@@ -746,8 +739,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       ? { via: routeVia(standNear(chair), standNear(tc)), to: standNear(tc), face: [tc[0], tc[2]], onDone: () => onTourDone?.(id) }
       : { via: routeVia(standNear(chair), fbTo), to: fbTo, face: fbFace, onDone: () => onTourDone?.(id) }
   }
-  // Tour activo del principal (una sola vez) + yaw de su silla: al pararse mira
-  // hacia donde va a caminar; sin tour, vuelve a mirar su pantalla.
+  // Tour activo del principal (una sola vez), usado por Character3D (que además
+  // secuencia la silla: gira antes de pararse y a la pantalla al sentarse).
   const mainTour = !main
     ? null
     : devState === 'delivering'
@@ -755,8 +748,6 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       : devState === 'idle'
         ? ambient[main.id]?.tour || null
         : null
-  const mainFace = mainTour ? tourFacing(CHAIR_POS, mainTour) : null
-  const mainChairYaw = mainFace == null ? yawFor(devState, YAW_DESK) : mainFace
 
   return (
     <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
@@ -803,12 +794,12 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       <FiddlePlant position={[0.6, 0, -HALF + 0.45]} scale={0.4} />
       <FiddlePlant position={[0, 0, HALF - 0.45]} scale={0.46} />
       <FiddlePlant position={[-0.7, 0, -HALF + 0.45]} scale={0.38} />
-      {/* lámparas de piso grandes en la franja central abierta, repartidas hacia
-          las 4 esquinas (el perímetro está ocupado por los escritorios) */}
-      <FloorLamp position={[-1.05, 0, -2.4]} on={!!T.lampsOn} />
-      <FloorLamp position={[1.05, 0, -2.4]} on={!!T.lampsOn} />
-      <FloorLamp position={[-1.05, 0, 2.4]} on={!!T.lampsOn} />
-      <FloorLamp position={[1.05, 0, 2.4]} on={!!T.lampsOn} />
+      {/* lámparas de piso grandes en los extremos de la franja central, pegadas a
+          la pared del fondo y al borde frontal (los lados los ocupan los escritorios) */}
+      <FloorLamp position={[-1.1, 0, -HALF + 0.45]} on={!!T.lampsOn} />
+      <FloorLamp position={[1.1, 0, -HALF + 0.45]} on={!!T.lampsOn} />
+      <FloorLamp position={[-1.1, 0, HALF - 0.45]} on={!!T.lampsOn} />
+      <FloorLamp position={[1.1, 0, HALF - 0.45]} on={!!T.lampsOn} />
       {/* lamparita de escritorio del principal (en la esquina de su L, NO frente al monitor) */}
       <DeskLamp position={[-3.02, TOP, -2.95]} rotation={[0, -Math.PI / 4, 0]} on={!!T.lampsOn} />
 
@@ -822,10 +813,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
         {main && (
           <>
-            <Turn position={CHAIR_POS} yaw={mainChairYaw}>
-              <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
-            </Turn>
-            {/* el principal también vive fuera del Turn: puede pasear, visitar y entregar */}
+            {/* la silla ahora la renderiza Character3D (secuenciada con pararse/
+                sentarse); el personaje camina, la silla se queda en el puesto */}
             <Character3D
               key={`${main.id}-${main.url}`}
               url={main.url}
@@ -839,6 +828,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               colors={{ ...(main.human !== false ? { Skin: '#e8b890' } : {}), Face: main.hair, Hair: main.hair, Shirt: main.color }}
               sway={devState === 'working' || (devState === 'idle' && ambient[main.id]?.kind === 'music')}
               tour={mainTour}
+              seat={<Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />}
             >
               <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                 <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
@@ -877,19 +867,19 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               : st === 'idle'
                 ? amb?.tour || null
                 : null
-          const slotFace = slotTour ? tourFacing(s.chair, slotTour) : null
-          const chairYaw = slotFace == null ? yawFor(st, yawScreen) : slotFace
           return (
             <group key={i}>
               <LDesk position={s.desk} rotation={s.deskRot} />
               <RB args={s.mat.args} r={0.03} position={s.mat.position} receiveShadow>{mat(T.matColor)}</RB>
               <Monitor working={st === 'working'} position={s.monitor} rotation={s.monitorRot} />
               <KbMouse monitor={s.monitor} chair={s.chair} />
-              <Turn position={s.chair} yaw={chairYaw}>
-                <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
-              </Turn>
-              {/* el personaje vive fuera del Turn para poder levantarse y caminar;
-                  nametag y globo van DENTRO (coords locales /0.27) y lo siguen */}
+              {/* puesto vacío: silla estática mirando la pantalla. Ocupado: la
+                  silla la renderiza Character3D (secuenciada con pararse/sentarse) */}
+              {!m && (
+                <Turn position={s.chair} yaw={yawScreen}>
+                  <Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />
+                </Turn>
+              )}
               {m && (
                 <Character3D
                   key={`${m.id}-${m.url}`}
@@ -904,6 +894,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   colors={{ ...(m.human !== false ? { Skin: '#e8b890' } : {}), Face: m.hair, Hair: m.hair, Shirt: m.color }}
                   sway={st === 'working' || (st === 'idle' && amb?.kind === 'music')}
                   tour={slotTour}
+                  seat={<Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />}
                 >
                   <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                     <div className="nametag" style={{ borderColor: m.color }}>{m.name}</div>

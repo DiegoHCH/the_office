@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { LoopOnce, LoopRepeat, Vector3, Quaternion } from 'three'
+import { LoopOnce, LoopRepeat, Vector3, Quaternion, MathUtils } from 'three'
 import { clone as skeletonClone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF, useAnimations } from '@react-three/drei'
@@ -35,15 +35,22 @@ export default function Character3D({
   position = [0, 0, 0],
   rotation = [0, 0, 0],
   scale = 1,
+  seat = null,
   children,
 }) {
   const group = useRef()
   const hipsBone = useRef(null)
-  const phase = useRef('seated') // seated | standup | walkTo | pose | pause | walkBack | sitdown
+  // seated | chairOut | standup | walkTo | pose | pause | walkBack | sitdown | chairBack
+  const phase = useRef('seated')
   const pauseLeft = useRef(0)
   const tourRef = useRef(null)
   const standPos = useRef(null)
   const home = useRef(position)
+  // silla (grupo fijo, aparte del personaje que camina) + hacia dónde caminará:
+  // al pararse, primero gira la silla a `walkYaw` y luego se levanta; al volver,
+  // se sienta y recién ahí la silla gira de vuelta a la pantalla.
+  const chairGroup = useRef()
+  const walkYaw = useRef(0)
   // waypoints intermedios (`tour.via` = array de [x,z]): se recorren en orden a la
   // ida y en orden inverso a la vuelta, para esquivar escritorios. Índice de avance.
   const viaIdx = useRef(0)
@@ -119,12 +126,12 @@ export default function Character3D({
       const [hx, , hz] = home.current
       const len = Math.hypot(hx, hz) || 1
       standPos.current = [hx - (hx / len) * 0.45, hz - (hz / len) * 0.45]
-      phase.current = 'standup'
-      if (!play('StandUp')) {
-        phase.current = 'walkTo'
-        play('Walk', true)
-      }
-    } else if (!tour && tourRef.current && !['seated', 'sitdown'].includes(phase.current)) {
+      // hacia dónde caminará (primer punto del recorrido): la silla gira allí
+      // ANTES de que el personaje se pare (la transición se dispara en useFrame).
+      const first = tour.via?.[0] || tour.to
+      walkYaw.current = first ? Math.atan2(first[0] - hx, first[1] - hz) : yaw
+      phase.current = 'chairOut'
+    } else if (!tour && tourRef.current && !['seated', 'sitdown', 'chairBack'].includes(phase.current)) {
       // tour cancelado: volver a casa de una
       group.current?.position.set(home.current[0], home.current[1], home.current[2])
       phase.current = 'sitdown'
@@ -143,10 +150,9 @@ export default function Character3D({
         phase.current = 'walkBack'
         play('Walk', true)
       } else if (phase.current === 'sitdown' && name === 'SitDown') {
-        phase.current = 'seated'
-        const cb = tourRef.current?.onDone
-        tourRef.current = null
-        cb?.()
+        // ya sentado (mirando hacia donde venía); ahora la silla gira a la
+        // pantalla (transición a 'seated' + onDone se cierran en useFrame).
+        phase.current = 'chairBack'
       }
     }
     mixer.addEventListener('finished', onFinished)
@@ -161,10 +167,35 @@ export default function Character3D({
     const ph = phase.current
     const k = Math.min(1, dt * 4)
 
-    if (ph === 'seated') {
-      // giro suave hacia el objetivo + sway + ancla de cadera
-      g.rotation.y += (nearAngle(g.rotation.y, yaw) - g.rotation.y) * k
-      const swayTarget = sway ? Math.sin(clock.elapsedTime * 5) * 0.022 : 0
+    // Silla (grupo fijo en el puesto): gira hacia `walkYaw` mientras el personaje
+    // está fuera, y hacia `yaw` (pantalla) cuando está sentado/volviendo. Aquí se
+    // secuencia: chairOut termina cuando la silla mira la caminata → se para;
+    // chairBack termina cuando la silla vuelve a la pantalla → cierra el tour.
+    const cg = chairGroup.current
+    if (cg) {
+      const seatedLike = ph === 'seated' || ph === 'chairBack'
+      const ct = seatedLike ? yaw : walkYaw.current
+      cg.rotation.y = MathUtils.damp(cg.rotation.y, nearAngle(cg.rotation.y, ct), 3.5, dt)
+      if (ph === 'chairOut' && Math.abs(nearAngle(cg.rotation.y, walkYaw.current) - cg.rotation.y) < 0.05) {
+        phase.current = 'standup'
+        if (!play('StandUp')) {
+          phase.current = 'walkTo'
+          play('Walk', true)
+        }
+      } else if (ph === 'chairBack' && Math.abs(nearAngle(cg.rotation.y, yaw) - cg.rotation.y) < 0.05) {
+        phase.current = 'seated'
+        const cb = tourRef.current?.onDone
+        tourRef.current = null
+        cb?.()
+      }
+    }
+
+    // sentado, o girando con la silla (antes de pararse / después de sentarse):
+    // el personaje sigue anclado a la silla y gira en el sitio.
+    if (ph === 'seated' || ph === 'chairOut' || ph === 'chairBack') {
+      const target = ph === 'chairOut' ? walkYaw.current : yaw
+      g.rotation.y += (nearAngle(g.rotation.y, target) - g.rotation.y) * k
+      const swayTarget = ph === 'seated' && sway ? Math.sin(clock.elapsedTime * 5) * 0.022 : 0
       g.rotation.x += (swayTarget - g.rotation.x) * 0.1
       if (!sitAt || !hipsBone.current) return
       hipsBone.current.getWorldPosition(tmpV.current)
@@ -179,6 +210,11 @@ export default function Character3D({
     }
 
     g.rotation.x += (0 - g.rotation.x) * 0.1
+
+    if (ph === 'sitdown') {
+      // al llegar a su puesto, el personaje se voltea hacia la silla para sentarse
+      g.rotation.y += (nearAngle(g.rotation.y, walkYaw.current) - g.rotation.y) * k
+    }
 
     if (ph === 'standup') {
       // deslizarse del asiento al punto de pie mientras se incorpora
@@ -252,9 +288,18 @@ export default function Character3D({
   })
 
   return (
-    <group ref={group} position={position} rotation={rotation} scale={scale}>
-      <primitive object={scene} />
-      {children}
-    </group>
+    <>
+      {/* silla: grupo fijo en el puesto (no sigue al personaje que camina);
+          su rotación la maneja useFrame para secuenciar parado/sentado */}
+      {seat != null && (
+        <group ref={chairGroup} position={position} rotation={[0, rotation[1] ?? 0, 0]}>
+          {seat}
+        </group>
+      )}
+      <group ref={group} position={position} rotation={rotation} scale={scale}>
+        <primitive object={scene} />
+        {children}
+      </group>
+    </>
   )
 }
