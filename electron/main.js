@@ -82,6 +82,39 @@ const DEFAULT_SQUAD = [
 
 const squadFile = (profile) => path.join(app.getPath('userData'), `squad-${profile}.json`)
 
+// Personalidad editable por personaje: userData/personas/<profile>/<role>.md
+const personaFile = (profile, role) => path.join(app.getPath('userData'), 'personas', profile, `${role}.md`)
+function readPersonaMd(profile, role) {
+  try {
+    const txt = fs.readFileSync(personaFile(profile, role), 'utf8').trim()
+    return txt || null
+  } catch {
+    return null
+  }
+}
+const PERSONA_TEMPLATE = (role, name) =>
+  `# Personalidad de ${name} (${role})\n\n` +
+  `Escribe aquí instrucciones extra para este personaje: su estilo, reglas, en qué es experto,\n` +
+  `qué skills/comandos usar, formato de sus respuestas, etc. Se añaden a su rol base.\n\n` +
+  `Ejemplos:\n` +
+  `- Sigue las convenciones de commits del equipo.\n` +
+  `- Responde en español, conciso y con viñetas.\n` +
+  `- Antes de terminar, verifica que compile.\n`
+
+ipcMain.handle('persona:open', (_e, { profile, role, name }) => {
+  try {
+    const file = personaFile(profile, role)
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    if (!fs.existsSync(file)) fs.writeFileSync(file, PERSONA_TEMPLATE(role, name || role))
+    execFile('open', ['-t', file], (err) => {
+      if (err) execFile('open', [file], () => {})
+    })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // Roster del perfil: defaults + overrides guardados (nombre/enabled por rol).
 function getSquad(profile) {
   let saved = {}
@@ -341,6 +374,9 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   const member = getSquad(profile).find((r) => r.id === role)
   const displayName = member?.name || role
   let persona = (ROLE_TEMPLATES[role] || ROLE_TEMPLATES.dev)(displayName)
+  // personalidad personalizada del usuario (userData/personas/<profile>/<role>.md)
+  const customMd = readPersonaMd(profile, role)
+  if (customMd) persona += `\n\nInstrucciones personalizadas de ${displayName}:\n${customMd}`
   if (boardEnabled) persona += `\n\n${SQUAD_BOARD_NOTE}`
 
   const args = [

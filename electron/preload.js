@@ -27,6 +27,8 @@ contextBridge.exposeInMainWorld('oficina', {
   // Pizarra compartida: activar/desactivar y abrir SQUAD.md del proyecto.
   setBoard: (v) => ipcRenderer.invoke('prefs:board', v),
   openBoard: (cwd) => ipcRenderer.invoke('board:open', cwd),
+  // Abre/crea el .md de personalidad de un personaje (por perfil).
+  openPersona: (profile, role, name) => ipcRenderer.invoke('persona:open', { profile, role, name }),
   // Configuración del squad (roster por perfil: nombres y activos).
   squad: {
     get: (profile) => ipcRenderer.invoke('squad:get', profile),

@@ -987,13 +987,23 @@ export default function App() {
                   <span className="squad-label">{ROLE_META[r.id].label}</span>
                 </div>
                 {r.enabled && (
-                  <button
-                    type="button"
-                    className={avatarPicker === r.id ? 'squad-avatar-btn open' : 'squad-avatar-btn'}
-                    onClick={() => setAvatarPicker((p) => (p === r.id ? null : r.id))}
-                  >
-                    🧍 {avatarLabel(effectiveAvatar(r))} · cambiar
-                  </button>
+                  <div className="squad-actions">
+                    <button
+                      type="button"
+                      className={avatarPicker === r.id ? 'squad-avatar-btn open' : 'squad-avatar-btn'}
+                      onClick={() => setAvatarPicker((p) => (p === r.id ? null : r.id))}
+                    >
+                      🧍 {avatarLabel(effectiveAvatar(r))}
+                    </button>
+                    <button
+                      type="button"
+                      className="squad-avatar-btn"
+                      onClick={() => window.oficina?.openPersona?.(profile, r.id, r.name)}
+                      title="Editar la personalidad de este personaje (.md)"
+                    >
+                      ✏️ personalidad
+                    </button>
+                  </div>
                 )}
               </div>
             ))}

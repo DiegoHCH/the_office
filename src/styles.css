@@ -239,10 +239,12 @@ body {
 .squad-row { padding: 8px 6px; border-radius: 9px; }
 .squad-row-top { display: flex; align-items: center; gap: 10px; }
 .squad-row.off { opacity: 0.45; }
+.squad-actions { display: flex; gap: 6px; margin: 6px 0 0 25px; }
 .squad-avatar-btn {
-  display: block; width: calc(100% - 25px); margin: 6px 0 0 25px;
+  flex: 1; min-width: 0;
   background: #1b252a; color: #93a6a1; border: 1px solid #28353a; border-radius: 8px;
   padding: 6px 10px; font-size: 12px; text-align: left; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .squad-avatar-btn:hover, .squad-avatar-btn.open { color: #2dd4bf; border-color: #2dd4bf; }
