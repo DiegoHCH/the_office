@@ -304,6 +304,41 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .squad-save:hover { filter: brightness(1.08); }
+.squad-del {
+  margin-left: auto; background: transparent; border: none; cursor: pointer;
+  font-size: 13px; opacity: 0.6; padding: 2px 4px; border-radius: 6px;
+}
+.squad-del:hover { opacity: 1; background: rgba(239, 68, 68, 0.18); }
+.squad-add {
+  width: 100%; margin-top: 10px; padding: 9px;
+  background: transparent; color: #2dd4bf; border: 1px dashed #2dd4bf66;
+  border-radius: 10px; font-weight: 600; font-size: 12px; cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.squad-add:hover { background: rgba(45, 212, 191, 0.1); }
+.add-role {
+  margin-top: 10px; padding: 10px; border: 1px solid #2dd4bf44;
+  border-radius: 10px; display: flex; flex-direction: column; gap: 7px;
+  background: rgba(45, 212, 191, 0.05);
+}
+.add-role-in, .add-role-emoji, .add-role-avatar {
+  background: #0e1417; color: #dce6e3; border: 1px solid #2a3a3f;
+  border-radius: 8px; padding: 7px 9px; font-size: 12px;
+  font-family: ui-monospace, Menlo, monospace; width: 100%;
+}
+.add-role-row { display: flex; gap: 7px; align-items: center; }
+.add-role-emoji { width: 52px; text-align: center; flex: none; }
+.add-role-color { width: 38px; height: 34px; flex: none; border: 1px solid #2a3a3f; border-radius: 8px; background: #0e1417; cursor: pointer; }
+.add-role-avatar { flex: 1; }
+.add-role-actions { display: flex; gap: 7px; }
+.add-role-ok, .add-role-cancel {
+  flex: 1; padding: 8px; border-radius: 9px; font-weight: 700; font-size: 12px;
+  cursor: pointer; font-family: ui-monospace, Menlo, monospace; border: none;
+}
+.add-role-ok { background: #2dd4bf; color: #04201c; }
+.add-role-cancel { background: #24323a; color: #9fb3ad; }
+.add-role-ok:hover { filter: brightness(1.08); }
+.add-role-cancel:hover { filter: brightness(1.12); }
 .help-btn {
   margin: 4px 0 12px; background: transparent; color: #2dd4bf;
   border: 1px solid rgba(45, 212, 191, 0.45);

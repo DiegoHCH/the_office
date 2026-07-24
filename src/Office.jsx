@@ -173,6 +173,31 @@ function FloorLamp({ position, on = false }) {
   )
 }
 
+// Aplique de pared (sconce): va montado alto en la pared, no ocupa piso. Ideal
+// para las paredes que los escritorios tapan. Ilumina en Noche.
+function WallSconce({ position, rotation = [0, 0, 0], on = false }) {
+  return (
+    <group position={position} rotation={rotation}>
+      {/* placa contra la pared */}
+      <mesh position={[0, 0, 0]} castShadow>
+        <boxGeometry args={[0.1, 0.22, 0.05]} />
+        {mat(DARK)}
+      </mesh>
+      {/* pantalla (semicono abierto hacia arriba/afuera) */}
+      <mesh position={[0, 0.13, 0.09]} rotation={[Math.PI, 0, 0]}>
+        <coneGeometry args={[0.1, 0.17, 14, 1, true]} />
+        <meshStandardMaterial
+          color="#e8dcc8"
+          emissive={on ? '#ffb26b' : '#000000'}
+          emissiveIntensity={on ? 1 : 0}
+          side={DoubleSide}
+        />
+      </mesh>
+      {on && <pointLight position={[0, 0.14, 0.28]} color="#ffcfa0" intensity={6} distance={5.5} decay={1.6} castShadow={false} />}
+    </group>
+  )
+}
+
 // Lamparita de escritorio articulada (luz suave y puntual en Noche).
 function DeskLamp({ position, rotation = [0, 0, 0], on = false }) {
   return (
@@ -800,6 +825,12 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       <FloorLamp position={[1.1, 0, -HALF + 0.45]} on={!!T.lampsOn} />
       <FloorLamp position={[-1.1, 0, HALF - 0.45]} on={!!T.lampsOn} />
       <FloorLamp position={[1.1, 0, HALF - 0.45]} on={!!T.lampsOn} />
+      {/* apliques de pared (altos, sobre los escritorios): iluminan las paredes
+          del fondo e izquierda que los escritorios tapan a nivel de piso */}
+      <WallSconce position={[-1.9, 1.7, -HALF + 0.06]} on={!!T.lampsOn} />
+      <WallSconce position={[1.9, 1.7, -HALF + 0.06]} on={!!T.lampsOn} />
+      <WallSconce position={[-HALF + 0.06, 1.7, -1.9]} rotation={[0, Math.PI / 2, 0]} on={!!T.lampsOn} />
+      <WallSconce position={[-HALF + 0.06, 1.7, 1.9]} rotation={[0, Math.PI / 2, 0]} on={!!T.lampsOn} />
       {/* lamparita de escritorio del principal (en la esquina de su L, NO frente al monitor) */}
       <DeskLamp position={[-3.02, TOP, -2.95]} rotation={[0, -Math.PI / 4, 0]} on={!!T.lampsOn} />
 

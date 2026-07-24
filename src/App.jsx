@@ -201,6 +201,33 @@ export const ROLE_META = {
 
 const MAX_ACTIVE = 6
 
+// Roles predefinidos que NO se pueden eliminar (sync con main.js). Los demás
+// built-ins (UI/UX, QA, Docs) y todos los custom sí se pueden borrar.
+const PROTECTED_ROLES = new Set(['dev', 'research', 'pr', 'publish'])
+const canDelete = (r) => r.custom || !PROTECTED_ROLES.has(r.id)
+
+// Regex de ruteo a partir de palabras clave separadas por coma/espacio.
+const safeRegex = (s) => {
+  const parts = String(s || '')
+    .split(/[,\s]+/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return parts.length ? new RegExp(parts.join('|'), 'i') : null
+}
+
+// Meta visual/ruteo de un rol: los predefinidos usan ROLE_META; los personalizados
+// llevan su meta inline (emoji/color/avatar/keywords) guardada en el propio rol.
+export const metaOf = (r) =>
+  ROLE_META[r.id] || {
+    label: r.name || 'Rol',
+    emoji: r.emoji || '🛠️',
+    color: r.color || '#38bdf8',
+    hair: r.hair || '#1f2937',
+    url: `/models/pj/${r.avatar || 'Casual_Male.gltf'}`,
+    kw: r.kw ? safeRegex(r.kw) : null,
+  }
+
 // Todos los personajes del pack (se excluyen accesorios y mascotas).
 const AVATARS = [
   'Casual_Male.gltf', 'Casual_Female.gltf', 'Casual2_Male.gltf', 'Casual2_Female.gltf',
@@ -330,6 +357,9 @@ export default function App() {
   const [squadOpen, setSquadOpen] = useState(false)
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
   const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
+  const [addingRole, setAddingRole] = useState(false) // form "agregar rol" abierto
+  const NEW_ROLE = { name: '', focus: '', emoji: '🛠️', color: '#38bdf8', kw: '', avatar: '' }
+  const [nr, setNr] = useState(NEW_ROLE) // borrador del rol nuevo
   const [toast, setToast] = useState(null)
   const [doneChip, setDoneChip] = useState(null) // "✅ X respondió" transitorio
   const doneChipTimer = useRef(null)
@@ -352,11 +382,12 @@ export default function App() {
         .filter((r) => r.enabled)
         .slice(0, MAX_ACTIVE)
         .map((r) => {
-          const url = r.avatar ? `/models/pj/${r.avatar}` : ROLE_META[r.id].url
+          const meta = metaOf(r)
+          const url = r.avatar ? `/models/pj/${r.avatar}` : meta.url
           return {
             id: r.id,
             name: r.name,
-            ...ROLE_META[r.id],
+            ...meta,
             url,
             // los humanos llevan piel natural; goblins/zombies/robot no
             human: !NONHUMAN_AVATARS.has(url.split('/').pop()),
@@ -706,12 +737,39 @@ export default function App() {
   const renameMember = (id, name) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, name } : r)))
   const setMemberAvatar = (id, avatar) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r)))
   // avatar efectivo de un miembro (elegido o el default de su rol)
-  const effectiveAvatar = (r) => r.avatar || ROLE_META[r.id].url.split('/').pop()
+  const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
   // modelos ya ocupados por OTROS miembros activos (no se pueden repetir)
   const takenAvatars = (selfId) =>
     new Set(draft.filter((r) => r.enabled && r.id !== selfId).map((r) => effectiveAvatar(r)))
+  // Crea un rol personalizado (deshabilitado; el usuario lo activa y guarda).
+  const addRole = () => {
+    const name = nr.name.trim()
+    if (!name) {
+      showToast('⚠️ ponle un nombre al rol')
+      return
+    }
+    const avatar = nr.avatar || AVATARS.find((a) => !draft.some((r) => effectiveAvatar(r) === a)) || AVATARS[0]
+    const role = {
+      id: `custom-${Date.now()}`,
+      name,
+      enabled: false,
+      custom: true,
+      avatar,
+      focus: nr.focus.trim(),
+      emoji: (nr.emoji || '🛠️').slice(0, 2),
+      color: nr.color || '#38bdf8',
+      hair: '#1f2937',
+      kw: nr.kw.trim(),
+    }
+    setDraft((d) => [...d, role])
+    setNr(NEW_ROLE)
+    setAddingRole(false)
+    showToast(`rol "${name}" creado — actívalo y guardá`)
+  }
+  const deleteRole = (id) => setDraft((d) => d.filter((r) => !(r.id === id && canDelete(r))))
+
   const saveSquad = async () => {
-    const clean = draft.map((r) => ({ ...r, name: r.name.trim() || ROLE_META[r.id].label }))
+    const clean = draft.map((r) => ({ ...r, name: r.name.trim() || metaOf(r).label }))
     // sin personajes duplicados entre los activos
     const active = clean.filter((r) => r.enabled)
     if (new Set(active.map(effectiveAvatar)).size !== active.length) {
@@ -725,7 +783,7 @@ export default function App() {
       `squad actualizado: ${clean
         .filter((r) => r.enabled)
         .slice(0, MAX_ACTIVE)
-        .map((r) => `${ROLE_META[r.id].emoji} ${r.name}`)
+        .map((r) => `${metaOf(r).emoji} ${r.name}`)
         .join(' · ')}`
     )
   }
@@ -1083,15 +1141,25 @@ export default function App() {
                     onChange={() => toggleMember(r.id)}
                     title={r.enabled ? 'Desactivar' : 'Activar'}
                   />
-                  <span className="squad-emoji">{ROLE_META[r.id].emoji}</span>
+                  <span className="squad-emoji">{metaOf(r).emoji}</span>
                   <input
                     className="squad-name"
                     value={r.name}
                     maxLength={16}
                     onChange={(e) => renameMember(r.id, e.target.value)}
-                    style={{ borderColor: r.enabled ? ROLE_META[r.id].color : undefined }}
+                    style={{ borderColor: r.enabled ? metaOf(r).color : undefined }}
                   />
-                  <span className="squad-label">{ROLE_META[r.id].label}</span>
+                  <span className="squad-label">{r.custom ? 'personalizado' : metaOf(r).label}</span>
+                  {canDelete(r) && (
+                    <button
+                      type="button"
+                      className="squad-del"
+                      onClick={() => deleteRole(r.id)}
+                      title={r.custom ? 'Eliminar este rol personalizado' : 'Eliminar este rol'}
+                    >
+                      🗑️
+                    </button>
+                  )}
                 </div>
                 {r.enabled && (
                   <div className="squad-actions">
@@ -1114,6 +1182,70 @@ export default function App() {
                 )}
               </div>
             ))}
+            {addingRole ? (
+              <div className="add-role">
+                <input
+                  className="add-role-in"
+                  placeholder="Nombre (ej: Traductor)"
+                  value={nr.name}
+                  maxLength={16}
+                  onChange={(e) => setNr((v) => ({ ...v, name: e.target.value }))}
+                />
+                <input
+                  className="add-role-in"
+                  placeholder="Foco / especialidad (ej: traducir textos ES↔EN)"
+                  value={nr.focus}
+                  onChange={(e) => setNr((v) => ({ ...v, focus: e.target.value }))}
+                />
+                <input
+                  className="add-role-in"
+                  placeholder="Palabras clave de ruteo (traduce, translate)"
+                  value={nr.kw}
+                  onChange={(e) => setNr((v) => ({ ...v, kw: e.target.value }))}
+                />
+                <div className="add-role-row">
+                  <input
+                    className="add-role-emoji"
+                    placeholder="🛠️"
+                    value={nr.emoji}
+                    maxLength={2}
+                    onChange={(e) => setNr((v) => ({ ...v, emoji: e.target.value }))}
+                  />
+                  <input
+                    type="color"
+                    className="add-role-color"
+                    value={nr.color}
+                    onChange={(e) => setNr((v) => ({ ...v, color: e.target.value }))}
+                    title="Color del nametag/globo"
+                  />
+                  <select
+                    className="add-role-avatar"
+                    value={nr.avatar}
+                    onChange={(e) => setNr((v) => ({ ...v, avatar: e.target.value }))}
+                    title="Personaje 3D"
+                  >
+                    <option value="">Personaje (auto)</option>
+                    {AVATARS.map((a) => (
+                      <option key={a} value={a}>
+                        {avatarLabel(a)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="add-role-actions">
+                  <button type="button" className="add-role-ok" onClick={addRole}>
+                    Crear rol
+                  </button>
+                  <button type="button" className="add-role-cancel" onClick={() => (setAddingRole(false), setNr(NEW_ROLE))}>
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button className="squad-add" type="button" onClick={() => setAddingRole(true)}>
+                ➕ Agregar rol
+              </button>
+            )}
             <button className="squad-save" onClick={saveSquad}>
               Guardar squad ({draftEnabled}/{MAX_ACTIVE})
             </button>

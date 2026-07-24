@@ -119,12 +119,34 @@ ipcMain.handle('persona:open', (_e, { profile, role, name }) => {
 })
 
 // Roster del perfil: defaults + overrides guardados (nombre/enabled por rol).
+// Roles predefinidos que NO se pueden eliminar (los demás built-ins y todos los
+// custom sí). Mantener en sync con PROTECTED_ROLES del renderer (App.jsx).
+const PROTECTED_ROLES = new Set(['dev', 'research', 'pr', 'publish'])
+
 function getSquad(profile) {
-  let saved = {}
+  let saved = null
   try {
     saved = JSON.parse(fs.readFileSync(squadFile(profile), 'utf8'))
   } catch {}
-  return DEFAULT_SQUAD.map((d) => ({ ...d, ...(saved[d.id] || {}) }))
+  // Formato antiguo (mapa {id:{name,enabled,avatar}}): solo built-ins.
+  if (saved && !Array.isArray(saved)) {
+    return DEFAULT_SQUAD.map((d) => ({ ...d, ...(saved[d.id] || {}), custom: false }))
+  }
+  // Formato nuevo (array de roles). Los built-ins se re-agregan SIEMPRE (por si
+  // una actualización trae uno nuevo) salvo los marcados como borrados (tombstone
+  // `{id, deleted:true}`); los protegidos nunca se borran. + roles custom.
+  if (Array.isArray(saved)) {
+    const byId = Object.fromEntries(saved.map((r) => [r.id, r]))
+    const deleted = new Set(saved.filter((r) => r.deleted && !PROTECTED_ROLES.has(r.id)).map((r) => r.id))
+    const builtins = DEFAULT_SQUAD.filter((d) => !deleted.has(d.id)).map((d) => ({
+      ...d,
+      ...(byId[d.id] && !byId[d.id].deleted ? byId[d.id] : {}),
+      custom: false,
+    }))
+    const customs = saved.filter((r) => r.custom && !r.deleted).map((r) => ({ ...r, custom: true }))
+    return [...builtins, ...customs]
+  }
+  return DEFAULT_SQUAD.map((d) => ({ ...d, custom: false }))
 }
 
 let notifEnabled = true
@@ -333,10 +355,32 @@ ipcMain.handle('squad:get', (_e, profile) => getSquad(profile))
 
 ipcMain.handle('squad:save', (_e, { profile, roster }) => {
   try {
-    const map = {}
-    for (const r of roster) map[r.id] = { name: r.name, enabled: r.enabled, avatar: r.avatar || null }
+    // Guarda el roster completo (built-ins con sus overrides + roles custom con
+    // toda su definición) como array, para soportar roles añadidos/eliminados.
+    const clean = (roster || []).map((r) =>
+      r.custom
+        ? {
+            id: r.id,
+            name: r.name,
+            enabled: !!r.enabled,
+            avatar: r.avatar || null,
+            custom: true,
+            emoji: r.emoji || '🛠️',
+            color: r.color || '#38bdf8',
+            hair: r.hair || '#1f2937',
+            focus: r.focus || '',
+            kw: r.kw || '',
+          }
+        : { id: r.id, name: r.name, enabled: !!r.enabled, avatar: r.avatar || null, custom: false },
+    )
+    // Built-ins borrables que ya NO están en el roster → tombstone para que
+    // getSquad no los re-agregue. Los protegidos nunca se marcan como borrados.
+    const present = new Set((roster || []).map((r) => r.id))
+    for (const d of DEFAULT_SQUAD) {
+      if (!present.has(d.id) && !PROTECTED_ROLES.has(d.id)) clean.push({ id: d.id, deleted: true })
+    }
     fs.mkdirSync(app.getPath('userData'), { recursive: true })
-    fs.writeFileSync(squadFile(profile), JSON.stringify(map, null, 2))
+    fs.writeFileSync(squadFile(profile), JSON.stringify(clean, null, 2))
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -382,7 +426,10 @@ ipcMain.handle('claude:ask', (_e, payload) => {
 
   const member = getSquad(profile).find((r) => r.id === role)
   const displayName = member?.name || role
-  let persona = (ROLE_TEMPLATES[role] || ROLE_TEMPLATES.dev)(displayName)
+  // Rol predefinido → su plantilla; rol personalizado → persona a partir del foco.
+  let persona = ROLE_TEMPLATES[role]
+    ? ROLE_TEMPLATES[role](displayName)
+    : `Eres ${displayName}, ${member?.focus?.trim() || 'parte del squad'}. Preséntate como ${displayName} cuando te saluden.`
   // instrucción de artifacts: si el usuario pide un "artifact"/página/dashboard/visual,
   // generar un HTML autocontenido (CSS/JS inline) en esta carpeta.
   const artDir = getArtifactsDir()
