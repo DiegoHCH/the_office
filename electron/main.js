@@ -693,11 +693,21 @@ ipcMain.handle('stats:refreshUsage', () => {
   return { ok: true }
 })
 ipcMain.handle('stats:get', async (_e, profile = 'work') => {
-  const c = (usageCache[profile] ||= { at: 0, data: null })
-  if (Date.now() - c.at > 60_000) {
-    c.at = Date.now()
+  const c = (usageCache[profile] ||= { at: 0, data: null, fetching: false })
+  // Refresca cada 60s, pero evita disparar fetches en paralelo (fetching flag).
+  if (!c.fetching && Date.now() - c.at > 60_000) {
+    c.fetching = true
     fetchClaudeUsage(profile).then((d) => {
-      c.data = d // null si no hay token → el renderer oculta la sección
+      c.fetching = false
+      if (d) {
+        // éxito: guarda el dato y marca fresco por 60s
+        c.data = d
+        c.at = Date.now()
+      } else {
+        // fallo transitorio (red/timeout/token): CONSERVA el último dato bueno
+        // y reintenta en el próximo poll (no espera 60s)
+        c.at = 0
+      }
     })
   }
   const appMB = Math.round(app.getAppMetrics().reduce((s, p) => s + (p.memory?.workingSetSize || 0), 0) / 1024)
