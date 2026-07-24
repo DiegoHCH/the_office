@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell } = require('electron')
 const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -223,6 +223,21 @@ function createWindow() {
   } else {
     win.loadURL('app://bundle/')
   }
+
+  // Links externos (p. ej. la URL de un artifact publicado) van al navegador,
+  // nunca a una ventana de Electron ni navegando la app misma.
+  const isAppUrl = (url) => url.startsWith('http://localhost:5173') || url.startsWith('app://')
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (!isAppUrl(url)) shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (e, url) => {
+    if (!isAppUrl(url)) {
+      e.preventDefault()
+      shell.openExternal(url)
+    }
+  })
+
   win.on('closed', () => {
     win = null
   })
@@ -734,6 +749,16 @@ ipcMain.handle('help:open', () => {
     title: 'La Oficina · Guía de uso',
   })
   helpWin.loadURL(isDev ? 'http://localhost:5173/ayuda.html' : 'app://bundle/ayuda.html')
+  helpWin.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  helpWin.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('http://localhost:5173') && !url.startsWith('app://')) {
+      e.preventDefault()
+      shell.openExternal(url)
+    }
+  })
   helpWin.on('closed', () => {
     helpWin = null
   })
@@ -776,6 +801,17 @@ ipcMain.handle('artifacts:open', (_e, file) => {
   if (!file || !fs.existsSync(file)) return { ok: false }
   const w = new BrowserWindow({ width: 1000, height: 780, backgroundColor: '#ffffff', title: path.basename(file) })
   w.loadFile(file)
+  // El visor local se queda en el archivo; links externos dentro del artifact van al navegador.
+  w.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  w.webContents.on('will-navigate', (e, url) => {
+    if (!url.startsWith('file://')) {
+      e.preventDefault()
+      shell.openExternal(url)
+    }
+  })
   return { ok: true }
 })
 // Revela el artifact en Finder (seleccionado).
