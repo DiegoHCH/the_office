@@ -24,13 +24,18 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 
 ## 🎬 Funcionalidades
 
-- **👥 Squad configurable** — hasta 4 agentes visibles de un catálogo de 6 roles (Dev, Research, UI/UX, QA, Revisor de PR, Docs). Nombres y avatares 3D personalizables por cuenta (galería de 46 personajes).
-- **⚡ Tareas en paralelo** — cada agente tiene su propia sesión de Claude Code. Le hablas a varios a la vez y trabajan simultáneamente.
-- **🤝 Colaboración real (handoffs)** — *"Nami, investiga X y pásaselo a Luffy"*: el resultado de uno se encadena como contexto en la sesión del otro.
+- **👥 Squad configurable (hasta 6)** — catálogo de roles: Dev, Research, UI/UX, QA, Docs, **Revisor de PR (Robin)** y **Publicador (Franky)**. Nombres y avatares 3D personalizables por cuenta (galería de 46 personajes).
+- **➕🗑️ Crear y eliminar roles desde la app** — arma roles propios (nombre, foco/especialidad, palabras clave de ruteo, emoji, color y personaje 3D) y borra los que no uses. Dev, Research, Revisor PR y Publicador quedan protegidos; UI/UX, QA, Docs y los personalizados se pueden eliminar.
+- **🔎 Robin, dueño del flujo de PR** — corre tus skills de PR de punta a punta (self-review + `push` + `gh pr create` + tracking en Jira/Slack vía conectores MCP), igual que desde la consola.
+- **🚀 Franky publica artifacts** — sube tus artifacts a **GitHub Pages** (crea el repo si no existe, genera el índice y devuelve la URL), siempre con confirmación previa porque quedan públicos.
+- **⚡ Tareas en paralelo** — cada agente tiene su propia sesión de Claude Code. Le hablas a varios a la vez y trabajan simultáneamente; si uno está ocupado, tu mensaje se **encola**.
+- **🤝 Colaboración real (handoffs)** — *"Nami, investiga X y pásaselo a Luffy"*: el resultado de uno se encadena como contexto en la sesión del otro, y el personaje **camina** a entregárselo.
+- **🔗 Artifacts locales** — pide una página/dashboard y se genera un HTML autocontenido (con imágenes de la web) que abres en la app; panel con el listado, carpeta configurable, revelar en Finder y exportar a zip.
+- **📎 Adjuntar contexto** — arrastra **carpetas y archivos** (no solo imágenes) para que el agente los lea; pega/arrastra imágenes al chat.
 - **📋 Standup** — `/standup` y cada agente retoma su última sesión y reporta en qué quedó (memoria persistente).
-- **🎭 Vida ambiental** — frases por rol, música, paseos y visitas entre ellos cuando están libres.
-- **🎨 Escena** — oficina isométrica con 4 temas (Clásico, Noche con lámparas, Playa, Sakura), estados de mirada y caminatas.
-- **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente; botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones; 🖼 pegar/arrastrar imágenes.
+- **🎭 Vida ambiental** — frases por rol, música, paseos y visitas entre ellos cuando están libres; caminatas con **detección de obstáculos** (rodean los escritorios) y sillas que **giran al pararse/sentarse**.
+- **🎨 Escena** — oficina isométrica amplia con **6 puestos**, 4 temas (Clásico, Noche con lámparas de piso y **apliques de pared**, Playa, Sakura), estados de mirada y personalidad editable por personaje (`.md`).
+- **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente; botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones.
 - **🎛 Control** — perfiles (work/private), selector de proyecto, modelo y modo edición/lectura; historial retomable con contexto; notificaciones y atajos; monitor de recursos + % de uso de Claude.
 - **🖥 Escape a la terminal** — un botón abre Warp (o la terminal por defecto) en el proyecto, para lo que la app no cubre (plan mode, `/login`, supervisión paso a paso).
 
@@ -52,6 +57,8 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **Claude Code** instalado y con sesión iniciada (`claude` funciona en tu terminal)
 - **Sin** `ANTHROPIC_API_KEY` en el entorno (para usar la suscripción y no la API de pago)
 
+> **¿Qué cuenta necesito?** La Oficina no agrega costo: solo lanza el `claude` que ya usas. Funciona con **cualquier plan con el que el CLI corra en tu terminal** — Claude Code hoy requiere un plan **Pro/Max** (o créditos de API); la cuenta **gratuita** de la web no habilita el CLI. Regla simple: **si `claude` arranca en tu terminal, La Oficina funciona**. Ojo: correr varios agentes en paralelo consume el cupo de tu plan más rápido.
+
 > Opcional: crea `~/.claude-work` y `~/.claude-private` (vía `CLAUDE_CONFIG_DIR`) para tener dos cuentas con squads y proyectos independientes.
 
 ## 🚀 Uso
@@ -66,7 +73,11 @@ npm run dist:mac       # genera release/La Oficina-<versión>-arm64.dmg
 npm run dist:app       # build rápido sin instalador (carpeta .app)
 ```
 
-Instalando el `.dmg`: ábrelo, arrastra **La Oficina** a Aplicaciones. Al primer arranque, como no está firmada con Apple Developer, usa **click derecho → Abrir**.
+Instalando el `.dmg`: ábrelo y arrastra **La Oficina** a Aplicaciones. Como no está firmada con cuenta de Apple Developer, macOS puede decir *"está dañada"*; ejecuta una vez en Terminal y ábrela normalmente:
+
+```bash
+xattr -cr "/Applications/La Oficina.app"
+```
 
 ### Hablarle al squad
 
@@ -78,7 +89,7 @@ Instalando el `.dmg`: ábrelo, arrastra **La Oficina** a Aplicaciones. Al primer
 | `Nami, investiga X y pásaselo a Luffy` | Handoff encadenado entre agentes |
 
 **Comandos:** `/standup` · `/squad` · `/model <opus\|sonnet\|haiku\|fable>` · `/clear` · cualquier otro `/comando` pasa a Claude Code (tus skills funcionan).
-**Atajos:** <kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘1</kbd>–<kbd>⌘4</kbd> dirigir a cada agente · <kbd>Esc</kbd> cerrar paneles.
+**Atajos:** <kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigir a cada agente · <kbd>Esc</kbd> cerrar paneles.
 
 ## 🏗 Arquitectura
 
@@ -102,11 +113,9 @@ Instalando el `.dmg`: ábrelo, arrastra **La Oficina** a Aplicaciones. Al primer
 
 ## 🗺 Roadmap
 
-- ✅ **v1.0** — squad, configuración completa, vida de oficina, monitor, standup, temas, guía integrada, icono e instalador DMG
-- ✅ **v2** — detener tareas, detalle en vivo, imágenes en el chat
-- ✅ **v3** — botones de respuesta rápida, abrir terminal
-- ⏭️ **v4** — soporte Windows (portar Keychain, `vm_stat`, rutas y binario)
-- 💡 firma/notarización Apple · más roles · steering (limitado por el modo headless)
+- ✅ **v1.0.0** — squad de hasta 6, **crear/eliminar roles** desde la app, **Robin** (flujo de PR) y **Franky** (publicar artifacts en Pages), artifacts locales, adjuntar carpetas/archivos, cola de mensajes, sala ampliada con ruteo de caminatas + sillas animadas + apliques de pared, temas, monitor, standup, instalador DMG
+- ⏭️ soporte **Windows** (portar Keychain, `vm_stat`, rutas y binario)
+- 💡 firma/notarización Apple · restaurar roles predeterminados borrados · steering (limitado por el modo headless)
 
 ## ⚠️ Notas
 
