@@ -52,10 +52,37 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 
 ## 📦 Requisitos
 
+### Para usar la app
+
 - **macOS** (Apple Silicon) — Windows en el roadmap
-- **Node.js ≥ 18** (probado con v22)
-- **Claude Code** instalado y con sesión iniciada (`claude` funciona en tu terminal)
+- **Claude Code** instalado y con sesión iniciada — la regla simple: si `claude` arranca en tu terminal, La Oficina funciona
+  ```bash
+  # instalar (si no lo tienes)
+  curl -fsSL https://claude.ai/install.sh | bash
+  claude   # y sigue el flujo de /login con tu cuenta Pro/Max
+  ```
 - **Sin** `ANTHROPIC_API_KEY` en el entorno (para usar la suscripción y no la API de pago)
+- **Homebrew** en el PATH de tu shell (`~/.zprofile` con `eval "$(/opt/homebrew/bin/brew shellenv)"`) — los agentes ejecutan comandos con tu perfil de zsh, así encuentran `gh` y el resto de herramientas
+
+### Para Robin (flujo de PR) y Franky (publicar artifacts)
+
+Ambos usan **GitHub CLI** autenticado con tu cuenta:
+
+```bash
+brew install gh
+gh auth login    # GitHub.com → SSH (o HTTPS) → Login with a web browser
+gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'
+```
+
+El token queda en el keyring del sistema, así que sirve para los procesos que lanza la app sin re-loguearse. Además:
+
+- **git** configurado (`user.name` / `user.email`) y con acceso a los repos donde vayas a abrir PRs
+- **Franky** necesita permiso para crear repos públicos en tu cuenta (usa `gh repo create` y GitHub Pages); siempre pide confirmación antes de publicar
+- Opcional para Robin: **acli** (Atlassian CLI) y los conectores MCP de Jira/Slack configurados en Claude Code, si tus skills de PR hacen tracking en esas herramientas
+
+### Para desarrollo (solo si compilas la app)
+
+- **Node.js ≥ 18** (probado con v22)
 
 > **¿Qué cuenta necesito?** La Oficina no agrega costo: solo lanza el `claude` que ya usas. Funciona con **cualquier plan con el que el CLI corra en tu terminal** — Claude Code hoy requiere un plan **Pro/Max** (o créditos de API); la cuenta **gratuita** de la web no habilita el CLI. Regla simple: **si `claude` arranca en tu terminal, La Oficina funciona**. Ojo: correr varios agentes en paralelo consume el cupo de tu plan más rápido.
 
