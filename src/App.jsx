@@ -1651,6 +1651,7 @@ export default function App() {
       if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
       setMessages((ms) => [...ms, { role: 'system', text: `📋 Standup diario — reporta el squad (${free.map((m) => m.name).join(', ')})` }])
       setStandupIds(free.map((m) => m.id)) // en la escena: todos a la reunión
+      checkQuota()
       popSound()
       // cada uno retoma su última sesión en este proyecto y reporta (en paralelo)
       free.forEach((m, i) => {
@@ -1727,9 +1728,24 @@ export default function App() {
     showToast(`⏳ Retomando ${jobs.length} mensaje${jobs.length > 1 ? 's' : ''} de la cola`)
   }, [pendingRestore])
 
+  // Aviso de cuota alta: si la sesión de 5h va >90%, un toast al despachar
+  // (máx. uno cada 10 min para no ser cansón).
+  const quotaWarnAtRef = useRef(0)
+  const checkQuota = () => {
+    if (Date.now() - quotaWarnAtRef.current < 10 * 60 * 1000) return
+    window.oficina?.stats?.(profile).then((s) => {
+      const pct = s?.claude?.session?.pct
+      if (pct >= 90) {
+        quotaWarnAtRef.current = Date.now()
+        showToast(`⚠️ Vas ${Math.round(pct)}% de la cuota de 5h — resetea en ${fmtReset(s.claude.session.resetsAt)}`, 6000)
+      }
+    })
+  }
+
   // sitúa un job: si el agente está libre y sin cola → va; si no → encola
   const routeJob = (job) => {
     atBottomRef.current = true // enviar algo re-engancha el auto-scroll
+    checkQuota()
     const busyOrQueued = !!roleStates[job.target] || (queuesRef.current[job.target]?.length > 0)
     if (busyOrQueued) enqueueJob(job)
     else dispatchJob(job)
@@ -1783,6 +1799,7 @@ export default function App() {
       }
       if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
       // un solo jobId compartido: el mensaje del usuario se pinta una vez
+      checkQuota()
       const sharedId = crypto.randomUUID()
       free.forEach((m, i) =>
         setTimeout(() => dispatchJob({ id: sharedId, target: m.id, text: rest, display: `📢 @todos — ${rest}`, prompt: rest, atts: [] }), i * 400)
