@@ -720,7 +720,9 @@ export default function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        closePanels()
+        // por capas: primero el submenu de Agentes; Configuración queda debajo
+        if (agentsOpen) closeAgents()
+        else closePanels()
         return
       }
       if (!e.metaKey) return
@@ -741,8 +743,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // histOpen: toggleHist lo lee para cargar la lista antes de abrir
-  }, [squad, histOpen])
+    // histOpen: toggleHist lo lee antes de abrir · agentsOpen: Esc por capas
+  }, [squad, histOpen, agentsOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -817,15 +819,18 @@ export default function App() {
     clearConversation()
   }
 
-  // ── Panel 👥 Agentes (roster del squad) ──────────────────────────────────
+  // ── Submenu 👥 Agentes: se abre ENCIMA de Configuración (que queda debajo
+  // y sigue abierta al cerrarlo) ────────────────────────────────────────────
   const openAgents = () => {
-    const wasOpen = agentsOpen
-    closePanels()
-    if (wasOpen) return // toggle: si ya estaba abierto, queda cerrado
     setDraft(roster.map((r) => ({ ...r })))
+    setAvatarPicker(null)
     setAgentsOpen(true)
   }
-  // ── Panel ⚙️ Configuración (preferencias) ────────────────────────────────
+  const closeAgents = () => {
+    setAgentsOpen(false)
+    setAvatarPicker(null)
+  }
+  // ── Panel ⚙️ Configuración (preferencias + acceso a Agentes) ─────────────
   const openPrefs = () => {
     const wasOpen = prefsOpen
     closePanels()
@@ -1110,24 +1115,13 @@ export default function App() {
           </svg>
           Nueva Conversación
         </button>
-        <div className="hud-right">
-          <button type="button" className="newchat" onClick={openAgents} disabled={busy} title="Squad: roles, personajes y personalidad">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-              <circle cx="9" cy="7" r="4" />
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-            </svg>
-            Agentes
-          </button>
-          <button type="button" className="gear" onClick={openPrefs} disabled={busy} title="Modelo, permisos, tema y notificaciones">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-            Configuración
-          </button>
-        </div>
+        <button type="button" className="gear" onClick={openPrefs} disabled={busy} title="Modelo, permisos, notificaciones y agentes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          Configuración
+        </button>
       </header>
 
       <div className="stage">
@@ -1169,6 +1163,10 @@ export default function App() {
               }}
             >
               🖥 Abrir terminal en el proyecto
+            </button>
+            {/* submenu: roster del squad (se abre encima de este panel) */}
+            <button type="button" className="squad-save help-btn" onClick={openAgents}>
+              👥 Agentes — roles, personajes y personalidad
             </button>
 
             {/* preferencias — aplican al instante */}
@@ -1248,10 +1246,10 @@ export default function App() {
         )}
 
         {agentsOpen && (
-          <div className="drawer">
+          <div className="drawer over">
             <div className="drawer-head">
               <b>👥 Agentes</b>
-              <button onClick={() => closePanels()}>✕</button>
+              <button onClick={closeAgents} title="Volver a Configuración">✕</button>
             </div>
             <div className="drawer-sep agents-sub">Squad · hasta {MAX_ACTIVE} activos · el 1º es el principal ({profile})</div>
             {draft.map((r) => (

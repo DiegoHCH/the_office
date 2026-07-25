@@ -34,10 +34,9 @@ body {
 }
 .newchat svg { width: 15px; height: 15px; }
 .newchat:hover { background: rgba(45, 212, 191, 0.18); }
-/* grupo derecho del HUD: Agentes + Configuración */
-.hud-right { margin-left: auto; display: flex; gap: 10px; }
-/* botón de configuración: tuerca SVG + texto */
+/* botón de configuración: pegado a la derecha, tuerca SVG + texto */
 .gear {
+  margin-left: auto;
   display: inline-flex; align-items: center; gap: 7px;
   background: rgba(45, 212, 191, 0.08); color: #2dd4bf;
   border: 1px solid rgba(45, 212, 191, 0.45); border-radius: 9px;
@@ -182,6 +181,9 @@ body {
   padding: 2px 4px 10px; font-family: ui-monospace, Menlo, monospace; font-size: 13px;
 }
 .drawer-head button { background: none; border: none; color: #93a6a1; cursor: pointer; font-size: 14px; }
+/* submenu (p. ej. Agentes): se apila ENCIMA del drawer normal, que queda
+   abierto debajo y recupera el foco al cerrarlo */
+.drawer.over { z-index: 7; box-shadow: 0 10px 34px rgba(4, 10, 13, 0.55); }
 .hist-item {
   position: relative; padding: 9px 34px 9px 10px; border-radius: 9px; cursor: pointer;
   border: 1px solid transparent;
