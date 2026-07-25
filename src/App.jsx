@@ -420,6 +420,7 @@ export default function App() {
   const [attachments, setAttachments] = useState([]) // imágenes pegadas/arrastradas
   const [refs, setRefs] = useState([]) // carpetas/archivos del disco arrastrados
   const handoffsRef = useRef([]) // [{from, to, original, result?}]
+  const lastJobRef = useRef({}) // role → último job despachado (para Reintentar)
   const queuesRef = useRef({}) // role → [jobs] pendientes cuando está ocupado
   const pendingArtifactRef = useRef({}) // role → true si generó un artifact en este turno
   const toastTimer = useRef(null)
@@ -640,11 +641,13 @@ export default function App() {
         toastTimer.current = setTimeout(() => setToast(null), 3500)
         if (isP) setStatus('esperándote')
       } else if (e.kind === 'error') {
-        setMessages((ms) => [...ms, { role: 'assistant', who, text: `⚠️ ${e.message}` }])
+        // el stderr (si vino) se muestra como bloque de código en el mensaje
+        const text = e.detail ? `⚠️ ${e.message}\n\n\`\`\`\n${e.detail}\n\`\`\`` : `⚠️ ${e.message}`
+        setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
         buzzSound()
-        if (isP) setStatus('error — mira la terminal')
+        if (isP) setStatus('esperándote')
       }
     })
   }, [])
@@ -1005,6 +1008,7 @@ export default function App() {
     showToast(`⏳ en cola para ${memberOf(job.target).name}`)
   }
   const dispatchJob = async (job) => {
+    lastJobRef.current[job.target] = job // para el botón Reintentar tras un error
     if (job.handoffTo) handoffsRef.current.push({ from: job.target, to: job.handoffTo, original: job.text, result: null })
     setMessages((ms) => {
       const has = ms.some((m) => m.jobId === job.id)
@@ -1027,6 +1031,12 @@ export default function App() {
     const busyOrQueued = !!roleStates[job.target] || (queuesRef.current[job.target]?.length > 0)
     if (busyOrQueued) enqueueJob(job)
     else dispatchJob(job)
+  }
+
+  // Reintenta el último job de un rol (tras un error).
+  const retryJob = (who) => {
+    const job = lastJobRef.current[who]
+    if (job) routeJob({ ...job, id: crypto.randomUUID() })
   }
 
   // Respuesta rápida: envía una opción elegida al tripulante (encola si ocupado).
@@ -1531,6 +1541,11 @@ export default function App() {
                 {m.artifact && (
                   <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
                     🔗 Abrir · {prettyArtifact(m.artifact.name)}
+                  </button>
+                )}
+                {m.error && lastJobRef.current[m.who] && i === messages.findLastIndex((x) => x.who === m.who) && (
+                  <button className="artifact-btn" onClick={() => retryJob(m.who)}>
+                    🔁 Reintentar
                   </button>
                 )}
                 {options.length > 0 && (

@@ -529,8 +529,13 @@ ipcMain.handle('claude:ask', (_e, payload) => {
       if (line) handleLine(line)
     }
   })
+  // cola del stderr: si claude muere, las últimas líneas van al chat (antes
+  // solo llegaban a la consola y el error era un "mira la terminal" a secas)
+  let errTail = ''
   child.stderr.on('data', (chunk) => {
-    console.error(`[claude:stderr:${role}]`, chunk.toString())
+    const s = chunk.toString()
+    errTail = (errTail + s).slice(-1500)
+    console.error(`[claude:stderr:${role}]`, s)
   })
   child.on('error', (err) => {
     emit({ kind: 'error', role, message: `Error al ejecutar claude: ${err.message}` })
@@ -539,7 +544,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   child.on('close', (code) => {
     // una detención del usuario no es un error (SIGTERM sale con 143)
     if (code !== 0 && code !== null && !child.stoppedByUser) {
-      emit({ kind: 'error', role, message: `claude terminó con código ${code} (mira la terminal)` })
+      emit({ kind: 'error', role, message: `claude terminó con código ${code}`, detail: errTail.trim() })
       notify(displayName, `⚠️ terminó con error (código ${code})`)
     }
     children.delete(role)
