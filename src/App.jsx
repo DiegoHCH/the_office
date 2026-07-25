@@ -273,22 +273,39 @@ const TOOL_INFO = {
 }
 const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `usando ${name}`]
 
-// Modelos disponibles para --model (siempre explícito, IDs completos).
+// Modelos disponibles para --model (siempre explícito). El orden define el selector.
 const MODEL_LABELS = {
-  'claude-fable-5[1m]': 'Fable 5 · 1M',
-  'claude-fable-5': 'Fable 5',
-  'claude-opus-4-8': 'Opus 4.8',
+  'claude-opus-5': 'Opus 5',
+  'claude-opus-5[1m]': 'Opus 5 · 1M',
   'claude-sonnet-5': 'Sonnet 5',
-  'claude-haiku-4-5-20251001': 'Haiku 4.5',
+  'claude-haiku-4-5': 'Haiku 4.5',
+  'claude-fable-5': 'Fable 5',
+  'claude-fable-5[1m]': 'Fable 5 · 1M',
+  'claude-opus-4-8': 'Opus 4.8',
+  'claude-haiku-4-5-20251001': 'Haiku 4.5', // ID con fecha (configs viejas)
 }
 const MODEL_ALIASES = {
+  opus: 'claude-opus-5',
+  opus1m: 'claude-opus-5[1m]',
+  sonnet: 'claude-sonnet-5',
+  haiku: 'claude-haiku-4-5',
   fable: 'claude-fable-5',
   fable1m: 'claude-fable-5[1m]',
-  opus: 'claude-opus-4-8',
-  sonnet: 'claude-sonnet-5',
-  haiku: 'claude-haiku-4-5-20251001',
 }
 const FALLBACK_MODEL = 'claude-sonnet-5'
+
+// Etiqueta legible de un modelo: acepta IDs completos y alias, con o sin
+// sufijo [1m] ("opus[1m]" — la forma que guarda /model de la terminal).
+function modelLabelOf(id) {
+  if (!id) return ''
+  if (MODEL_LABELS[id]) return MODEL_LABELS[id]
+  const oneM = id.endsWith('[1m]')
+  const base = oneM ? id.slice(0, -4) : id
+  const full = MODEL_ALIASES[base] || base
+  const label = (oneM && MODEL_LABELS[`${full}[1m]`]) || MODEL_LABELS[full]
+  if (label) return oneM && !label.includes('1M') ? `${label} · 1M` : label
+  return id.replace(/^claude-/, '')
+}
 
 // El composer es un textarea que crece con el contenido (hasta el máximo del CSS).
 const autoGrow = (el) => {
@@ -892,12 +909,12 @@ export default function App() {
     if (cmd === '/model') {
       const arg = rest[0]?.toLowerCase()
       if (!arg) {
-        showToast(`modelo actual: ${model} · usa /model opus | sonnet | haiku | fable | fable1m`)
+        showToast(`modelo actual: ${modelLabelOf(model)} · usa /model opus | opus1m | sonnet | haiku | fable | fable1m`)
         return true
       }
       const resolved = MODEL_ALIASES[arg] ?? arg
       setModel(resolved)
-      showToast(`modelo → ${resolved}`)
+      showToast(`modelo → ${modelLabelOf(resolved)}`)
       return true
     }
     if (cmd === '/clear' || cmd === '/nueva') {
@@ -1061,14 +1078,7 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <SysMonitor
-          profile={profile}
-          modelLabel={(() => {
-            // solo la familia del modelo: Fable, Sonnet, Opus, Haiku…
-            const fam = model.match(/fable|opus|sonnet|haiku/i)?.[0]
-            return fam ? fam[0].toUpperCase() + fam.slice(1).toLowerCase() : model.replace(/^claude-/, '')
-          })()}
-        />
+        <SysMonitor profile={profile} modelLabel={modelLabelOf(model)} />
         <Office
           roleStates={roleStates}
           status={status}
@@ -1114,7 +1124,7 @@ export default function App() {
               <select className="sel pref-sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy}>
                 {[...new Set([model, ...Object.keys(MODEL_LABELS)])].map((id) => (
                   <option key={id} value={id}>
-                    {MODEL_LABELS[id] || id.replace(/^claude-/, '')}
+                    {modelLabelOf(id)}
                   </option>
                 ))}
               </select>
