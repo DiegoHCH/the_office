@@ -884,6 +884,26 @@ export default function App() {
     showToast('Conversación nueva ✨')
   }
 
+  // ¿El proyecto tiene repo git? (red de seguridad del modo edición)
+  const hasGit = async (dir) => {
+    if (!dir) return true
+    const info = await window.oficina?.pathInfo?.(`${dir.replace(/\/+$/, '')}/.git`)
+    return !!info?.ok
+  }
+  // Cambia el permiso con feedback; en edición SIN git, advertencia ámbar.
+  const setWritePermission = async (next) => {
+    setWriteMode(next)
+    if (!next) {
+      showToast('🔒 Modo lectura — solo investigar')
+      return
+    }
+    if (await hasGit(project)) {
+      showToast('✏️ Modo edición — puede modificar y correr comandos')
+    } else {
+      showToast('⚠️ Modo edición SIN git en este proyecto — los cambios no tendrán red de seguridad', 6000)
+    }
+  }
+
   const changeProfile = (p) => {
     if (p === profile) return
     setProfile(p)
@@ -895,10 +915,14 @@ export default function App() {
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
   }
-  const selectProject = (v) => {
+  const selectProject = async (v) => {
     if (v === project) return
     setProject(v)
     clearConversation()
+    // edición activa + proyecto sin git = sin red de seguridad
+    if (writeMode && !(await hasGit(v))) {
+      showToast('⚠️ Este proyecto no tiene git y el modo edición está activo — sin red de seguridad', 6000)
+    }
   }
   // "➕ Agregar proyecto…": picker de carpeta; se persiste por perfil
   const addProjectFlow = async () => {
@@ -907,7 +931,8 @@ export default function App() {
       setCfg((await window.oficina?.getConfig?.()) || cfg)
       setProject(res.path)
       clearConversation()
-      showToast(`📌 Proyecto añadido: ${res.name}`)
+      const git = !writeMode || (await hasGit(res.path))
+      showToast(git ? `📌 Proyecto añadido: ${res.name}` : `📌 Proyecto añadido: ${res.name} · ⚠️ sin git (edición sin red de seguridad)`, git ? 3500 : 6000)
     }
   }
 
@@ -1457,7 +1482,7 @@ export default function App() {
               <select
                 className="sel pref-sel"
                 value={writeMode ? 'write' : 'read'}
-                onChange={(e) => setWriteMode(e.target.value === 'write')}
+                onChange={(e) => setWritePermission(e.target.value === 'write')}
                 disabled={busy}
               >
                 <option value="write">✏️ Edición — puede modificar y correr comandos</option>
@@ -1942,10 +1967,7 @@ export default function App() {
         <button
           type="button"
           className={writeMode ? 'perm-chip write' : 'perm-chip read'}
-          onClick={() => {
-            setWriteMode((w) => !w)
-            showToast(writeMode ? '🔒 Modo lectura — solo investigar' : '✏️ Modo edición — puede modificar y correr comandos')
-          }}
+          onClick={() => setWritePermission(!writeMode)}
           disabled={busy}
           title={
             writeMode
