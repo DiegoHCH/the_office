@@ -437,6 +437,16 @@ export default function App() {
   const [sound, setSound] = useState(() => localStorage.getItem('oficina-sound') !== '0')
   const [theme, setTheme] = useState('clasico') // se carga por perfil al iniciar/cambiar
   const themeLoaded = useRef(false) // evita machacar el guardado antes de hidratar
+  // Tema "auto": 🌙 Noche de 19:00 a 07:00, Clásico de día. Un tick por minuto
+  // re-evalúa la hora solo mientras el modo auto está elegido.
+  const [, setThemeTick] = useState(0)
+  useEffect(() => {
+    if (theme !== 'auto') return
+    const iv = setInterval(() => setThemeTick((t) => t + 1), 60_000)
+    return () => clearInterval(iv)
+  }, [theme])
+  const hourNow = new Date().getHours()
+  const effectiveTheme = theme === 'auto' ? (hourNow >= 19 || hourNow < 7 ? 'noche' : 'clasico') : theme
   const [board, setBoard] = useState(() => localStorage.getItem('oficina-board') !== '0')
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
@@ -1411,7 +1421,7 @@ export default function App() {
           roleStates={roleStates}
           status={status}
           squad={squad}
-          theme={theme}
+          theme={effectiveTheme}
           tool={tool}
           elapsed={elapsed}
           deliverTargets={deliverTargets}
@@ -1494,6 +1504,7 @@ export default function App() {
             <div className="pref-row">
               <span className="pref-label">Tema:</span>
               <select className="sel pref-sel" value={theme} onChange={(e) => setTheme(e.target.value)}>
+                <option value="auto">🌗 Auto — Noche al atardecer</option>
                 {Object.entries(THEMES).map(([id, t]) => (
                   <option key={id} value={id}>
                     {t.label}
