@@ -413,6 +413,7 @@ export default function App() {
   const NEW_ROLE = { name: '', focus: '', emoji: '🛠️', color: '#38bdf8', kw: '', avatar: '' }
   const [nr, setNr] = useState(NEW_ROLE) // borrador del rol nuevo
   const [toast, setToast] = useState(null)
+  const [appVersion, setAppVersion] = useState('') // pie del menú de Configuración
   const [doneChip, setDoneChip] = useState(null) // "✅ X respondió" transitorio
   const doneChipTimer = useRef(null)
   const [deliverTargets, setDeliverTargets] = useState({}) // a quién camina cada entrega
@@ -493,6 +494,7 @@ export default function App() {
 
   useEffect(() => {
     window.oficina?.artifacts?.getDir?.().then(setArtsDir)
+    window.oficina?.getVersion?.().then((v) => setAppVersion(v || ''))
   }, [])
 
   const refreshArtifacts = async () => setArtsList((await window.oficina?.artifacts?.list?.()) || [])
@@ -1150,26 +1152,36 @@ export default function App() {
               <button onClick={() => setPrefsOpen(false)}>✕</button>
             </div>
 
-            {/* guía de uso + terminal */}
-            <button type="button" className="squad-save help-btn" onClick={() => window.oficina?.openHelp?.()}>
-              📖 Guía de uso — cómo funciona La Oficina
-            </button>
-            <button
-              type="button"
-              className="squad-save help-btn"
-              onClick={async () => {
-                const res = await window.oficina?.openTerminal?.(project)
-                showToast(res?.ok ? `🖥 abriendo ${res.app}…` : '⚠️ no pude abrir la terminal')
-              }}
-            >
-              🖥 Abrir terminal en el proyecto
-            </button>
-            {/* submenu: roster del squad (se abre encima de este panel) */}
-            <button type="button" className="squad-save help-btn" onClick={openAgents}>
-              👥 Agentes — roles, personajes y personalidad
-            </button>
+            {/* navegación: filas de menú (ícono · label · chevron) */}
+            <div className="menu-group">
+              <button type="button" className="menu-item" onClick={openAgents}>
+                <span className="mi-icon">👥</span>
+                <span className="mi-label">Agentes</span>
+                <span className="mi-hint">{squad.length} activos</span>
+                <span className="mi-chev">›</span>
+              </button>
+              <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.()}>
+                <span className="mi-icon">📖</span>
+                <span className="mi-label">Guía de uso</span>
+                <span className="mi-chev">›</span>
+              </button>
+              <button
+                type="button"
+                className="menu-item"
+                onClick={async () => {
+                  const res = await window.oficina?.openTerminal?.(project)
+                  showToast(res?.ok ? `🖥 abriendo ${res.app}…` : '⚠️ no pude abrir la terminal')
+                }}
+              >
+                <span className="mi-icon">🖥</span>
+                <span className="mi-label">Abrir terminal en el proyecto</span>
+                <span className="mi-chev">›</span>
+              </button>
+            </div>
 
             {/* preferencias — aplican al instante */}
+            <div className="menu-sec">Preferencias</div>
+            <div className="menu-group">
             <div className="pref-row">
               <span className="pref-label">Modelo:</span>
               <select className="sel pref-sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy}>
@@ -1242,6 +1254,9 @@ export default function App() {
                 {sound ? '🔔 encendidas' : '🔕 apagadas'}
               </button>
             </div>
+            </div>
+
+            <div className="menu-foot">La Oficina{appVersion ? ` · v${appVersion}` : ''}</div>
           </div>
         )}
 

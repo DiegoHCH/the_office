@@ -241,8 +241,40 @@ body {
   to { opacity: 0; transform: translate(-50%, 8px); }
 }
 
+/* ── Configuración con look de menú: grupos de filas + secciones ── */
+.menu-sec {
+  margin: 16px 6px 6px; font-size: 10.5px; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #7e948f;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.menu-group {
+  background: #111a1f; border: 1px solid #26343a; border-radius: 12px;
+  overflow: hidden;
+}
+.menu-group > * { border-bottom: 1px solid #1d2a30; }
+.menu-group > *:last-child { border-bottom: none; }
+.menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 13px; background: transparent; border: none;
+  color: #e9f1ee; font-size: 13px; text-align: left; cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  transition: background 0.12s;
+}
+.menu-item:hover { background: #18242a; }
+.mi-icon { width: 22px; text-align: center; flex: none; }
+.mi-label { flex: 1; }
+.mi-hint { color: #7e948f; font-size: 11px; flex: none; }
+.mi-chev { color: #55707a; font-size: 16px; line-height: 1; flex: none; }
+.menu-foot {
+  margin-top: 14px; text-align: center; font-size: 10.5px; color: #5c7078;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 /* panel de configuración: preferencias */
 .pref-row { display: flex; align-items: center; gap: 10px; padding: 6px 6px; }
+/* filas de preferencias dentro de un grupo de menú */
+.menu-group .pref-row { padding: 9px 13px; margin: 0; }
+.menu-group .pref-toggle, .menu-group .pref-sel { background: #1b252a; }
 .pref-label {
   width: 110px; flex: none; font-size: 12px; color: #93a6a1;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
