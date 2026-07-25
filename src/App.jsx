@@ -369,7 +369,7 @@ const MCP_CATALOG = [
   { id: 'playwright', name: 'Playwright', desc: 'El agente maneja un navegador real: navegar, clicks, screenshots — QA de interfaces vivas', roles: ['qa', 'design'], cmd: ['npx', '@playwright/mcp@latest'] },
   { id: 'chrome-devtools', name: 'Chrome DevTools', desc: 'Consola, red y rendimiento de Chrome — depurar el front como un humano', roles: ['dev', 'qa'], cmd: ['npx', 'chrome-devtools-mcp@latest'] },
   { id: 'context7', name: 'Context7', desc: 'Documentación al día de librerías y frameworks, directo al contexto del agente', roles: ['dev'], cmd: ['npx', '-y', '@upstash/context7-mcp'] },
-  { id: 'figma', name: 'Figma', desc: 'Lee tus diseños de Figma (requiere autenticarse una vez con /mcp desde la terminal)', roles: ['design'], url: 'https://mcp.figma.com/mcp' },
+  { id: 'figma', name: 'Figma', desc: 'Lee tus diseños de Figma — ⚠️ en plan gratis solo 6 usos/mes; para uso real pide seat Dev/Full de pago (y autenticarse una vez con /mcp)', roles: ['design'], url: 'https://mcp.figma.com/mcp' },
 ]
 
 // Cómo se muestra cada herramienta de Claude en pantalla.
