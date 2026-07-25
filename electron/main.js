@@ -1297,6 +1297,20 @@ function checkForUpdates() {
 app.whenReady().then(() => {
   pruneStorage()
   createTray()
+  // Atajo global ⌥Espacio: trae la app al frente con el composer enfocado,
+  // listo para lanzar un prompt desde cualquier otra app.
+  try {
+    globalShortcut.register('Alt+Space', () => {
+      if (!win || win.isDestroyed()) return
+      if (win.isFocused()) {
+        win.hide() // segundo toque: se aparta, como Spotlight
+        return
+      }
+      win.show()
+      win.focus()
+      win.webContents.send('claude:event', { kind: 'focus-composer' })
+    })
+  } catch {}
   setTimeout(checkForUpdates, 5000) // sin estorbar el arranque
   if (!isDev) {
     protocol.handle('app', (req) => {
@@ -1343,6 +1357,11 @@ const killAll = () => {
   children.clear()
 }
 app.on('before-quit', killAll)
+app.on('will-quit', () => {
+  try {
+    globalShortcut.unregisterAll()
+  } catch {}
+})
 app.on('window-all-closed', () => {
   killAll()
   if (process.platform !== 'darwin') app.quit()
