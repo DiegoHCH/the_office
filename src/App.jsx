@@ -562,6 +562,14 @@ export default function App() {
       if (n) counts[k] = n
     }
     setQueuedCounts(counts)
+    // la cola sobrevive un cierre de la app: se ofrece retomarla al arrancar
+    try {
+      const jobs = Object.values(queuesRef.current)
+        .flat()
+        .map(({ id, target, text, display, prompt, atts }) => ({ id, target, text, display, prompt, atts }))
+      if (jobs.length) localStorage.setItem('oficina-pending-queue', JSON.stringify({ profile, project, jobs }))
+      else localStorage.removeItem('oficina-pending-queue')
+    } catch {}
   }
   const pendingArtifactRef = useRef({}) // role → true si generó un artifact en este turno
   const toastTimer = useRef(null)
@@ -1050,6 +1058,9 @@ export default function App() {
     sessionsRef.current = {}
     queuesRef.current = {}
     setQueuedCounts({})
+    try {
+      localStorage.removeItem('oficina-pending-queue')
+    } catch {}
     handoffsRef.current = []
     window.oficina?.reset?.()
   }
@@ -1483,6 +1494,32 @@ export default function App() {
       if (job.target === principal) setStatus('Esperándote')
     }
   }
+  // ── Cola persistente: al arrancar, ofrecer retomar lo que quedó sin enviar ─
+  const [pendingRestore, setPendingRestore] = useState(null)
+  useEffect(() => {
+    if (!cfg) return
+    let saved = null
+    try {
+      saved = JSON.parse(localStorage.getItem('oficina-pending-queue'))
+    } catch {}
+    if (!saved?.jobs?.length) return
+    localStorage.removeItem('oficina-pending-queue')
+    const n = saved.jobs.length
+    if (!window.confirm(`Tenías ${n} mensaje${n > 1 ? 's' : ''} en cola cuando se cerró la app. ¿Los envío ahora?`)) return
+    if (saved.profile && cfg.profiles?.includes(saved.profile)) setProfile(saved.profile)
+    if (saved.project) setProject(saved.project)
+    if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+    setPendingRestore(saved.jobs)
+  }, [cfg])
+  // se despachan en un render posterior, ya con el perfil/proyecto restaurados
+  useEffect(() => {
+    if (!pendingRestore?.length) return
+    const jobs = pendingRestore
+    setPendingRestore(null)
+    jobs.forEach((j, i) => setTimeout(() => routeJob({ ...j, id: crypto.randomUUID() }), 300 + i * 500))
+    showToast(`⏳ Retomando ${jobs.length} mensaje${jobs.length > 1 ? 's' : ''} de la cola`)
+  }, [pendingRestore])
+
   // sitúa un job: si el agente está libre y sin cola → va; si no → encola
   const routeJob = (job) => {
     atBottomRef.current = true // enviar algo re-engancha el auto-scroll
