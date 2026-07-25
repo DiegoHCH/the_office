@@ -637,7 +637,7 @@ export default function App() {
     }
   }, [roleStates, profile, project, writeMode, model])
 
-  // Atajos: ⌘K nueva · ⌘1-4 miembro del squad · ⌘Y historial · Esc cierra paneles
+  // Atajos: ⌘K nueva · ⌘1-⌘6 miembro del squad · ⌘Y historial · Esc cierra paneles
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -653,7 +653,8 @@ export default function App() {
       } else if (e.key === 'y') {
         e.preventDefault()
         toggleHist()
-      } else if (['1', '2', '3', '4'].includes(e.key)) {
+      } else if (/^[1-9]$/.test(e.key) && Number(e.key) <= squad.length) {
+        // un atajo por miembro activo (hasta MAX_ACTIVE)
         e.preventDefault()
         const m = squad[Number(e.key) - 1]
         if (!m) return
