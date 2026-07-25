@@ -760,11 +760,14 @@ select.squad-model {
 }
 .snip-pop .snip-del:hover { opacity: 1; color: #e88a8a; }
 .snip-empty { padding: 10px 12px; color: #93a6a1; font-size: 12px; }
-.snip-pop .snip-new {
+/* botón fantasma «➕ crear/conectar» — también se usa en los drawers de
+   Skills y MCP, por eso NO va anclado a .snip-pop */
+.snip-new {
   background: none; border: 1px dashed #45585f; border-radius: 14px; color: #93a6a1;
   padding: 8px; cursor: pointer; font-size: 12px; margin-top: 2px;
+  display: block; width: 100%; font-family: inherit;
 }
-.snip-pop .snip-new:hover { color: #7fd8c8; border-color: #7fd8c8; }
+.snip-new:hover { color: #7fd8c8; border-color: #7fd8c8; background: rgba(45, 212, 191, 0.05); }
 .snip-form { display: flex; flex-direction: column; gap: 6px; padding: 8px; border-top: 1px solid #28353a; margin-top: 4px; }
 .snip-form input, .snip-form textarea {
   background: #22303a; border: 1.5px solid #45585f; color: #f2f8f6; border-radius: 12px;
