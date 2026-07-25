@@ -1091,6 +1091,92 @@ ipcMain.handle('artifacts:zip', async (_e, file) => {
   })
 })
 
+// ── Skills de Claude Code por perfil ─────────────────────────────────────────
+// Se instalan en CLAUDE_CONFIG_DIR/skills/<id>; los agentes headless las usan
+// automáticamente al correr con ese perfil.
+const skillsDirFor = (profile) =>
+  path.join(PROFILE_DIRS[profile] ? PROFILE_DIRS[profile]() : path.join(app.getPath('home'), '.claude'), 'skills')
+
+const execFileP = (cmd, args, opts) =>
+  new Promise((resolve, reject) =>
+    execFile(cmd, args, opts, (err, out, errOut) => (err ? reject(new Error(String(errOut || err.message || '').slice(0, 400))) : resolve(out)))
+  )
+
+// description del frontmatter del SKILL.md (best-effort, sin parser YAML)
+function skillMeta(dir) {
+  try {
+    const raw = fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8')
+    const desc = /^description:\s*(.+)$/m.exec(raw)?.[1]?.trim().replace(/^["']|["']$/g, '') || ''
+    return { desc: desc.slice(0, 200) }
+  } catch {
+    return { desc: '' }
+  }
+}
+
+ipcMain.handle('skills:list', (_e, profile) => {
+  const dir = skillsDirFor(profile)
+  try {
+    return fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && fs.existsSync(path.join(dir, d.name, 'SKILL.md')))
+      .map((d) => ({ id: d.name, ...skillMeta(path.join(dir, d.name)) }))
+  } catch {
+    return []
+  }
+})
+
+// Busca la carpeta de la skill dentro del repo clonado (tolerante al layout).
+function findSkillDir(root, id, depth = 0) {
+  if (depth > 3) return null
+  try {
+    for (const d of fs.readdirSync(root, { withFileTypes: true })) {
+      if (!d.isDirectory() || d.name.startsWith('.')) continue
+      const p = path.join(root, d.name)
+      if (d.name === id && fs.existsSync(path.join(p, 'SKILL.md'))) return p
+      const hit = findSkillDir(p, id, depth + 1)
+      if (hit) return hit
+    }
+  } catch {}
+  return null
+}
+
+// Instala (o actualiza) una skill del catálogo: clon superficial del repo en
+// caché + copia de la carpeta de la skill al skills/ del perfil.
+ipcMain.handle('skills:install', async (_e, { profile, id, repo }) => {
+  if (!/^[a-z0-9-]+$/.test(id || '') || !/^[\w.-]+\/[\w.-]+$/.test(repo || '')) return { ok: false, error: 'Entrada inválida' }
+  const cache = path.join(app.getPath('userData'), 'skills-cache', repo.replace('/', '__'))
+  try {
+    if (fs.existsSync(path.join(cache, '.git'))) await execFileP('git', ['-C', cache, 'pull', '--ff-only'], { timeout: 60000 })
+    else {
+      fs.mkdirSync(path.dirname(cache), { recursive: true })
+      await execFileP('git', ['clone', '--depth', '1', `https://github.com/${repo}.git`, cache], { timeout: 120000 })
+    }
+  } catch (err) {
+    return { ok: false, error: `git: ${err.message}` }
+  }
+  const src = findSkillDir(cache, id)
+  if (!src) return { ok: false, error: `La skill «${id}» no está en ${repo}` }
+  const dest = path.join(skillsDirFor(profile), id)
+  try {
+    fs.rmSync(dest, { recursive: true, force: true })
+    fs.mkdirSync(path.dirname(dest), { recursive: true })
+    fs.cpSync(src, dest, { recursive: true })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('skills:remove', (_e, { profile, id }) => {
+  if (!/^[a-z0-9-]+$/.test(id || '')) return { ok: false, error: 'Id inválido' }
+  try {
+    fs.rmSync(path.join(skillsDirFor(profile), id), { recursive: true, force: true })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // Diff del proyecto (staged + unstaged) para la vista de cambios del agente.
 ipcMain.handle('git:diff', async (_e, cwd) => {
   if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }

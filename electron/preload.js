@@ -54,6 +54,12 @@ contextBridge.exposeInMainWorld('oficina', {
   openBoard: (cwd) => ipcRenderer.invoke('board:open', cwd),
   // Abre/crea el .md de personalidad de un personaje (por perfil).
   openPersona: (profile, role, name) => ipcRenderer.invoke('persona:open', { profile, role, name }),
+  // Skills de Claude Code por perfil (catálogo instalable).
+  skills: {
+    list: (profile) => ipcRenderer.invoke('skills:list', profile),
+    install: (profile, id, repo) => ipcRenderer.invoke('skills:install', { profile, id, repo }),
+    remove: (profile, id) => ipcRenderer.invoke('skills:remove', { profile, id }),
+  },
   // Configuración del squad (roster por perfil: nombres y activos).
   squad: {
     get: (profile) => ipcRenderer.invoke('squad:get', profile),

@@ -391,6 +391,23 @@ body {
 .hist-item .hist-export:hover { opacity: 1; }
 .hist-item:has(.hist-export) { padding-right: 54px; }
 .art-item { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
+/* catálogo de skills por perfil */
+.skills-note { font-size: 11.5px; color: #93a6a1; padding: 2px 12px 10px; line-height: 1.5; }
+.skill-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-right: 8px; cursor: default; }
+.skill-info { flex: 1; min-width: 0; }
+.skill-info .hist-meta { font-family: inherit; white-space: normal; }
+.skill-ok { color: #49a56d; font-size: 10.5px; font-weight: 600; margin-left: 4px; }
+.skill-tags { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+.skill-tag {
+  font-size: 9.5px; color: #7fd8c8; background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.3); border-radius: 999px; padding: 1px 7px;
+}
+.skill-install {
+  background: #2dd4bf; color: #04201c; border: none; border-radius: 999px;
+  padding: 5px 14px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+}
+.skill-install:hover { filter: brightness(1.08); }
+.skill-busy { font-size: 13px; }
 .art-item > div:first-child { flex: 1; min-width: 0; }
 .art-actions { display: flex; gap: 4px; flex: none; }
 .art-actions button {

@@ -346,6 +346,24 @@ function CodeBlock({ inline, className = '', children, ...props }) {
 }
 const MD_COMPONENTS = { pre: CodePre, code: CodeBlock }
 
+// Catálogo curado de skills de Claude Code (repo oficial anthropics/skills).
+// Se instalan en el CLAUDE_CONFIG_DIR del perfil: los agentes headless las
+// cargan solos y las usan cuando la tarea lo amerita.
+const SKILL_CATALOG = [
+  { id: 'frontend-design', repo: 'anthropics/skills', name: 'Frontend Design', desc: 'Interfaces web con criterio de diseño — evita el look genérico al crear UIs nuevas', roles: ['design'] },
+  { id: 'canvas-design', repo: 'anthropics/skills', name: 'Canvas Design', desc: 'Piezas visuales (posters, banners, mockups) con composición y tipografía cuidadas', roles: ['design'] },
+  { id: 'web-artifacts-builder', repo: 'anthropics/skills', name: 'Web Artifacts Builder', desc: 'Apps web de un solo archivo más ricas e interactivas', roles: ['design', 'dev'] },
+  { id: 'theme-factory', repo: 'anthropics/skills', name: 'Theme Factory', desc: 'Temas visuales consistentes (paleta, tipografía) para aplicar a lo que se crea', roles: ['design'] },
+  { id: 'webapp-testing', repo: 'anthropics/skills', name: 'Webapp Testing', desc: 'Prueba interfaces reales en un navegador (Playwright)', roles: ['qa'] },
+  { id: 'docx', repo: 'anthropics/skills', name: 'Documentos Word', desc: 'Crear y editar .docx con formato profesional', roles: ['docs'] },
+  { id: 'pdf', repo: 'anthropics/skills', name: 'PDF', desc: 'Generar y manipular PDFs (formularios, unir, extraer)', roles: ['docs'] },
+  { id: 'pptx', repo: 'anthropics/skills', name: 'Presentaciones', desc: 'Crear .pptx con layouts y estilos consistentes', roles: ['docs'] },
+  { id: 'xlsx', repo: 'anthropics/skills', name: 'Hojas de cálculo', desc: 'Crear y analizar .xlsx con fórmulas y gráficos', roles: ['docs'] },
+  { id: 'mcp-builder', repo: 'anthropics/skills', name: 'MCP Builder', desc: 'Construir servidores MCP bien estructurados', roles: ['dev'] },
+  { id: 'skill-creator', repo: 'anthropics/skills', name: 'Skill Creator', desc: 'Crear tus propias skills a medida', roles: ['dev'] },
+]
+const ROLE_TAGS = { design: '🎨 UI/UX', qa: '🧪 QA', docs: '📚 Docs', dev: '💻 Dev', research: '🔎 Research' }
+
 // Cómo se muestra cada herramienta de Claude en pantalla.
 const TOOL_INFO = {
   Read: ['📖', 'Leyendo archivos'],
@@ -537,6 +555,9 @@ export default function App() {
   const [board, setBoard] = useState(() => localStorage.getItem('oficina-board') !== '0')
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
+  const [skillsOpen, setSkillsOpen] = useState(false) // panel 🧩 Skills (catálogo por perfil)
+  const [installedSkills, setInstalledSkills] = useState(null) // null = leyendo
+  const [skillBusy, setSkillBusy] = useState(null) // id de la skill en proceso
   const [prefsOpen, setPrefsOpen] = useState(false) // panel ⚙️ Configuración
   const [ctxOpen, setCtxOpen] = useState(false) // dropdown de perfil + proyecto
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel Agentes
@@ -694,6 +715,7 @@ export default function App() {
     setPrefsOpen(false)
     setAvatarPicker(null)
     setCtxOpen(false)
+    setSkillsOpen(false)
   }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
@@ -976,6 +998,10 @@ export default function App() {
           setDiffView(null)
           return
         }
+        if (skillsOpen) {
+          setSkillsOpen(false)
+          return
+        }
         if (agentsOpen) closeAgents()
         else closePanels()
         return
@@ -1008,8 +1034,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView])
+    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen: Esc por capas
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -1139,6 +1165,29 @@ export default function App() {
     setAgentsOpen(false)
     setAvatarPicker(null)
   }
+  // ── Submenu 🧩 Skills: catálogo instalable por perfil (encima de Config) ──
+  const refreshSkills = async () => setInstalledSkills((await window.oficina?.skills?.list(profile)) || [])
+  const openSkills = () => {
+    setInstalledSkills(null)
+    setSkillsOpen(true)
+    refreshSkills()
+  }
+  const installSkill = async (s) => {
+    setSkillBusy(s.id)
+    const res = await window.oficina?.skills?.install(profile, s.id, s.repo)
+    setSkillBusy(null)
+    if (res?.ok) showToast(`🧩 ${s.name} instalada — tus agentes ya pueden usarla`)
+    else showToast(`⚠️ ${res?.error || 'No se pudo instalar'}`, 6000)
+    refreshSkills()
+  }
+  const removeSkill = async (id) => {
+    setSkillBusy(id)
+    const res = await window.oficina?.skills?.remove(profile, id)
+    setSkillBusy(null)
+    showToast(res?.ok ? 'Skill quitada' : `⚠️ ${res?.error || 'No se pudo quitar'}`)
+    refreshSkills()
+  }
+
   // ── Panel ⚙️ Configuración (preferencias + acceso a Agentes) ─────────────
   const openPrefs = () => {
     const wasOpen = prefsOpen
@@ -1767,6 +1816,12 @@ export default function App() {
                 <span className="mi-hint">{squad.length} activos</span>
                 <span className="mi-chev">›</span>
               </button>
+              <button type="button" className="menu-item" onClick={openSkills}>
+                <span className="mi-icon">🧩</span>
+                <span className="mi-label">Skills</span>
+                <span className="mi-hint">superpoderes del perfil</span>
+                <span className="mi-chev">›</span>
+              </button>
               <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.()}>
                 <span className="mi-icon">📖</span>
                 <span className="mi-label">Guía de uso</span>
@@ -1865,6 +1920,73 @@ export default function App() {
             </div>
 
             <div className="menu-foot">La Oficina{appVersion ? ` · v${appVersion}` : ''}</div>
+          </div>
+        )}
+
+        {skillsOpen && (
+          <div className="drawer over">
+            <div className="drawer-head">
+              <b>🧩 Skills · {profile === 'work' ? '💼 work' : '🔒 private'}</b>
+              <button onClick={() => setSkillsOpen(false)} title="Volver a Configuración">✕</button>
+            </div>
+            <div className="skills-note">
+              Se instalan en el perfil ({profile === 'work' ? '~/.claude-work' : '~/.claude-private'}) y los agentes las usan
+              automáticamente cuando la tarea lo amerita.
+            </div>
+            {installedSkills === null && <div className="hist-empty">Leyendo skills instaladas…</div>}
+            {installedSkills !== null && (
+              <>
+                {SKILL_CATALOG.map((s) => {
+                  const inst = installedSkills.some((x) => x.id === s.id)
+                  return (
+                    <div key={s.id} className="hist-item skill-item">
+                      <div className="skill-info">
+                        <div className="hist-title">
+                          {s.name} {inst && <span className="skill-ok">✓ instalada</span>}
+                        </div>
+                        <div className="hist-meta">{s.desc}</div>
+                        <div className="skill-tags">
+                          {s.roles.map((r) => (
+                            <span key={r} className="skill-tag">{ROLE_TAGS[r] || r}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="art-actions">
+                        {skillBusy === s.id ? (
+                          <span className="skill-busy">⏳</span>
+                        ) : inst ? (
+                          <>
+                            <button title="Actualizar a la última versión" onClick={() => installSkill(s)}>🔄</button>
+                            <button title="Quitar del perfil" onClick={() => removeSkill(s.id)}>🗑</button>
+                          </>
+                        ) : (
+                          <button className="skill-install" onClick={() => installSkill(s)}>Instalar</button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                {installedSkills
+                  .filter((x) => !SKILL_CATALOG.some((s) => s.id === x.id))
+                  .map((x) => (
+                    <div key={x.id} className="hist-item skill-item">
+                      <div className="skill-info">
+                        <div className="hist-title">
+                          {x.id} <span className="skill-ok">✓ instalada</span>
+                        </div>
+                        <div className="hist-meta">{x.desc || 'Skill propia (fuera del catálogo)'}</div>
+                      </div>
+                      <div className="art-actions">
+                        {skillBusy === x.id ? (
+                          <span className="skill-busy">⏳</span>
+                        ) : (
+                          <button title="Quitar del perfil" onClick={() => removeSkill(x.id)}>🗑</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </>
+            )}
           </div>
         )}
 
