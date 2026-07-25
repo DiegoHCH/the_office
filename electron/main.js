@@ -1089,8 +1089,62 @@ function pruneStorage() {
   } catch {}
 }
 
+// ¿a.b.c es más nueva que x.y.z?
+function isNewerVersion(a, b) {
+  const pa = String(a).split('.').map(Number)
+  const pb = String(b).split('.').map(Number)
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) > (pb[i] || 0)) return true
+    if ((pa[i] || 0) < (pb[i] || 0)) return false
+  }
+  return false
+}
+
+// Aviso de nueva versión (sin auto-update): consulta el último release de
+// GitHub como mucho una vez al día; si es más nuevo, notificación del sistema
+// que abre la página del release al hacer clic.
+function checkForUpdates() {
+  const stamp = path.join(app.getPath('userData'), 'last-update-check.txt')
+  try {
+    if (Date.now() - (Number(fs.readFileSync(stamp, 'utf8')) || 0) < 24 * 3600 * 1000) return
+  } catch {}
+  try {
+    fs.writeFileSync(stamp, String(Date.now()))
+  } catch {}
+  const req = https.get(
+    {
+      hostname: 'api.github.com',
+      path: '/repos/DiegoHCH/the_office/releases/latest',
+      headers: { 'User-Agent': 'la-oficina', Accept: 'application/vnd.github+json' },
+      timeout: 8000,
+    },
+    (res) => {
+      let body = ''
+      res.on('data', (c) => (body += c))
+      res.on('end', () => {
+        try {
+          if (res.statusCode !== 200) return // sin releases (404) o rate-limited: silencio
+          const j = JSON.parse(body)
+          const latest = String(j.tag_name || '').replace(/^v/, '')
+          if (!latest || !isNewerVersion(latest, app.getVersion())) return
+          if (!Notification.isSupported()) return
+          const n = new Notification({
+            title: 'La Oficina',
+            body: `Hay una versión nueva: v${latest} (tienes v${app.getVersion()}). Clic para ver el release.`,
+          })
+          n.on('click', () => shell.openExternal(j.html_url || 'https://github.com/DiegoHCH/the_office/releases'))
+          n.show()
+        } catch {}
+      })
+    }
+  )
+  req.on('error', () => {})
+  req.on('timeout', () => req.destroy())
+}
+
 app.whenReady().then(() => {
   pruneStorage()
+  setTimeout(checkForUpdates, 5000) // sin estorbar el arranque
   if (!isDev) {
     protocol.handle('app', (req) => {
       let p = decodeURIComponent(new URL(req.url).pathname)
