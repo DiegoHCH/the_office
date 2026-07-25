@@ -1145,6 +1145,13 @@ export default function App() {
           theme={theme}
           tool={tool}
           deliverTargets={deliverTargets}
+          onPickMember={(id) => {
+            // clic en un personaje = dirigirle el mensaje (como ⌘1-⌘6)
+            const m = squad.find((x) => x.id === id)
+            if (!m) return
+            setInput((v) => `${m.name}, ${v.replace(/^\S+,\s*/, '')}`)
+            inputRef.current?.focus()
+          }}
           onTourDone={(r) => {
             setRS(r, 'idle')
             setDeliverTargets((d) => {

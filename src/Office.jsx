@@ -650,7 +650,7 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, onTourDone }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -860,6 +860,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               sway={devState === 'working' || (devState === 'idle' && ambient[main.id]?.kind === 'music')}
               tour={mainTour}
               seat={<Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />}
+              onSelect={onPickMember ? () => onPickMember(main.id) : null}
             >
               <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                 <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
@@ -926,6 +927,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   sway={st === 'working' || (st === 'idle' && amb?.kind === 'music')}
                   tour={slotTour}
                   seat={<Chair position={[0, 0, 0]} rotation={[0, 0, 0]} />}
+                  onSelect={onPickMember ? () => onPickMember(m.id) : null}
                 >
                   <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                     <div className="nametag" style={{ borderColor: m.color }}>{m.name}</div>

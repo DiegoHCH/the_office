@@ -36,6 +36,7 @@ export default function Character3D({
   rotation = [0, 0, 0],
   scale = 1,
   seat = null,
+  onSelect = null, // clic sobre el personaje (p. ej. dirigirle un mensaje)
   children,
 }) {
   const group = useRef()
@@ -296,7 +297,15 @@ export default function Character3D({
           {seat}
         </group>
       )}
-      <group ref={group} position={position} rotation={rotation} scale={scale}>
+      <group
+        ref={group}
+        position={position}
+        rotation={rotation}
+        scale={scale}
+        onClick={onSelect ? (e) => (e.stopPropagation(), onSelect()) : undefined}
+        onPointerOver={onSelect ? (e) => ((e.stopPropagation(), document.body.style.cursor = 'pointer')) : undefined}
+        onPointerOut={onSelect ? () => (document.body.style.cursor = '') : undefined}
+      >
         <primitive object={scene} />
         {children}
       </group>
