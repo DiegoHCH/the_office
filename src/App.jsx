@@ -939,16 +939,6 @@ export default function App() {
       })
     )
   const renameMember = (id, name) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, name } : r)))
-  // Sube/baja un rol en el orden del roster (el 1º activo es el principal).
-  const moveRole = (id, dir) =>
-    setDraft((d) => {
-      const i = d.findIndex((r) => r.id === id)
-      const j = i + dir
-      if (i < 0 || j < 0 || j >= d.length) return d
-      const copy = [...d]
-      ;[copy[i], copy[j]] = [copy[j], copy[i]]
-      return copy
-    })
   // Drag & drop (grip ⠿): arrastrar una fila y soltarla sobre otra la mueve
   // ahí — antes si viene de abajo, después si viene de arriba.
   const [dragId, setDragId] = useState(null)
@@ -1519,7 +1509,6 @@ export default function App() {
                 key={r.id}
                 className={[
                   'squad-row',
-                  r.enabled ? '' : 'off',
                   dragId === r.id ? 'dragging' : '',
                   dropId === r.id && dragId !== r.id ? 'droptarget' : '',
                 ]
@@ -1550,29 +1539,20 @@ export default function App() {
                   >
                     ⠿
                   </span>
-                  <input
-                    type="checkbox"
-                    checked={r.enabled}
-                    onChange={() => toggleMember(r.id)}
-                    title={r.enabled ? 'Desactivar' : 'Activar'}
-                  />
                   <span className="squad-emoji">{metaOf(r).emoji}</span>
                   <input
                     className="squad-name"
                     value={r.name}
                     maxLength={16}
                     onChange={(e) => renameMember(r.id, e.target.value)}
-                    style={{ borderColor: r.enabled ? metaOf(r).color : undefined }}
+                    style={{ borderColor: metaOf(r).color }}
                   />
                   <span className="squad-label">{r.custom ? 'personalizado' : metaOf(r).label}</span>
-                  <span className="squad-move">
-                    <button type="button" onClick={() => moveRole(r.id, -1)} title="Subir (el 1º activo es el principal)">
-                      ↑
-                    </button>
-                    <button type="button" onClick={() => moveRole(r.id, 1)} title="Bajar">
-                      ↓
-                    </button>
-                  </span>
+                  {/* switch de activar/desactivar (reemplaza al checkbox y a las flechas) */}
+                  <label className="switch" title={r.enabled ? 'Desactivar' : 'Activar'}>
+                    <input type="checkbox" checked={r.enabled} onChange={() => toggleMember(r.id)} />
+                    <span className="switch-track" />
+                  </label>
                   {r.custom && (
                     <button
                       type="button"
@@ -1594,25 +1574,24 @@ export default function App() {
                     </button>
                   )}
                 </div>
-                {r.enabled && (
-                  <div className="squad-actions">
-                    <button
-                      type="button"
-                      className={avatarPicker === r.id ? 'squad-avatar-btn open' : 'squad-avatar-btn'}
-                      onClick={() => setAvatarPicker((p) => (p === r.id ? null : r.id))}
-                    >
-                      🧍 {avatarLabel(effectiveAvatar(r))}
-                    </button>
-                    <button
-                      type="button"
-                      className="squad-avatar-btn"
-                      onClick={() => window.oficina?.openPersona?.(profile, r.id, r.name)}
-                      title="Editar la personalidad de este personaje (.md)"
-                    >
-                      ✏️ personalidad
-                    </button>
-                  </div>
-                )}
+                {/* personaje y personalidad se editan igual esté activo o no */}
+                <div className="squad-actions">
+                  <button
+                    type="button"
+                    className={avatarPicker === r.id ? 'squad-avatar-btn open' : 'squad-avatar-btn'}
+                    onClick={() => setAvatarPicker((p) => (p === r.id ? null : r.id))}
+                  >
+                    🧍 {avatarLabel(effectiveAvatar(r))}
+                  </button>
+                  <button
+                    type="button"
+                    className="squad-avatar-btn"
+                    onClick={() => window.oficina?.openPersona?.(profile, r.id, r.name)}
+                    title="Editar la personalidad de este personaje (.md)"
+                  >
+                    ✏️ personalidad
+                  </button>
+                </div>
               </div>
             ))}
             {addingRole ? (
