@@ -418,7 +418,8 @@ export default function App() {
   const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
   const [addingRole, setAddingRole] = useState(false) // form "agregar rol" abierto
   const NEW_ROLE = { name: '', focus: '', emoji: '🛠️', color: '#38bdf8', kw: '', avatar: '' }
-  const [nr, setNr] = useState(NEW_ROLE) // borrador del rol nuevo
+  const [nr, setNr] = useState(NEW_ROLE) // borrador del rol nuevo (o en edición)
+  const [editingId, setEditingId] = useState(null) // rol custom que se está editando
   const [toast, setToast] = useState(null)
   const [appVersion, setAppVersion] = useState('') // pie del menú de Configuración
   const [doneChip, setDoneChip] = useState(null) // "✅ X respondió" transitorio
@@ -899,11 +900,47 @@ export default function App() {
   // modelos ya ocupados por OTROS miembros activos (no se pueden repetir)
   const takenAvatars = (selfId) =>
     new Set(draft.filter((r) => r.enabled && r.id !== selfId).map((r) => effectiveAvatar(r)))
-  // Crea un rol personalizado (deshabilitado; el usuario lo activa y guarda).
+  // Abre el formulario en modo edición con los valores del rol custom.
+  const startEditRole = (r) => {
+    setNr({
+      name: r.name,
+      focus: r.focus || '',
+      emoji: r.emoji || '🛠️',
+      color: r.color || '#38bdf8',
+      kw: r.kw || '',
+      avatar: r.avatar || '',
+    })
+    setEditingId(r.id)
+    setAddingRole(true)
+  }
+
+  // Crea un rol personalizado (o guarda la edición de uno existente).
   const addRole = () => {
     const name = nr.name.trim()
     if (!name) {
       showToast('⚠️ ponle un nombre al rol')
+      return
+    }
+    if (editingId) {
+      setDraft((d) =>
+        d.map((r) =>
+          r.id === editingId
+            ? {
+                ...r,
+                name,
+                focus: nr.focus.trim(),
+                emoji: (nr.emoji || '🛠️').slice(0, 2),
+                color: nr.color || '#38bdf8',
+                kw: nr.kw.trim(),
+                avatar: nr.avatar || r.avatar,
+              }
+            : r
+        )
+      )
+      setEditingId(null)
+      setNr(NEW_ROLE)
+      setAddingRole(false)
+      showToast(`rol "${name}" actualizado — guardá para aplicar`)
       return
     }
     const avatar = nr.avatar || AVATARS.find((a) => !draft.some((r) => effectiveAvatar(r) === a)) || AVATARS[0]
@@ -1411,6 +1448,16 @@ export default function App() {
                     style={{ borderColor: r.enabled ? metaOf(r).color : undefined }}
                   />
                   <span className="squad-label">{r.custom ? 'personalizado' : metaOf(r).label}</span>
+                  {r.custom && (
+                    <button
+                      type="button"
+                      className="squad-del"
+                      onClick={() => startEditRole(r)}
+                      title="Editar foco, keywords, emoji y color"
+                    >
+                      ✏️
+                    </button>
+                  )}
                   {canDelete(r) && (
                     <button
                       type="button"
@@ -1495,9 +1542,13 @@ export default function App() {
                 </div>
                 <div className="add-role-actions">
                   <button type="button" className="add-role-ok" onClick={addRole}>
-                    Crear rol
+                    {editingId ? 'Guardar cambios' : 'Crear rol'}
                   </button>
-                  <button type="button" className="add-role-cancel" onClick={() => (setAddingRole(false), setNr(NEW_ROLE))}>
+                  <button
+                    type="button"
+                    className="add-role-cancel"
+                    onClick={() => (setAddingRole(false), setNr(NEW_ROLE), setEditingId(null))}
+                  >
                     Cancelar
                   </button>
                 </div>
