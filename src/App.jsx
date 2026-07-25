@@ -1305,6 +1305,34 @@ export default function App() {
     else if (!res?.canceled) showToast('⚠️ No se pudo exportar la conversación')
   }
 
+  // ── Plantillas de prompts: snippets por perfil, accesibles con / ─────────
+  const [snippets, setSnippets] = useState([])
+  const [snipForm, setSnipForm] = useState(null) // formulario de nueva plantilla
+  useEffect(() => {
+    try {
+      setSnippets(JSON.parse(localStorage.getItem(`oficina-snippets-${profile}`)) || [])
+    } catch {
+      setSnippets([])
+    }
+    setSnipForm(null)
+  }, [profile])
+  const saveSnippets = (list) => {
+    setSnippets(list)
+    localStorage.setItem(`oficina-snippets-${profile}`, JSON.stringify(list))
+  }
+  const BUILTIN_CMDS = ['/model', '/clear', '/nueva', '/squad', '/standup']
+  const snipQuery = input.startsWith('/') && !input.includes('\n') ? input.slice(1) : null
+  const snipOpen = snipQuery !== null && !BUILTIN_CMDS.some((c) => input.startsWith(c))
+  const snipMatches = snipOpen ? snippets.filter((s) => norm(s.name).includes(norm(snipQuery))) : []
+  const pickSnippet = (s) => {
+    setInput(s.text)
+    const el = inputRef.current
+    if (el) {
+      el.focus()
+      requestAnimationFrame(() => autoGrow(el))
+    }
+  }
+
   // ── Comandos locales ─────────────────────────────────────────────────────
   const handleLocalCommand = (text) => {
     const [cmd, ...rest] = text.split(/\s+/)
@@ -2154,6 +2182,67 @@ export default function App() {
         </div>
       )}
 
+      {/* plantillas: escribir / en el composer las lista y filtra por nombre */}
+      {snipOpen && (
+        <div className="snip-pop">
+          {snipMatches.map((s) => (
+            <div key={s.id} className="snip-item" onClick={() => pickSnippet(s)} title={s.text}>
+              <b>/{s.name}</b>
+              <span className="snip-preview">{s.text.length > 64 ? s.text.slice(0, 62) + '…' : s.text}</span>
+              <button
+                type="button"
+                className="snip-del"
+                title="Borrar plantilla"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  saveSnippets(snippets.filter((x) => x.id !== s.id))
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          {!snipMatches.length && (
+            <div className="snip-empty">{snippets.length ? 'Ninguna plantilla con ese nombre' : 'Aún no tienes plantillas'}</div>
+          )}
+          {snipForm ? (
+            <div className="snip-form">
+              <input
+                placeholder="Nombre (ej: revisar-pr)"
+                value={snipForm.name}
+                onChange={(e) => setSnipForm({ ...snipForm, name: e.target.value })}
+                autoFocus
+              />
+              <textarea
+                placeholder="Texto de la plantilla…"
+                rows={3}
+                value={snipForm.text}
+                onChange={(e) => setSnipForm({ ...snipForm, text: e.target.value })}
+              />
+              <div className="snip-form-row">
+                <button type="button" onClick={() => setSnipForm(null)}>Cancelar</button>
+                <button
+                  type="button"
+                  className="snip-save"
+                  disabled={!snipForm.name.trim() || !snipForm.text.trim()}
+                  onClick={() => {
+                    const name = snipForm.name.trim().replace(/^\//, '').replace(/\s+/g, '-').toLowerCase()
+                    saveSnippets([...snippets.filter((x) => x.name !== name), { id: crypto.randomUUID(), name, text: snipForm.text.trim() }])
+                    setSnipForm(null)
+                    showToast(`Plantilla /${name} guardada 📌`)
+                  }}
+                >
+                  Guardar
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="snip-new" onClick={() => setSnipForm({ name: snipQuery || '', text: '' })}>
+              ➕ Nueva plantilla
+            </button>
+          )}
+        </div>
+      )}
       <form className="composer" onSubmit={send}>
         {/* el permiso a la vista: edición (auto-acepta cambios) vs solo lectura */}
         <button
@@ -2189,6 +2278,12 @@ export default function App() {
             autoGrow(e.target)
           }}
           onKeyDown={(e) => {
+            // con el popover de plantillas abierto, Enter/Tab toma la primera
+            if (snipOpen && snipMatches.length > 0 && !snipForm && (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey))) {
+              e.preventDefault()
+              pickSnippet(snipMatches[0])
+              return
+            }
             // Enter envía; Shift+Enter inserta salto de línea
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault()
