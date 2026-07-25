@@ -299,9 +299,10 @@ function makeLineHandler(role, sessionKey, displayName) {
       const ev = msg.event
       if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
         emit({ kind: 'text', role, text: ev.delta.text })
-      } else if (ev.type === 'content_block_start' && ev.content_block?.type === 'tool_use') {
-        emit({ kind: 'tool', role, name: ev.content_block.name })
       }
+      // los tool_use NO se emiten desde aquí: el mensaje del asistente (abajo)
+      // trae el mismo bloque con su input completo — emitir ambos duplicaba el
+      // evento y el chip/burbuja parpadeaba (primero sin detalle, luego con él)
       return
     }
 
