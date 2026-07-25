@@ -501,6 +501,9 @@ export default function App() {
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+  // vista de diff: qué roles editaron archivos en su tarea actual
+  const editedRef = useRef({})
+  const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [status, setStatus] = useState('Esperándote')
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
@@ -744,6 +747,8 @@ export default function App() {
         setAgentTodos((t) => ({ ...t, [who]: e.todos }))
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name, detail: e.detail || null })
+        // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
+        if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name)) editedRef.current[who] = true
         // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
         if (e.name === 'Write' && /\.html?$/i.test(e.detail || '')) {
           pendingArtifactRef.current[who] = true
@@ -766,14 +771,16 @@ export default function App() {
         })
       } else if (e.kind === 'done') {
         const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
+        const edited = !!editedRef.current[who]
+        delete editedRef.current[who]
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
             const copy = [...ms]
-            copy[idx] = { ...copy[idx], streaming: false, usage }
+            copy[idx] = { ...copy[idx], streaming: false, usage, edited }
             return copy
           }
-          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage }] : ms
+          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, edited }] : ms
         })
         // acumulado de tokens de la conversación (para el monitor de claude)
         if (usage)
@@ -820,6 +827,7 @@ export default function App() {
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
         if (isP) setStatus('Esperándote')
       } else if (e.kind === 'stopped') {
+        delete editedRef.current[who]
         // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
         setMessages((ms) => {
           const aIdx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
@@ -844,6 +852,7 @@ export default function App() {
         toastTimer.current = setTimeout(() => setToast(null), 3500)
         if (isP) setStatus('Esperándote')
       } else if (e.kind === 'error') {
+        delete editedRef.current[who]
         // el stderr (si vino) se muestra como bloque de código en el mensaje
         const text = e.detail ? `⚠️ ${e.message}\n\n\`\`\`\n${e.detail}\n\`\`\`` : `⚠️ ${e.message}`
         setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
@@ -940,6 +949,10 @@ export default function App() {
           setFindOpen(false)
           return
         }
+        if (diffView) {
+          setDiffView(null)
+          return
+        }
         if (agentsOpen) closeAgents()
         else closePanels()
         return
@@ -972,8 +985,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen])
+    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView: Esc por capas
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -1368,6 +1381,26 @@ export default function App() {
   useEffect(() => {
     if (findOpen && findQuery.trim()) gotoHit(0)
   }, [findQuery]) // al escribir, salta a la primera coincidencia
+
+  // ── Vista de diff: cambios pendientes del proyecto (git diff HEAD) ───────
+  const openDiff = async () => {
+    setDiffView({ loading: true })
+    const res = await window.oficina?.gitDiff?.(project)
+    if (!res?.ok) setDiffView({ error: res?.error || 'No se pudo leer el diff' })
+    else setDiffView({ diff: res.diff, untracked: res.untracked || [] })
+  }
+  const diffLineClass = (l) =>
+    l.startsWith('+++') || l.startsWith('---')
+      ? 'dl meta'
+      : l.startsWith('+')
+        ? 'dl add'
+        : l.startsWith('-')
+          ? 'dl del'
+          : l.startsWith('@@')
+            ? 'dl hunk'
+            : l.startsWith('diff --git')
+              ? 'dl file'
+              : 'dl'
 
   // ── Comandos locales ─────────────────────────────────────────────────────
   const handleLocalCommand = (text) => {
@@ -1997,6 +2030,32 @@ export default function App() {
             )
           })()}
 
+        {diffView && (
+          <div className="drawer diff-drawer">
+            <div className="drawer-head">
+              <b>🔀 Cambios en {project?.split('/').pop() || 'el proyecto'}</b>
+              <button onClick={() => setDiffView(null)}>✕</button>
+            </div>
+            {diffView.loading && <div className="hist-empty">Leyendo el diff…</div>}
+            {diffView.error && <div className="hist-empty">⚠️ {diffView.error}</div>}
+            {diffView.diff !== undefined && !diffView.diff && !diffView.untracked?.length && (
+              <div className="hist-empty">Sin cambios pendientes en el repo (¿ya fueron commiteados?)</div>
+            )}
+            {diffView.untracked?.length > 0 && (
+              <div className="diff-untracked">📄 Nuevos sin trackear: {diffView.untracked.join(' · ')}</div>
+            )}
+            {diffView.diff && (
+              <pre className="diff-pre">
+                {diffView.diff.split('\n').map((l, i) => (
+                  <div key={i} className={diffLineClass(l)}>
+                    {l || ' '}
+                  </div>
+                ))}
+              </pre>
+            )}
+          </div>
+        )}
+
         {artsOpen && (
           <div className="drawer">
             <div className="drawer-head">
@@ -2205,6 +2264,11 @@ export default function App() {
                 {m.artifact && (
                   <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
                     🔗 Abrir · {prettyArtifact(m.artifact.name)}
+                  </button>
+                )}
+                {m.edited && (
+                  <button className="artifact-btn" onClick={openDiff}>
+                    🔀 Ver cambios
                   </button>
                 )}
                 {m.error && lastJobRef.current[m.who] && i === messages.findLastIndex((x) => x.who === m.who) && (

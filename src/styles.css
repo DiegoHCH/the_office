@@ -146,6 +146,24 @@ body {
 }
 .msg.assistant:hover .msg-copy { opacity: 0.65; }
 .msg-copy:hover { opacity: 1 !important; }
+/* vista de diff: cambios del proyecto tras una tarea en modo edición */
+.diff-drawer { width: min(760px, 92vw); }
+.diff-untracked {
+  font-size: 11.5px; color: #f5a524; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  padding: 6px 10px; border: 1px dashed rgba(245, 165, 36, 0.5); border-radius: 10px; margin-bottom: 8px;
+  word-break: break-all;
+}
+.diff-pre {
+  margin: 0; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 11.5px;
+  line-height: 1.55; overflow-x: auto; white-space: pre;
+}
+.diff-pre .dl { padding: 0 8px; min-height: 1em; }
+.diff-pre .dl.add { background: rgba(73, 165, 109, 0.14); color: #a8d78a; }
+.diff-pre .dl.del { background: rgba(224, 102, 74, 0.13); color: #e8a29a; }
+.diff-pre .dl.hunk { color: #86bdf2; margin-top: 4px; }
+.diff-pre .dl.file { color: #7fd8c8; font-weight: 700; margin-top: 12px; border-top: 1px solid #28353a; padding-top: 8px; }
+.diff-pre .dl.meta { color: #6b7f79; }
+
 /* buscador de la conversación (⌘F): barrita sticky arriba del chat */
 .find-bar {
   position: sticky; top: 0; z-index: 2; align-self: stretch;

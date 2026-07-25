@@ -1052,6 +1052,22 @@ ipcMain.handle('artifacts:zip', async (_e, file) => {
   })
 })
 
+// Diff del proyecto (staged + unstaged) para la vista de cambios del agente.
+ipcMain.handle('git:diff', async (_e, cwd) => {
+  if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
+  return new Promise((resolve) => {
+    execFile('git', ['diff', 'HEAD'], { cwd, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
+      if (err && !out) return resolve({ ok: false, error: String(err.message || 'git diff falló').slice(0, 300) })
+      let diff = out || ''
+      if (diff.length > 300000) diff = diff.slice(0, 300000) + '\n… (recortado)'
+      // los archivos nuevos sin trackear no salen en el diff: listarlos aparte
+      execFile('git', ['ls-files', '--others', '--exclude-standard'], { cwd }, (_e2, untracked) => {
+        resolve({ ok: true, diff, untracked: (untracked || '').split('\n').filter(Boolean) })
+      })
+    })
+  })
+})
+
 // Info de una ruta arrastrada (archivo vs carpeta).
 ipcMain.handle('path:info', (_e, p) => {
   try {
