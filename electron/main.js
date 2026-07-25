@@ -1328,6 +1328,47 @@ ipcMain.handle('plugins:uninstall', async (_e, { profile, id }) => {
   }
 })
 
+// ── Servidores MCP por perfil ────────────────────────────────────────────────
+// Lista desde el .claude.json del perfil (rápido, sin health-check); agrega y
+// quita vía CLI para respetar la semántica de scopes de Claude Code.
+ipcMain.handle('mcp:list', (_e, profile) => {
+  try {
+    const dir = PROFILE_DIRS[profile] ? PROFILE_DIRS[profile]() : path.join(app.getPath('home'), '.claude')
+    const j = JSON.parse(fs.readFileSync(path.join(dir, '.claude.json'), 'utf8'))
+    const servers = Object.entries(j.mcpServers || {}).map(([name, s]) => ({
+      name,
+      spec: s.url || [s.command, ...(s.args || [])].join(' '),
+    }))
+    return { ok: true, servers }
+  } catch {
+    return { ok: true, servers: [] }
+  }
+})
+
+ipcMain.handle('mcp:add', async (_e, { profile, name, url, cmd }) => {
+  if (!/^[\w.-]{1,40}$/.test(name || '')) return { ok: false, error: 'Nombre inválido' }
+  const args = ['mcp', 'add', '-s', 'user']
+  if (url) args.push('--transport', 'http', name, url)
+  else if (Array.isArray(cmd) && cmd.length) args.push(name, '--', ...cmd)
+  else return { ok: false, error: 'Falta el comando o la URL' }
+  try {
+    await execFileP(CLAUDE_BIN, args, { env: claudeEnvFor(profile), timeout: 60000 })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('mcp:remove', async (_e, { profile, name }) => {
+  if (!/^[\w.-]{1,40}$/.test(name || '')) return { ok: false, error: 'Nombre inválido' }
+  try {
+    await execFileP(CLAUDE_BIN, ['mcp', 'remove', '-s', 'user', name], { env: claudeEnvFor(profile), timeout: 60000 })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // Diff del proyecto (staged + unstaged) para la vista de cambios del agente.
 ipcMain.handle('git:diff', async (_e, cwd) => {
   if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }

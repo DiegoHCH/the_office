@@ -364,6 +364,14 @@ const SKILL_CATALOG = [
 ]
 const ROLE_TAGS = { design: '🎨 UI/UX', qa: '🧪 QA', docs: '📚 Docs', dev: '💻 Dev', research: '🔎 Research' }
 
+// Catálogo curado de servidores MCP (por perfil, scope user).
+const MCP_CATALOG = [
+  { id: 'playwright', name: 'Playwright', desc: 'El agente maneja un navegador real: navegar, clicks, screenshots — QA de interfaces vivas', roles: ['qa', 'design'], cmd: ['npx', '@playwright/mcp@latest'] },
+  { id: 'chrome-devtools', name: 'Chrome DevTools', desc: 'Consola, red y rendimiento de Chrome — depurar el front como un humano', roles: ['dev', 'qa'], cmd: ['npx', 'chrome-devtools-mcp@latest'] },
+  { id: 'context7', name: 'Context7', desc: 'Documentación al día de librerías y frameworks, directo al contexto del agente', roles: ['dev'], cmd: ['npx', '-y', '@upstash/context7-mcp'] },
+  { id: 'figma', name: 'Figma', desc: 'Lee tus diseños de Figma (requiere autenticarse una vez con /mcp desde la terminal)', roles: ['design'], url: 'https://mcp.figma.com/mcp' },
+]
+
 // Cómo se muestra cada herramienta de Claude en pantalla.
 const TOOL_INFO = {
   Read: ['📖', 'Leyendo archivos'],
@@ -556,6 +564,7 @@ export default function App() {
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
   const [skillsOpen, setSkillsOpen] = useState(false) // panel 🧩 Skills (catálogo por perfil)
+  const [mcpOpen, setMcpOpen] = useState(false) // panel 🌐 MCP (servidores por perfil)
   const [installedSkills, setInstalledSkills] = useState(null) // null = leyendo
   const [skillBusy, setSkillBusy] = useState(null) // id de la skill en proceso
   const [prefsOpen, setPrefsOpen] = useState(false) // panel ⚙️ Configuración
@@ -718,6 +727,7 @@ export default function App() {
     setAvatarPicker(null)
     setCtxOpen(false)
     setSkillsOpen(false)
+    setMcpOpen(false)
   }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
@@ -1004,6 +1014,10 @@ export default function App() {
           setSkillsOpen(false)
           return
         }
+        if (mcpOpen) {
+          setMcpOpen(false)
+          return
+        }
         if (agentsOpen) closeAgents()
         else closePanels()
         return
@@ -1036,8 +1050,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen])
+    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen: Esc por capas
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -1256,6 +1270,44 @@ export default function App() {
     setSkillBusy(null)
     showToast(res?.ok ? 'Skill quitada' : `⚠️ ${res?.error || 'No se pudo quitar'}`)
     refreshSkills()
+  }
+
+  // ── Submenu 🌐 MCP: servidores por perfil (encima de Configuración) ──────
+  const [mcpList, setMcpList] = useState(null) // null = leyendo
+  const [mcpBusy, setMcpBusy] = useState(null)
+  const [mcpForm, setMcpForm] = useState(null) // {name, target} | null
+  const refreshMcp = async () => {
+    const res = await window.oficina?.mcp?.list(profile)
+    setMcpList(res?.servers || [])
+  }
+  const openMcp = () => {
+    setMcpList(null)
+    setMcpForm(null)
+    setMcpOpen(true)
+    refreshMcp()
+  }
+  const addMcp = async (entry) => {
+    setMcpBusy(entry.id || entry.name)
+    const res = await window.oficina?.mcp?.add(profile, entry.id || entry.name, entry.url ? { url: entry.url } : { cmd: entry.cmd })
+    setMcpBusy(null)
+    if (res?.ok) showToast(`🌐 ${entry.name} conectado — tus agentes ya lo pueden usar`)
+    else showToast(`⚠️ ${res?.error?.slice(0, 160) || 'No se pudo agregar'}`, 6000)
+    refreshMcp()
+  }
+  const removeMcp = async (name) => {
+    setMcpBusy(name)
+    const res = await window.oficina?.mcp?.remove(profile, name)
+    setMcpBusy(null)
+    showToast(res?.ok ? 'Servidor quitado' : `⚠️ ${res?.error?.slice(0, 160) || 'No se pudo quitar'}`)
+    refreshMcp()
+  }
+  const addMcpCustom = async () => {
+    const name = mcpForm.name.trim().toLowerCase().replace(/\s+/g, '-')
+    const target = mcpForm.target.trim()
+    if (!name || !target) return
+    const entry = /^https?:\/\//.test(target) ? { name, id: name, url: target } : { name, id: name, cmd: target.split(/\s+/) }
+    setMcpForm(null)
+    await addMcp(entry)
   }
 
   // ── Panel ⚙️ Configuración (preferencias + acceso a Agentes) ─────────────
@@ -1913,6 +1965,12 @@ export default function App() {
                 <span className="mi-hint">superpoderes del perfil</span>
                 <span className="mi-chev">›</span>
               </button>
+              <button type="button" className="menu-item" onClick={openMcp}>
+                <span className="mi-icon">🌐</span>
+                <span className="mi-label">Servidores MCP</span>
+                <span className="mi-hint">herramientas externas</span>
+                <span className="mi-chev">›</span>
+              </button>
               <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.()}>
                 <span className="mi-icon">📖</span>
                 <span className="mi-label">Guía de uso</span>
@@ -2011,6 +2069,101 @@ export default function App() {
             </div>
 
             <div className="menu-foot">La Oficina{appVersion ? ` · v${appVersion}` : ''}</div>
+          </div>
+        )}
+
+        {mcpOpen && (
+          <div className="drawer over">
+            <div className="drawer-head">
+              <b>🌐 Servidores MCP · {profile === 'work' ? '💼 work' : '🔒 private'}</b>
+              <button onClick={() => setMcpOpen(false)} title="Volver a Configuración">✕</button>
+            </div>
+            <div className="skills-note">
+              Conectan herramientas externas a tus agentes (navegador, documentación, diseño). Se guardan en el perfil y los
+              agentes los usan automáticamente.
+            </div>
+            {mcpList === null && <div className="hist-empty">Leyendo servidores del perfil…</div>}
+            {mcpList !== null && (
+              <>
+                {MCP_CATALOG.map((s) => {
+                  const inst = mcpList.some((x) => x.name === s.id)
+                  return (
+                    <div key={s.id} className="hist-item skill-item">
+                      <div className="skill-info">
+                        <div className="hist-title">
+                          {s.name} {inst && <span className="skill-ok">✓ conectado</span>}
+                        </div>
+                        <div className="hist-meta">{s.desc}</div>
+                        <div className="skill-tags">
+                          {s.roles.map((r) => (
+                            <span key={r} className="skill-tag">{ROLE_TAGS[r] || r}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="art-actions">
+                        {mcpBusy === s.id ? (
+                          <span className="skill-busy">⏳</span>
+                        ) : inst ? (
+                          <button title="Quitar del perfil" onClick={() => removeMcp(s.id)}>🗑</button>
+                        ) : (
+                          <button className="skill-install" onClick={() => addMcp(s)}>Conectar</button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+                {mcpList
+                  .filter((x) => !MCP_CATALOG.some((s) => s.id === x.name))
+                  .map((x) => (
+                    <div key={x.name} className="hist-item skill-item">
+                      <div className="skill-info">
+                        <div className="hist-title">
+                          {x.name} <span className="skill-ok">✓ conectado</span>
+                        </div>
+                        <div className="hist-meta">{x.spec}</div>
+                      </div>
+                      <div className="art-actions">
+                        {mcpBusy === x.name ? (
+                          <span className="skill-busy">⏳</span>
+                        ) : (
+                          <button title="Quitar del perfil" onClick={() => removeMcp(x.name)}>🗑</button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                {mcpForm ? (
+                  <div className="snip-form">
+                    <input
+                      placeholder="Nombre (ej: mi-servidor)"
+                      value={mcpForm.name}
+                      onChange={(e) => setMcpForm({ ...mcpForm, name: e.target.value })}
+                      autoFocus
+                    />
+                    <input
+                      placeholder="Comando (npx paquete…) o URL https://…"
+                      value={mcpForm.target}
+                      onChange={(e) => setMcpForm({ ...mcpForm, target: e.target.value })}
+                      onKeyDown={(e) => e.key === 'Enter' && addMcpCustom()}
+                    />
+                    <div className="snip-form-row">
+                      <button type="button" onClick={() => setMcpForm(null)}>Cancelar</button>
+                      <button
+                        type="button"
+                        className="snip-save"
+                        disabled={!mcpForm.name.trim() || !mcpForm.target.trim()}
+                        onClick={addMcpCustom}
+                      >
+                        Conectar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="snip-new" onClick={() => setMcpForm({ name: '', target: '' })}>
+                    ➕ Conectar otro servidor
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 
