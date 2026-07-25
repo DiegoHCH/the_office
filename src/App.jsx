@@ -426,7 +426,7 @@ export default function App() {
   const logRef = useRef(null)
   const inputRef = useRef(null)
 
-  // squad activo (máx 4) con su meta visual; el primero es el principal
+  // squad activo (máx MAX_ACTIVE) con su meta visual; el primero es el principal
   const squad = useMemo(
     () =>
       roster
