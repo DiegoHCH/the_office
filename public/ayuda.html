@@ -98,7 +98,7 @@ claude   # y sigue el flujo de /login con tu cuenta</code></pre>
     <p>La app además suma <code>/opt/homebrew/bin</code>, <code>/usr/local/bin</code> y <code>~/.local/bin</code> al PATH de cada agente por si el perfil no carga.</p>
   </div>
 
-  <h3>Para Robin (flujo de PR) y Franky (publicar en la web)</h3>
+  <h3>Para el Revisor PR y el Publicador</h3>
   <div class="card">
     <p>Ambos usan <b>GitHub CLI</b> autenticado con tu cuenta:</p>
     <pre><code>brew install gh
@@ -106,8 +106,8 @@ gh auth login    # GitHub.com → SSH (o HTTPS) → Login with a web browser
 gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre>
     <p>El token queda en el keyring del sistema, así que sirve para los procesos que lanza la app sin re-loguearse. Además:</p>
     <p>· <b>git configurado</b> (<code>git config --global user.name</code> / <code>user.email</code>) y con acceso a los repos donde vayas a abrir PRs.</p>
-    <p>· <b>Franky</b> necesita permiso para crear repos públicos en tu cuenta (usa <code>gh repo create</code> y GitHub Pages) — siempre pide confirmación antes de publicar algo.</p>
-    <p>· Opcional para Robin: <b>acli</b> (Atlassian CLI) y los conectores MCP de Jira/Slack configurados en Claude Code, si tus skills de PR hacen tracking en esas herramientas.</p>
+    <p>· El <b>Publicador</b> necesita permiso para crear repos públicos en tu cuenta (usa <code>gh repo create</code> y GitHub Pages) — siempre pide confirmación antes de publicar algo.</p>
+    <p>· Opcional para el Revisor PR: <b>acli</b> (Atlassian CLI) y los conectores MCP de Jira/Slack configurados en Claude Code, si tus skills de PR hacen tracking en esas herramientas.</p>
   </div>
 
   <h3>Opcionales</h3>
@@ -132,9 +132,9 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   <div class="tablewrap"><table>
     <tr><th>Haces…</th><th>Pasa esto</th></tr>
     <tr><td class="mono">arregla el bug del login</td><td>Va al <b>principal</b> (el del escritorio grande) o a quien matcheen las palabras clave (test → QA, diseño → UI/UX…)</td></tr>
-    <tr><td class="mono">Zoro, corre los tests</td><td>Nombre al inicio → va a ese tripulante</td></tr>
-    <tr><td class="mono">@nami investiga X</td><td>@nombre en cualquier parte → va a ese tripulante</td></tr>
-    <tr><td class="mono">Nami, investiga X y pásaselo a Luffy</td><td><b>Handoff:</b> Nami termina, camina al escritorio de Luffy 🤝 y la sesión de Luffy arranca con el resultado como contexto</td></tr>
+    <tr><td class="mono">&lt;nombre del QA&gt;, corre los tests</td><td>El nombre de un tripulante al inicio → va a ese tripulante</td></tr>
+    <tr><td class="mono">@&lt;nombre&gt; investiga X</td><td>@nombre en cualquier parte → va a ese tripulante</td></tr>
+    <tr><td class="mono">&lt;Research&gt;, investiga X y pásaselo a &lt;Dev&gt;</td><td><b>Handoff:</b> el de Research termina, camina al escritorio del Dev 🤝 y la sesión del Dev arranca con el resultado como contexto</td></tr>
     <tr><td>🖱 Click en un personaje</td><td>Prefija su nombre en el mensaje (igual que <kbd>⌘1</kbd>–<kbd>⌘6</kbd>)</td></tr>
   </table></div>
   <ul>
@@ -173,7 +173,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   <div class="tip">💡 <b>La Oficina vs la terminal:</b> usa la app para el flujo del día (tareas, investigación, standup, trabajo en paralelo) y el botón 🖥 para la cirugía fina interactiva.</div>
 
   <h2>Documentos 📄</h2>
-  <p>Pide un <b>reporte, documento, dashboard o página</b> y el tripulante genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder y exportar como .zip. Y si quieres publicarlo en la web, <b>Franky</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
+  <p>Pide un <b>reporte, documento, dashboard o página</b> y el tripulante genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder y exportar como .zip. Y si quieres publicarlo en la web, el <b>Publicador</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
 
   <h2>Historial 🕘</h2>
   <p>Cada conversación se guarda sola (se conservan las 100 más recientes). Hay <b>buscador</b> por título y proyecto. Al abrir una, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
@@ -190,7 +190,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <li>La primera notificación de macOS puede pedir permiso (Ajustes → Notificaciones).</li>
     <li>¿Respuestas sin personalidad o personajes "pegados"? Puede haber una instancia vieja corriendo: cierra todas las ventanas de La Oficina y ábrela de nuevo (o <code>pkill -f "la-oficina"</code>).</li>
     <li>El primer mensaje de cada tripulante tarda unos segundos (arranque de Claude Code).</li>
-    <li>Robin/Franky fallan con git o GitHub → revisa <code>gh auth status</code> en tu terminal.</li>
+    <li>¿El Revisor PR o el Publicador fallan con git o GitHub? → revisa <code>gh auth status</code> en tu terminal.</li>
     <li>La app avisa cuando hay una versión nueva en GitHub (notificación clickeable, máximo una vez al día).</li>
   </ul>
 
