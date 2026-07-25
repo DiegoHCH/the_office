@@ -162,19 +162,26 @@ function getSquad(profile) {
   if (saved && !Array.isArray(saved)) {
     return DEFAULT_SQUAD.map((d) => ({ ...d, ...(saved[d.id] || {}), custom: false }))
   }
-  // Formato nuevo (array de roles). Los built-ins se re-agregan SIEMPRE (por si
-  // una actualización trae uno nuevo) salvo los marcados como borrados (tombstone
-  // `{id, deleted:true}`); los protegidos nunca se borran. + roles custom.
+  // Formato nuevo (array de roles), respetando EL ORDEN GUARDADO (el 1º activo
+  // es el principal, y el usuario puede reordenar desde 👥 Agentes). Los
+  // built-ins nuevos de una actualización se agregan al final, salvo los
+  // marcados como borrados (tombstone `{id, deleted:true}`; los protegidos
+  // nunca se borran).
   if (Array.isArray(saved)) {
-    const byId = Object.fromEntries(saved.map((r) => [r.id, r]))
     const deleted = new Set(saved.filter((r) => r.deleted && !PROTECTED_ROLES.has(r.id)).map((r) => r.id))
-    const builtins = DEFAULT_SQUAD.filter((d) => !deleted.has(d.id)).map((d) => ({
-      ...d,
-      ...(byId[d.id] && !byId[d.id].deleted ? byId[d.id] : {}),
-      custom: false,
-    }))
-    const customs = saved.filter((r) => r.custom && !r.deleted).map((r) => ({ ...r, custom: true }))
-    return [...builtins, ...customs]
+    const savedIds = new Set(saved.filter((r) => !r.deleted).map((r) => r.id))
+    const roster = saved
+      .filter((r) => !r.deleted)
+      .map((r) => {
+        const def = DEFAULT_SQUAD.find((d) => d.id === r.id)
+        if (def) return { ...def, ...r, custom: false }
+        return r.custom ? { ...r, custom: true } : null
+      })
+      .filter(Boolean)
+    for (const d of DEFAULT_SQUAD) {
+      if (!savedIds.has(d.id) && !deleted.has(d.id)) roster.push({ ...d, custom: false })
+    }
+    return roster
   }
   return DEFAULT_SQUAD.map((d) => ({ ...d, custom: false }))
 }

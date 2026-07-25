@@ -406,8 +406,16 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .squad-save:hover { filter: brightness(1.08); }
+/* flechas para reordenar el roster (el 1º activo es el principal) */
+.squad-move { display: flex; gap: 3px; flex: none; }
+.squad-move button {
+  background: transparent; border: 1px solid #28353a; border-radius: 6px;
+  color: #93a6a1; cursor: pointer; font-size: 11px; padding: 1px 6px;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.squad-move button:hover { color: #2dd4bf; border-color: #2dd4bf; }
 .squad-del {
-  margin-left: auto; background: transparent; border: none; cursor: pointer;
+  background: transparent; border: none; cursor: pointer;
   font-size: 13px; opacity: 0.6; padding: 2px 4px; border-radius: 6px;
 }
 .squad-del:hover { opacity: 1; background: rgba(239, 68, 68, 0.18); }

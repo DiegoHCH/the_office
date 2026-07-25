@@ -894,6 +894,16 @@ export default function App() {
       })
     )
   const renameMember = (id, name) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, name } : r)))
+  // Sube/baja un rol en el orden del roster (el 1º activo es el principal).
+  const moveRole = (id, dir) =>
+    setDraft((d) => {
+      const i = d.findIndex((r) => r.id === id)
+      const j = i + dir
+      if (i < 0 || j < 0 || j >= d.length) return d
+      const copy = [...d]
+      ;[copy[i], copy[j]] = [copy[j], copy[i]]
+      return copy
+    })
   const setMemberAvatar = (id, avatar) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r)))
   // avatar efectivo de un miembro (elegido o el default de su rol)
   const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
@@ -1448,6 +1458,14 @@ export default function App() {
                     style={{ borderColor: r.enabled ? metaOf(r).color : undefined }}
                   />
                   <span className="squad-label">{r.custom ? 'personalizado' : metaOf(r).label}</span>
+                  <span className="squad-move">
+                    <button type="button" onClick={() => moveRole(r.id, -1)} title="Subir (el 1º activo es el principal)">
+                      ↑
+                    </button>
+                    <button type="button" onClick={() => moveRole(r.id, 1)} title="Bajar">
+                      ↓
+                    </button>
+                  </span>
                   {r.custom && (
                     <button
                       type="button"
