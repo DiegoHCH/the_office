@@ -655,6 +655,21 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
 
+  // Sin foco, el render continuo se pausa ('demand': solo re-pinta cuando algo
+  // cambia de verdad) — la escena congelada no gasta GPU/batería con la app
+  // detrás de otras ventanas. Al volver el foco se reanuda todo.
+  const [focused, setFocused] = useState(() => document.hasFocus())
+  useEffect(() => {
+    const on = () => setFocused(true)
+    const off = () => setFocused(false)
+    window.addEventListener('focus', on)
+    window.addEventListener('blur', off)
+    return () => {
+      window.removeEventListener('focus', on)
+      window.removeEventListener('blur', off)
+    }
+  }, [])
+
   // silla de un miembro (para entregas dirigidas y visitas)
   const chairFor = (id) => {
     if (main && id === main.id) return CHAIR_POS
@@ -693,6 +708,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
   useEffect(() => {
     const iv = setInterval(() => {
+      // escena congelada sin foco: no programar frases/paseos que no se verían
+      if (!document.hasFocus()) return
       squad.forEach((m, idx) => {
         if (!m || roleStates[m.id] || ambientRef.current[m.id]) return
         if (Math.random() > 0.4) return // ratos de calma
@@ -775,7 +792,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         : null
 
   return (
-    <Canvas shadows dpr={[1, 2]} style={{ width: '100%', height: '100%' }}>
+    <Canvas shadows dpr={[1, 2]} frameloop={focused ? 'always' : 'demand'} style={{ width: '100%', height: '100%' }}>
       <color attach="background" args={[T.bg]} />
 
       <OrthographicCamera makeDefault position={[11, 9.5, 11]} zoom={80} near={0.1} far={100} />
