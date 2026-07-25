@@ -146,6 +146,9 @@ body {
 }
 .msg.assistant:hover .msg-copy { opacity: 0.65; }
 .msg-copy:hover { opacity: 1 !important; }
+/* editar y reenviar un mensaje propio (hover sobre tu burbuja) */
+.msg.user { position: relative; }
+.msg.user:hover .msg-edit { opacity: 0.7; }
 /* vista de diff: cambios del proyecto tras una tarea en modo edición */
 .diff-drawer { width: min(760px, 92vw); }
 .diff-untracked {

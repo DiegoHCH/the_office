@@ -2864,6 +2864,23 @@ export default function App() {
                     📋
                   </button>
                 )}
+                {m.role === 'user' && !m.queued && (
+                  <button
+                    type="button"
+                    className="msg-copy msg-edit"
+                    title="Editar y reenviar"
+                    onClick={() => {
+                      setInput(m.text)
+                      const el = inputRef.current
+                      if (el) {
+                        el.focus()
+                        requestAnimationFrame(() => autoGrow(el))
+                      }
+                    }}
+                  >
+                    ✏️
+                  </button>
+                )}
                 {m.artifact && (
                   <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
                     🔗 Abrir · {prettyArtifact(m.artifact.name)}
