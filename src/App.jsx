@@ -430,6 +430,7 @@ export default function App() {
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
   const [histQuery, setHistQuery] = useState('') // filtro del panel de historial
+  const [chatFilter, setChatFilter] = useState(null) // ver solo la conversación de un agente
   const [artsOpen, setArtsOpen] = useState(false)
   const [artsList, setArtsList] = useState([])
   const [artsDir, setArtsDir] = useState('')
@@ -872,6 +873,7 @@ export default function App() {
   // handoffs a medias no deben dispararse dentro de la conversación siguiente.
   const clearConversation = () => {
     setMessages([])
+    setChatFilter(null)
     convIdRef.current = null
     sessionsRef.current = {}
     queuesRef.current = {}
@@ -1856,7 +1858,14 @@ export default function App() {
 
         {messages.length > 0 && (
           <div className="chat" ref={logRef} onScroll={onLogScroll}>
-            {messages.map((m, i) => {
+            {chatFilter && (
+              <div className="chat-filter">
+                Viendo solo a {memberOf(chatFilter).emoji} {memberOf(chatFilter).name}
+                <button type="button" onClick={() => setChatFilter(null)}>✕ ver todo</button>
+              </div>
+            )}
+            {(chatFilter ? messages.filter((m) => m.who === chatFilter || m.to === chatFilter) : messages).map((m) => {
+              const i = messages.indexOf(m)
               // botones de respuesta rápida: solo en el último mensaje del asistente,
               // ya terminado, si detecto un menú de opciones y nadie está ocupado
               const isLastAssistant =
@@ -1865,7 +1874,12 @@ export default function App() {
               return (
               <div key={i} className={`msg ${m.role}`}>
                 {m.role === 'assistant' && m.who && (
-                  <div className="who" style={{ color: memberOf(m.who).color }}>
+                  <div
+                    className="who whobtn"
+                    style={{ color: memberOf(m.who).color }}
+                    onClick={() => setChatFilter((f) => (f === m.who ? null : m.who))}
+                    title={chatFilter === m.who ? 'Ver todo el chat' : `Ver solo la conversación de ${memberOf(m.who).name}`}
+                  >
                     {memberOf(m.who).emoji} {memberOf(m.who).name}
                   </div>
                 )}
