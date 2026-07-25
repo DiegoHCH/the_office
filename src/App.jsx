@@ -476,6 +476,26 @@ export default function App() {
     })
   }, [])
 
+  // Si cambias el modelo por defecto desde la terminal (`/model` en Claude Code),
+  // la app lo adopta al volver el foco a su ventana — salvo que aquí hayas
+  // elegido otro modelo a mano (tu elección manual gana).
+  useEffect(() => {
+    const onFocus = async () => {
+      const c = await window.oficina?.getConfig?.()
+      if (!c) return
+      const oldDefault = cfg?.defaultModels?.[profile]
+      const newDefault = c.defaultModels?.[profile]
+      setCfg(c)
+      const followingDefault = oldDefault ? model === oldDefault : model === FALLBACK_MODEL
+      if (newDefault && newDefault !== oldDefault && followingDefault) {
+        setModel(newDefault)
+        showToast(`modelo → ${newDefault} (cambiado desde la terminal)`)
+      }
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [cfg, profile, model])
+
   useEffect(() => {
     if (!window.oficina?.onEvent) return
     return window.oficina.onEvent((e) => {
