@@ -644,6 +644,7 @@ export default function App() {
         setHistOpen(false)
         setSquadOpen(false)
         setAvatarPicker(null)
+        setArtsOpen(false)
         return
       }
       if (!e.metaKey) return
