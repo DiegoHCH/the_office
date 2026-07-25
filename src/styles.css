@@ -24,6 +24,45 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace; outline: none; cursor: pointer;
 }
 .sel:focus { border-color: #2dd4bf; }
+
+/* ── selector de contexto: perfil + proyecto en un dropdown propio ── */
+.ctx { position: relative; }
+.ctxbtn {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 300px;
+  background: #1b252a; color: #e9f1ee; border: 1px solid #28353a;
+  border-radius: 8px; padding: 6px 11px; font-size: 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; cursor: pointer;
+  transition: border-color 0.15s;
+}
+.ctxbtn:hover:not(:disabled) { border-color: #2dd4bf; }
+.ctxbtn:disabled { opacity: 0.45; cursor: not-allowed; }
+.ctx-sep { color: #55707a; }
+.ctx-proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ctx-caret { color: #55707a; font-size: 10px; }
+.ctx-backdrop { position: fixed; inset: 0; z-index: 29; }
+.ctx-pop {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+  width: 300px; max-height: 62vh; overflow-y: auto;
+  background: rgba(14, 20, 23, 0.97); border: 1px solid #28353a;
+  border-radius: 12px; padding: 8px;
+  box-shadow: 0 14px 34px rgba(4, 10, 13, 0.55);
+}
+.ctx-tabs { display: flex; gap: 6px; margin-bottom: 8px; }
+.ctx-tab {
+  flex: 1; padding: 7px 6px; background: #1b252a; color: #93a6a1;
+  border: 1px solid #28353a; border-radius: 8px; cursor: pointer;
+  font-size: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.ctx-tab.on { color: #2dd4bf; border-color: #2dd4bf; background: rgba(45, 212, 191, 0.08); }
+.ctx-item {
+  display: block; width: 100%; text-align: left; padding: 7px 10px;
+  background: none; border: none; border-radius: 8px; color: #e9f1ee;
+  font-size: 12.5px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ctx-item:hover { background: #18242a; }
+.ctx-item.on { color: #2dd4bf; background: rgba(45, 212, 191, 0.08); }
+.ctx-add { color: #2dd4bf; margin-top: 6px; border-top: 1px solid #28353a; border-radius: 0 0 8px 8px; padding-top: 10px; }
 .newchat, .mode {
   display: inline-flex; align-items: center; gap: 7px;
   background: rgba(45, 212, 191, 0.08); color: #2dd4bf;

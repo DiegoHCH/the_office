@@ -413,6 +413,7 @@ export default function App() {
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
   const [prefsOpen, setPrefsOpen] = useState(false) // panel ⚙️ Configuración
+  const [ctxOpen, setCtxOpen] = useState(false) // dropdown de perfil + proyecto
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel Agentes
   const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
   const [addingRole, setAddingRole] = useState(false) // form "agregar rol" abierto
@@ -533,6 +534,7 @@ export default function App() {
     setAgentsOpen(false)
     setPrefsOpen(false)
     setAvatarPicker(null)
+    setCtxOpen(false)
   }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
@@ -837,8 +839,8 @@ export default function App() {
     showToast('conversación nueva ✨')
   }
 
-  const changeProfile = (e) => {
-    const p = e.target.value
+  const changeProfile = (p) => {
+    if (p === profile) return
     setProfile(p)
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
     setModel(cfg?.defaultModels?.[p] || FALLBACK_MODEL)
@@ -847,22 +849,20 @@ export default function App() {
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
   }
-  const ADD_PROJECT = '__add_project__'
-  const changeProject = async (e) => {
-    const v = e.target.value
-    if (v === ADD_PROJECT) {
-      // "➕ Agregar proyecto…": picker de carpeta; se persiste por perfil
-      const res = await window.oficina?.addProject?.(profile)
-      if (res?.ok) {
-        setCfg((await window.oficina?.getConfig?.()) || cfg)
-        setProject(res.path)
-        clearConversation()
-        showToast(`📌 proyecto añadido: ${res.name}`)
-      }
-      return // cancelado: el select vuelve solo al proyecto actual (controlado)
-    }
+  const selectProject = (v) => {
+    if (v === project) return
     setProject(v)
     clearConversation()
+  }
+  // "➕ Agregar proyecto…": picker de carpeta; se persiste por perfil
+  const addProjectFlow = async () => {
+    const res = await window.oficina?.addProject?.(profile)
+    if (res?.ok) {
+      setCfg((await window.oficina?.getConfig?.()) || cfg)
+      setProject(res.path)
+      clearConversation()
+      showToast(`📌 proyecto añadido: ${res.name}`)
+    }
   }
 
   // ── Submenu 👥 Agentes: se abre ENCIMA de Configuración (que queda debajo
@@ -1140,21 +1140,68 @@ export default function App() {
       <header className="hud">
         <span className="dot" />
         <b>LA OFICINA</b>
-        <select className="sel" value={profile} onChange={changeProfile} disabled={busy} title="Perfil de Claude">
-          {(cfg?.profiles || []).map((p) => (
-            <option key={p} value={p}>
-              {p === 'work' ? '💼 work' : p === 'private' ? '🔒 private' : '🧑 mi cuenta'}
-            </option>
-          ))}
-        </select>
-        <select className="sel" value={project} onChange={changeProject} disabled={busy} title="Proyecto (cwd)">
-          {projects.map((p) => (
-            <option key={p.path} value={p.path}>
-              {p.name}
-            </option>
-          ))}
-          <option value={ADD_PROJECT}>➕ Agregar proyecto…</option>
-        </select>
+        {/* contexto unificado: perfil + proyecto en un solo dropdown */}
+        <div className="ctx">
+          <button
+            type="button"
+            className="ctxbtn"
+            onClick={() => setCtxOpen((o) => !o)}
+            disabled={busy}
+            title="Perfil y proyecto"
+          >
+            {profile === 'work' ? '💼' : profile === 'private' ? '🔒' : '🧑'} {profile}
+            <span className="ctx-sep">/</span>
+            <span className="ctx-proj">
+              {(projects.find((x) => x.path === project)?.name || project.split('/').pop() || '…').replace(/^(🗂|📌) /, '')}
+            </span>
+            <span className="ctx-caret">▾</span>
+          </button>
+          {ctxOpen && (
+            <>
+              <div className="ctx-backdrop" onClick={() => setCtxOpen(false)} />
+              <div className="ctx-pop">
+                {(cfg?.profiles?.length || 0) > 1 && (
+                  <div className="ctx-tabs">
+                    {cfg.profiles.map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={p === profile ? 'ctx-tab on' : 'ctx-tab'}
+                        onClick={() => changeProfile(p)}
+                      >
+                        {p === 'work' ? '💼 work' : p === 'private' ? '🔒 private' : `🧑 ${p}`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {projects.map((p) => (
+                  <button
+                    key={p.path}
+                    type="button"
+                    className={p.path === project ? 'ctx-item on' : 'ctx-item'}
+                    title={p.path}
+                    onClick={() => {
+                      selectProject(p.path)
+                      setCtxOpen(false)
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="ctx-item ctx-add"
+                  onClick={async () => {
+                    await addProjectFlow()
+                    setCtxOpen(false)
+                  }}
+                >
+                  ➕ Agregar proyecto…
+                </button>
+              </div>
+            </>
+          )}
+        </div>
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
           <button type="button" className="iconbtn" onClick={toggleArts} title="Artifacts creados por el squad">
