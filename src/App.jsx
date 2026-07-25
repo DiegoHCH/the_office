@@ -1481,7 +1481,7 @@ export default function App() {
                 onClick={() => setBoard((b) => !b)}
                 title="Memoria común del squad en SQUAD.md (leen y anotan lo importante)"
               >
-                {board ? '🧠 SQUAD.md activa' : '🧠 Desactivada'}
+                {board ? '🧠 Activada' : '🧠 Desactivada'}
               </button>
               <button
                 type="button"

@@ -386,6 +386,7 @@ body {
 .pref-toggle {
   flex: 1; text-align: left; background: #1b252a; color: #93a6a1;
   border: 1px solid #28353a; border-radius: 999px; padding: 7px 13px; font-size: 12px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   font-family: ui-monospace, "SF Mono", Menlo, monospace; cursor: pointer;
 }
 .pref-toggle.on { color: #2dd4bf; border-color: #2dd4bf; background: rgba(45, 212, 191, 0.08); }
