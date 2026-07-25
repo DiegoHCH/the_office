@@ -364,7 +364,12 @@ body {
   font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
   color: #93a6a1; margin: 6px 0 5px;
 }
-.mon-model { color: #da7756; font-size: 10.5px; font-weight: 600; }
+/* el valor del modelo NO hereda el width 42px de las etiquetas de .mon-row:
+   ocupa el resto de la fila en una sola línea (con elipsis si no cabe) */
+.mon-row span.mon-model {
+  color: #da7756; font-size: 10.5px; font-weight: 600;
+  width: auto; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .mon-title:first-child { margin-top: 0; }
 .mon-row { display: flex; align-items: center; gap: 7px; margin: 4px 0; font-size: 11px; color: #b9cac5; }
 .mon-row span { width: 42px; flex: none; }
