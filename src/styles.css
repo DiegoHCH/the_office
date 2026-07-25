@@ -589,22 +589,23 @@ body {
 /* el scroll interno funciona, pero sin barra visible */
 .composer textarea::-webkit-scrollbar { display: none; }
 /* chip de permiso: edición (ámbar) / lectura (gris) — siempre a la vista.
-   Ícono SVG de trazo (currentColor): los emoji se perdían contra el fondo. */
-.perm-chip {
-  flex: none; width: 47px; height: 47px;
+   OJO con la cascada: `.composer button` (el estilo de Enviar) le gana a
+   `.perm-chip` en especificidad, así que todo va prefijado con .composer. */
+.composer .perm-chip {
+  flex: none; width: 47px; height: 47px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 11px; cursor: pointer;
+  border-radius: 11px; cursor: pointer; box-shadow: none;
   background: #22303a; border: 1.5px solid #45585f; color: #7e948f;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.perm-chip svg { width: 17px; height: 17px; }
-.perm-chip.write {
+.composer .perm-chip svg { width: 17px; height: 17px; }
+.composer .perm-chip.write {
   color: #f5a524; border-color: rgba(245, 165, 36, 0.75);
   background: rgba(245, 165, 36, 0.12);
 }
-.perm-chip.read:hover:not(:disabled) { color: #b9cac5; border-color: #5c7078; }
-.perm-chip.write:hover:not(:disabled) { background: rgba(245, 165, 36, 0.22); }
-.perm-chip:disabled { opacity: 0.55; cursor: not-allowed; }
+.composer .perm-chip.read:hover:not(:disabled) { color: #b9cac5; border-color: #5c7078; filter: none; }
+.composer .perm-chip.write:hover:not(:disabled) { background: rgba(245, 165, 36, 0.22); filter: none; }
+.composer .perm-chip:disabled { opacity: 0.55; cursor: not-allowed; background: #22303a; color: #55707a; }
 .composer textarea::placeholder { color: #7e948f; }
 .composer textarea:focus {
   border-color: #2dd4bf;
