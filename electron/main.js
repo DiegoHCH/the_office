@@ -758,6 +758,44 @@ ipcMain.handle('history:delete', (_e, id) => {
   }
 })
 
+// Exporta una conversación a Markdown (elige destino con el diálogo de guardar).
+ipcMain.handle('history:export', async (_e, id) => {
+  let convo
+  try {
+    convo = JSON.parse(fs.readFileSync(path.join(HIST_DIR, `${id}.json`), 'utf8'))
+  } catch {
+    return { ok: false, error: 'Conversación no encontrada' }
+  }
+  const safe = (convo.title || 'conversacion')
+    .replace(/[^\p{L}\p{N} _-]/gu, '')
+    .trim()
+    .slice(0, 50) || 'conversacion'
+  const res = await dialog.showSaveDialog(win, {
+    defaultPath: `${safe}.md`,
+    filters: [{ name: 'Markdown', extensions: ['md'] }],
+  })
+  if (res.canceled || !res.filePath) return { ok: false, canceled: true }
+  const when = convo.updatedAt ? new Date(convo.updatedAt).toLocaleString('es') : ''
+  const lines = [
+    `# ${convo.title || 'Conversación'}`,
+    '',
+    `> Perfil: ${convo.profile || '—'} · Proyecto: \`${convo.project || '—'}\` · Modelo: ${convo.model || '—'}${when ? ` · ${when}` : ''}`,
+    '',
+  ]
+  for (const m of convo.messages || []) {
+    const head = m.role === 'user' ? `## 👤 Tú${m.to ? ` → ${m.to}` : ''}` : `## 🤖 ${m.who || 'Agente'}`
+    lines.push(head, '', m.text || '', '')
+    if (m.artifact) lines.push(`> 📄 Documento: \`${m.artifact}\``, '')
+    if (m.atts?.length) lines.push(`> 📎 Adjuntos: ${m.atts.map((a) => `\`${a.name || a.path || a}\``).join(', ')}`, '')
+  }
+  try {
+    fs.writeFileSync(res.filePath, lines.join('\n'))
+    return { ok: true, path: res.filePath }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ── Monitor de recursos + uso de Claude ──────────────────────────────────────
 let lastCpus = os.cpus()
 function cpuPercent() {

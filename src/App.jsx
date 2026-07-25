@@ -1192,6 +1192,13 @@ export default function App() {
     setHistList((await window.oficina?.history?.list()) || [])
   }
 
+  const exportConvo = async (e, id) => {
+    e.stopPropagation()
+    const res = await window.oficina?.history?.export(id)
+    if (res?.ok) showToast(`⬇ Exportada a ${res.path.split('/').pop()}`)
+    else if (!res?.canceled) showToast('⚠️ No se pudo exportar la conversación')
+  }
+
   // ── Comandos locales ─────────────────────────────────────────────────────
   const handleLocalCommand = (text) => {
     const [cmd, ...rest] = text.split(/\s+/)
@@ -1878,6 +1885,9 @@ export default function App() {
                     ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                     : ''}
                 </div>
+                <button className="hist-export" title="Exportar a Markdown" onClick={(e) => exportConvo(e, h.id)}>
+                  ⬇
+                </button>
                 <button className="hist-del" title="Borrar" onClick={(e) => deleteConvo(e, h.id)}>
                   🗑
                 </button>

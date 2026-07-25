@@ -63,6 +63,7 @@ contextBridge.exposeInMainWorld('oficina', {
     list: () => ipcRenderer.invoke('history:list'),
     get: (id) => ipcRenderer.invoke('history:get', id),
     remove: (id) => ipcRenderer.invoke('history:delete', id),
+    export: (id) => ipcRenderer.invoke('history:export', id),
   },
   // Suscripción a eventos del stream: init | text | tool | done | error.
   onEvent: (cb) => {
