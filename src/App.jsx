@@ -563,7 +563,7 @@ export default function App() {
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel Agentes
   const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
   const [addingRole, setAddingRole] = useState(false) // form "agregar rol" abierto
-  const NEW_ROLE = { name: '', focus: '', emoji: '🛠️', color: '#38bdf8', kw: '', avatar: '' }
+  const NEW_ROLE = { name: '', focus: '', emoji: '🛠️', color: '#38bdf8', kw: '', avatar: '', model: '' }
   const [nr, setNr] = useState(NEW_ROLE) // borrador del rol nuevo (o en edición)
   const [editingId, setEditingId] = useState(null) // rol custom que se está editando
   const [toast, setToast] = useState(null)
@@ -628,6 +628,8 @@ export default function App() {
     squadRef.current = squad
   }, [principal, squad])
   const memberOf = (id) => squad.find((m) => m.id === id) || { name: id, emoji: '🤖', color: '#93a6a1', label: id }
+  // modelo efectivo de un agente: el suyo propio si lo fijó, si no el global
+  const memberModel = (id) => squad.find((m) => m.id === id)?.model || model
 
   const projects = cfg?.projectsByProfile?.[profile] || []
   const running = Object.keys(roleStates)
@@ -1310,6 +1312,16 @@ export default function App() {
     await window.oficina?.squad?.save(profile, updated)
     showToast('🧍 Personaje actualizado')
   }
+  // Modelo propio de un agente: aplica y persiste al instante (como el avatar).
+  const setMemberModel = async (id, mdl) => {
+    setDraft((d) => d.map((r) => (r.id === id ? { ...r, model: mdl || null } : r)))
+    if (!roster.some((r) => r.id === id)) return // rol aún no guardado: queda en el draft
+    const updated = roster.map((r) => (r.id === id ? { ...r, model: mdl || null } : r))
+    setRoster(updated)
+    await window.oficina?.squad?.save(profile, updated)
+    const name = updated.find((r) => r.id === id)?.name || id
+    showToast(mdl ? `🧠 ${name} usará ${modelLabelOf(mdl)}` : `🧠 ${name} vuelve al modelo global`)
+  }
   // avatar efectivo de un miembro (elegido o el default de su rol)
   const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
   // modelos ya ocupados por OTROS miembros activos (no se pueden repetir)
@@ -1324,6 +1336,7 @@ export default function App() {
       color: r.color || '#38bdf8',
       kw: r.kw || '',
       avatar: r.avatar || '',
+      model: r.model || '',
     })
     setEditingId(r.id)
     setAddingRole(true)
@@ -1348,6 +1361,7 @@ export default function App() {
                 color: nr.color || '#38bdf8',
                 kw: nr.kw.trim(),
                 avatar: nr.avatar || r.avatar,
+                model: nr.model || null,
               }
             : r
         )
@@ -1370,6 +1384,7 @@ export default function App() {
       color: nr.color || '#38bdf8',
       hair: '#1f2937',
       kw: nr.kw.trim(),
+      model: nr.model || null,
     }
     setDraft((d) => [...d, role])
     setNr(NEW_ROLE)
@@ -1582,7 +1597,7 @@ export default function App() {
         setTimeout(() => {
           setRS(m.id, 'listening')
           window.oficina
-            ?.ask({ prompt: STANDUP_PROMPT, profile, cwd: project, writeMode: false, model, role: m.id, standup: true })
+            ?.ask({ prompt: STANDUP_PROMPT, profile, cwd: project, writeMode: false, model: memberModel(m.id), role: m.id, standup: true })
             .then((res) => {
               if (!res?.ok) setRS(m.id, 'idle')
             })
@@ -1611,7 +1626,15 @@ export default function App() {
     setRS(job.target, 'listening')
     popSound()
     if (job.target === principal) setStatus('Pensando…')
-    const res = await window.oficina.ask({ prompt: job.prompt, profile, cwd: project, writeMode, model, role: job.target, standup: job.standup })
+    const res = await window.oficina.ask({
+      prompt: job.prompt,
+      profile,
+      cwd: project,
+      writeMode,
+      model: memberModel(job.target),
+      role: job.target,
+      standup: job.standup,
+    })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'Error desconocido'}` }])
       setRS(job.target, 'idle')
@@ -2312,6 +2335,19 @@ export default function App() {
                   >
                     ✏️ Personalidad
                   </button>
+                  <select
+                    className="squad-avatar-btn squad-model"
+                    value={r.model || ''}
+                    onChange={(e) => setMemberModel(r.id, e.target.value)}
+                    title="Modelo propio de este agente (Global = el del selector de arriba)"
+                  >
+                    <option value="">🧠 Global</option>
+                    {Object.keys(MODEL_OPTIONS).map((id) => (
+                      <option key={id} value={id}>
+                        🧠 {modelLabelOf(id)}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
             ))}
@@ -2365,6 +2401,19 @@ export default function App() {
                     ))}
                   </select>
                 </div>
+                <select
+                  className="add-role-in"
+                  value={nr.model}
+                  onChange={(e) => setNr((v) => ({ ...v, model: e.target.value }))}
+                  title="Modelo propio de este agente (si no, usa el global)"
+                >
+                  <option value="">🧠 Modelo: el global ({modelLabelOf(model)})</option>
+                  {Object.keys(MODEL_OPTIONS).map((id) => (
+                    <option key={id} value={id}>
+                      🧠 {modelLabelOf(id)}
+                    </option>
+                  ))}
+                </select>
                 <div className="add-role-actions">
                   <button type="button" className="add-role-ok" onClick={addRole}>
                     {editingId ? 'Guardar cambios' : 'Crear rol'}

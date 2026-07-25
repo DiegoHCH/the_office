@@ -415,6 +415,11 @@ body {
 }
 .skill-scan input:focus { border-color: #2dd4bf; }
 .skill-scan .skill-install:disabled { opacity: 0.5; cursor: default; }
+/* modelo por agente: select compacto con estilo de botón en la fila */
+select.squad-model {
+  appearance: none; -webkit-appearance: none; max-width: 120px;
+  text-overflow: ellipsis; cursor: pointer;
+}
 .art-item > div:first-child { flex: 1; min-width: 0; }
 .art-actions { display: flex; gap: 4px; flex: none; }
 .art-actions button {
