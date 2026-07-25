@@ -157,6 +157,19 @@ body {
 }
 .pre-wrap:hover .copy-btn { opacity: 1; }
 .pre-wrap .copy-btn:hover { color: #2dd4bf; border-color: #2dd4bf; }
+/* resaltado de sintaxis (highlight.js) — paleta propia, a juego con la app */
+.hljs { color: #dbe7e3; }
+.hljs-comment, .hljs-quote { color: #6b7f79; font-style: italic; }
+.hljs-keyword, .hljs-selector-tag, .hljs-tag, .hljs-name { color: #7fd8c8; }
+.hljs-string, .hljs-regexp, .hljs-addition { color: #a8d78a; }
+.hljs-number, .hljs-literal, .hljs-symbol, .hljs-bullet { color: #e8c47a; }
+.hljs-title, .hljs-title.function_, .hljs-section { color: #86bdf2; }
+.hljs-title.class_, .hljs-type, .hljs-built_in { color: #d8b4f0; }
+.hljs-attr, .hljs-attribute, .hljs-variable, .hljs-template-variable, .hljs-selector-attr, .hljs-selector-class, .hljs-selector-id { color: #f0b8a8; }
+.hljs-meta, .hljs-doctag { color: #93a6a1; }
+.hljs-deletion { color: #e88a8a; }
+.hljs-emphasis { font-style: italic; }
+.hljs-strong { font-weight: 700; }
 .msg.user {
   align-self: flex-end; max-width: 90%;
   white-space: pre-wrap;
