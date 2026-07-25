@@ -149,6 +149,13 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .msg .who.to { color: #04201c; opacity: 0.75; text-align: right; }
+/* ✕ para sacar un mensaje de la cola antes de que se despache */
+.queue-cancel {
+  background: none; border: none; color: inherit; cursor: pointer;
+  font-size: 11px; font-weight: 800; margin-left: 6px; padding: 0 2px;
+  opacity: 0.7;
+}
+.queue-cancel:hover { opacity: 1; }
 
 /* globo de estado sobre el personaje */
 .bubble3d {

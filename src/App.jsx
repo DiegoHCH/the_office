@@ -1039,6 +1039,14 @@ export default function App() {
     if (job) routeJob({ ...job, id: crypto.randomUUID() })
   }
 
+  // Saca un mensaje de la cola antes de que se despache (✕ en el chip "en cola").
+  const cancelQueued = (m) => {
+    const q = queuesRef.current[m.to]
+    if (q) queuesRef.current[m.to] = q.filter((j) => j.id !== m.jobId)
+    setMessages((ms) => ms.map((x) => (x.jobId === m.jobId ? { ...x, queued: false, cancelled: true } : x)))
+    showToast('mensaje sacado de la cola')
+  }
+
   // Respuesta rápida: envía una opción elegida al tripulante (encola si ocupado).
   const quickReply = (option, target) => {
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
@@ -1538,7 +1546,14 @@ export default function App() {
                   </div>
                 )}
                 {m.role === 'user' && m.to && m.to !== principal && <div className="who to">→ {memberOf(m.to).name}</div>}
-                {m.role === 'user' && m.queued && <div className="who to">⏳ en cola</div>}
+                {m.role === 'user' && m.queued && (
+                  <div className="who to">
+                    ⏳ en cola
+                    <button type="button" className="queue-cancel" onClick={() => cancelQueued(m)} title="Quitar de la cola">
+                      ✕
+                    </button>
+                  </div>
+                )}
                 {m.role === 'user' && m.cancelled && <div className="who to">⏹ cancelado</div>}
                 {m.role === 'user' && m.atts?.length > 0 && (
                   <div className="msg-atts">{m.atts.map((n, j) => <span key={j}>🖼 {n}</span>)}</div>
