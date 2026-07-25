@@ -916,7 +916,39 @@ ipcMain.handle('terminal:open', (_e, cwd) => {
 
 ipcMain.handle('app:version', () => app.getVersion())
 
+// Limpieza al arrancar: adjuntos e historial crecían sin límite.
+// - attachments: imágenes pegadas de más de 7 días (ya viajaron en su prompt)
+// - history: se conservan las 100 conversaciones más recientes
+function pruneStorage() {
+  const WEEK = 7 * 24 * 3600 * 1000
+  const attDir = path.join(app.getPath('userData'), 'attachments')
+  try {
+    for (const f of fs.readdirSync(attDir)) {
+      const p = path.join(attDir, f)
+      try {
+        if (Date.now() - fs.statSync(p).mtimeMs > WEEK) fs.unlinkSync(p)
+      } catch {}
+    }
+  } catch {}
+  try {
+    const convos = fs
+      .readdirSync(HIST_DIR)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => {
+        const p = path.join(HIST_DIR, f)
+        return { p, at: fs.statSync(p).mtimeMs }
+      })
+      .sort((a, b) => b.at - a.at)
+    for (const { p } of convos.slice(100)) {
+      try {
+        fs.unlinkSync(p)
+      } catch {}
+    }
+  } catch {}
+}
+
 app.whenReady().then(() => {
+  pruneStorage()
   if (!isDev) {
     protocol.handle('app', (req) => {
       let p = decodeURIComponent(new URL(req.url).pathname)
