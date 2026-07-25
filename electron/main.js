@@ -702,26 +702,29 @@ function realRamUsed() {
 }
 
 // Caché de uso por perfil (cada cuenta tiene su token y sus %).
-const usageCache = {} // profile → { at, data }
+const usageCache = {} // profile → { nextAt, fails, data, fetching }
 ipcMain.handle('stats:refreshUsage', () => {
-  for (const k of Object.keys(usageCache)) usageCache[k].at = 0
+  for (const k of Object.keys(usageCache)) usageCache[k].nextAt = 0
   return { ok: true }
 })
 ipcMain.handle('stats:get', async (_e, profile = 'work') => {
-  const c = (usageCache[profile] ||= { at: 0, data: null, fetching: false })
+  const c = (usageCache[profile] ||= { nextAt: 0, fails: 0, data: null, fetching: false })
   // Refresca cada 60s, pero evita disparar fetches en paralelo (fetching flag).
-  if (!c.fetching && Date.now() - c.at > 60_000) {
+  if (!c.fetching && Date.now() >= c.nextAt) {
     c.fetching = true
     fetchClaudeUsage(profile).then((d) => {
       c.fetching = false
       if (d) {
         // éxito: guarda el dato y marca fresco por 60s
         c.data = d
-        c.at = Date.now()
+        c.fails = 0
+        c.nextAt = Date.now() + 60_000
       } else {
-        // fallo transitorio (red/timeout/token): CONSERVA el último dato bueno
-        // y reintenta en el próximo poll (no espera 60s)
-        c.at = 0
+        // fallo (red/timeout/sin token): CONSERVA el último dato bueno y
+        // reintenta con backoff (15s → 30s → 60s), no en cada poll de 3s —
+        // sin token en el Keychain eso eran 2 procesos `security` por poll.
+        c.fails += 1
+        c.nextAt = Date.now() + Math.min(60_000, 15_000 * 2 ** (c.fails - 1))
       }
     })
   }
