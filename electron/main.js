@@ -664,7 +664,14 @@ function fetchClaudeUsage(profile) {
           res.on('data', (c) => (body += c))
           res.on('end', () => {
             try {
+              // un error de la API (401 por token expirado, 5xx…) también trae
+              // JSON parseable: sin este check producía {session:null, weekly:null},
+              // que pisaba el último dato bueno y el monitor "desaparecía".
+              // Solo un 200 con datos reales cuenta como éxito; lo demás → null
+              // (la caché conserva el dato anterior y reintenta con backoff).
+              if (res.statusCode !== 200) return resolve(null)
               const j = JSON.parse(body)
+              if (!j.five_hour && !j.seven_day) return resolve(null)
               resolve({
                 session: j.five_hour ? { pct: j.five_hour.utilization ?? 0, resetsAt: j.five_hour.resets_at } : null,
                 weekly: j.seven_day ? { pct: j.seven_day.utilization ?? 0, resetsAt: j.seven_day.resets_at } : null,
