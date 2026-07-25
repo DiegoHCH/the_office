@@ -393,6 +393,8 @@ body {
 .hist-item:hover .hist-export { opacity: 0.6; }
 .hist-item .hist-export:hover { opacity: 1; }
 .hist-item:has(.hist-export) { padding-right: 54px; }
+.hist-item:has(.hist-pin) { padding-right: 76px; }
+.hist-pin { right: 50px !important; }
 .art-item { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
 /* catálogo de skills por perfil */
 .skills-note { font-size: 11.5px; color: #93a6a1; padding: 2px 12px 10px; line-height: 1.5; }

@@ -1509,10 +1509,18 @@ export default function App() {
     closePanels()
     setHistOpen(next)
   }
-  // filtro por título o proyecto, insensible a mayúsculas y tildes
-  const histFiltered = histQuery.trim()
+  // filtro por título o proyecto, insensible a mayúsculas y tildes; 📌 arriba
+  const histFiltered = (histQuery.trim()
     ? histList.filter((h) => norm(`${h.title || ''} ${h.project || ''}`).includes(norm(histQuery)))
     : histList
+  ).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+
+  const togglePin = async (e, h) => {
+    e.stopPropagation()
+    await window.oficina?.history?.pin(h.id, !h.pinned)
+    setHistList((await window.oficina?.history?.list()) || [])
+    showToast(h.pinned ? 'Conversación desfijada' : '📌 Fijada — no se purga del historial')
+  }
 
   const loadConvo = async (id) => {
     if (busy) return
@@ -2711,13 +2719,24 @@ export default function App() {
             )}
             {histFiltered.map((h) => (
               <div key={h.id} className="hist-item" onClick={() => loadConvo(h.id)}>
-                <div className="hist-title">{h.title}</div>
+                <div className="hist-title">
+                  {h.pinned && '📌 '}
+                  {h.title}
+                </div>
                 <div className="hist-meta">
                   {h.profile === 'work' ? '💼' : '🔒'} {h.project?.split('/').pop()} · {h.count} msgs ·{' '}
                   {h.updatedAt
                     ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                     : ''}
                 </div>
+                <button
+                  className="hist-export hist-pin"
+                  title={h.pinned ? 'Desfijar' : 'Fijar (no se purga)'}
+                  style={h.pinned ? { opacity: 0.8 } : undefined}
+                  onClick={(e) => togglePin(e, h)}
+                >
+                  📌
+                </button>
                 <button className="hist-export" title="Exportar a Markdown" onClick={(e) => exportConvo(e, h.id)}>
                   ⬇
                 </button>

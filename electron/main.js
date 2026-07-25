@@ -754,7 +754,12 @@ const HIST_DIR = path.join(app.getPath('userData'), 'history')
 ipcMain.handle('history:save', (_e, convo) => {
   try {
     fs.mkdirSync(HIST_DIR, { recursive: true })
-    fs.writeFileSync(path.join(HIST_DIR, `${convo.id}.json`), JSON.stringify(convo, null, 2))
+    const p = path.join(HIST_DIR, `${convo.id}.json`)
+    // el autosave del renderer no conoce el pin: preservarlo del archivo
+    try {
+      convo.pinned = convo.pinned ?? !!JSON.parse(fs.readFileSync(p, 'utf8')).pinned
+    } catch {}
+    fs.writeFileSync(p, JSON.stringify(convo, null, 2))
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
@@ -776,6 +781,7 @@ ipcMain.handle('history:list', () => {
             project: c.project,
             updatedAt: c.updatedAt,
             count: c.messages?.length ?? 0,
+            pinned: !!c.pinned,
           }
         } catch {
           return null
@@ -793,6 +799,19 @@ ipcMain.handle('history:get', (_e, id) => {
     return JSON.parse(fs.readFileSync(path.join(HIST_DIR, `${id}.json`), 'utf8'))
   } catch {
     return null
+  }
+})
+
+// Fija/desfija una conversación (las fijadas no se purgan y van arriba).
+ipcMain.handle('history:pin', (_e, { id, pinned }) => {
+  try {
+    const p = path.join(HIST_DIR, `${id}.json`)
+    const c = JSON.parse(fs.readFileSync(p, 'utf8'))
+    c.pinned = !!pinned
+    fs.writeFileSync(p, JSON.stringify(c, null, 2))
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
 })
 
@@ -1469,10 +1488,15 @@ function pruneStorage() {
       .filter((f) => f.endsWith('.json'))
       .map((f) => {
         const p = path.join(HIST_DIR, f)
-        return { p, at: fs.statSync(p).mtimeMs }
+        let pinned = false
+        try {
+          pinned = !!JSON.parse(fs.readFileSync(p, 'utf8')).pinned
+        } catch {}
+        return { p, at: fs.statSync(p).mtimeMs, pinned }
       })
       .sort((a, b) => b.at - a.at)
-    for (const { p } of convos.slice(100)) {
+    // las fijadas 📌 no cuentan para el límite ni se purgan
+    for (const { p } of convos.filter((c) => !c.pinned).slice(100)) {
       try {
         fs.unlinkSync(p)
       } catch {}
