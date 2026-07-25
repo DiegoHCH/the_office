@@ -588,16 +588,22 @@ body {
 }
 /* el scroll interno funciona, pero sin barra visible */
 .composer textarea::-webkit-scrollbar { display: none; }
-/* chip de permiso: edición (ámbar) / lectura (gris) — siempre a la vista */
+/* chip de permiso: edición (ámbar) / lectura (gris) — siempre a la vista.
+   Ícono SVG de trazo (currentColor): los emoji se perdían contra el fondo. */
 .perm-chip {
-  flex: none; width: 46px; padding: 12.5px 0; text-align: center;
-  border-radius: 11px; font-size: 15px; cursor: pointer;
-  background: #22303a; border: 1.5px solid #45585f;
-  transition: border-color 0.15s, background 0.15s;
+  flex: none; width: 47px; height: 47px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 11px; cursor: pointer;
+  background: #22303a; border: 1.5px solid #45585f; color: #7e948f;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
-.perm-chip.write { border-color: #f5a524; background: rgba(245, 165, 36, 0.1); }
-.perm-chip.read { border-color: #45585f; }
-.perm-chip:hover:not(:disabled) { filter: brightness(1.15); }
+.perm-chip svg { width: 17px; height: 17px; }
+.perm-chip.write {
+  color: #f5a524; border-color: rgba(245, 165, 36, 0.75);
+  background: rgba(245, 165, 36, 0.12);
+}
+.perm-chip.read:hover:not(:disabled) { color: #b9cac5; border-color: #5c7078; }
+.perm-chip.write:hover:not(:disabled) { background: rgba(245, 165, 36, 0.22); }
 .perm-chip:disabled { opacity: 0.55; cursor: not-allowed; }
 .composer textarea::placeholder { color: #7e948f; }
 .composer textarea:focus {
