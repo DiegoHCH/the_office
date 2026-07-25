@@ -71,6 +71,11 @@ contextBridge.exposeInMainWorld('oficina', {
     install: (profile, id) => ipcRenderer.invoke('plugins:install', { profile, id }),
     uninstall: (profile, id) => ipcRenderer.invoke('plugins:uninstall', { profile, id }),
   },
+  // Exportar/importar configuración (squad + plantillas + personas).
+  config: {
+    export: (extras) => ipcRenderer.invoke('config:export', extras),
+    import: () => ipcRenderer.invoke('config:import'),
+  },
   // Servidores MCP por perfil.
   mcp: {
     list: (profile) => ipcRenderer.invoke('mcp:list', profile),

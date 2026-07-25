@@ -1322,6 +1322,38 @@ export default function App() {
     await addMcp(entry)
   }
 
+  // ── Exportar/importar configuración ──────────────────────────────────────
+  const exportConfig = async () => {
+    // extras = lo que vive en localStorage (plantillas, modelos, tema…);
+    // el estado transitorio (cola) y lo por-máquina (cámara) no viajan
+    const extras = {}
+    for (const k of Object.keys(localStorage)) {
+      if (k.startsWith('oficina-') && k !== 'oficina-pending-queue' && k !== 'oficina-camera') extras[k] = localStorage.getItem(k)
+    }
+    const res = await window.oficina?.config?.export(extras)
+    if (res?.ok) showToast(`💾 Configuración exportada a ${res.path.split('/').pop()}`)
+    else if (!res?.canceled) showToast(`⚠️ ${res?.error || 'No se pudo exportar'}`)
+  }
+  const importConfig = async () => {
+    const res = await window.oficina?.config?.import()
+    if (!res?.ok) {
+      if (!res?.canceled) showToast(`⚠️ ${res?.error || 'No se pudo importar'}`, 6000)
+      return
+    }
+    for (const [k, v] of Object.entries(res.extras || {})) {
+      if (k.startsWith('oficina-')) {
+        try {
+          localStorage.setItem(k, v)
+        } catch {}
+      }
+    }
+    await loadSquad(profile)
+    try {
+      setSnippets(JSON.parse(localStorage.getItem(`oficina-snippets-${profile}`)) || [])
+    } catch {}
+    showToast('📥 Configuración importada — squad, personas y plantillas aplicados')
+  }
+
   // ── Panel ⚙️ Configuración (preferencias + acceso a Agentes) ─────────────
   const openPrefs = () => {
     const wasOpen = prefsOpen
@@ -2023,6 +2055,17 @@ export default function App() {
               >
                 <span className="mi-icon">🖥</span>
                 <span className="mi-label">Abrir terminal en el proyecto</span>
+                <span className="mi-chev">›</span>
+              </button>
+              <button type="button" className="menu-item" onClick={exportConfig}>
+                <span className="mi-icon">💾</span>
+                <span className="mi-label">Exportar configuración</span>
+                <span className="mi-hint">squad · plantillas · personas</span>
+                <span className="mi-chev">›</span>
+              </button>
+              <button type="button" className="menu-item" onClick={importConfig}>
+                <span className="mi-icon">📥</span>
+                <span className="mi-label">Importar configuración</span>
                 <span className="mi-chev">›</span>
               </button>
             </div>

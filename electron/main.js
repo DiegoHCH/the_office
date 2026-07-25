@@ -1357,6 +1357,79 @@ ipcMain.handle('plugins:uninstall', async (_e, { profile, id }) => {
   }
 })
 
+// ── Exportar/importar configuración (squad + personas + proyectos + extras) ──
+const CONFIG_PROFILES = ['work', 'private', 'default']
+ipcMain.handle('config:export', async (_e, extras) => {
+  const res = await dialog.showSaveDialog(win, {
+    defaultPath: 'la-oficina-config.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  })
+  if (res.canceled || !res.filePath) return { ok: false, canceled: true }
+  const data = { app: 'la-oficina', version: app.getVersion(), profiles: {}, extras: extras || null }
+  for (const prof of CONFIG_PROFILES) {
+    const entry = {}
+    try {
+      entry.squad = JSON.parse(fs.readFileSync(squadFile(prof), 'utf8'))
+    } catch {}
+    try {
+      entry.projects = getCustomProjects(prof)
+    } catch {}
+    entry.personas = {}
+    try {
+      const dir = path.join(app.getPath('userData'), 'personas', prof)
+      for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.md'))) {
+        entry.personas[f.replace(/\.md$/, '')] = fs.readFileSync(path.join(dir, f), 'utf8')
+      }
+    } catch {}
+    if (entry.squad || entry.projects?.length || Object.keys(entry.personas).length) data.profiles[prof] = entry
+  }
+  try {
+    fs.writeFileSync(res.filePath, JSON.stringify(data, null, 2))
+    return { ok: true, path: res.filePath }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// Aplica squads/personas/proyectos y devuelve los extras (localStorage) para
+// que el renderer los restaure. Pide confirmación: sobrescribe lo actual.
+ipcMain.handle('config:import', async () => {
+  const res = await dialog.showOpenDialog(win, { properties: ['openFile'], filters: [{ name: 'JSON', extensions: ['json'] }] })
+  if (res.canceled || !res.filePaths?.[0]) return { ok: false, canceled: true }
+  let data
+  try {
+    data = JSON.parse(fs.readFileSync(res.filePaths[0], 'utf8'))
+  } catch (err) {
+    return { ok: false, error: `No es un JSON válido: ${err.message}` }
+  }
+  if (data.app !== 'la-oficina' || typeof data.profiles !== 'object') return { ok: false, error: 'Ese archivo no es una configuración de La Oficina' }
+  const ans = await dialog.showMessageBox(win, {
+    type: 'warning',
+    buttons: ['Importar', 'Cancelar'],
+    defaultId: 0,
+    cancelId: 1,
+    message: 'Importar configuración',
+    detail: 'Se sobrescribirán el squad, las personalidades y los proyectos agregados de los perfiles incluidos en el archivo. ¿Continuar?',
+  })
+  if (ans.response !== 0) return { ok: false, canceled: true }
+  try {
+    for (const [prof, entry] of Object.entries(data.profiles)) {
+      if (!CONFIG_PROFILES.includes(prof)) continue
+      if (entry.squad) fs.writeFileSync(squadFile(prof), JSON.stringify(entry.squad, null, 2))
+      if (Array.isArray(entry.projects)) fs.writeFileSync(customProjectsFile(prof), JSON.stringify(entry.projects, null, 2))
+      for (const [role, md] of Object.entries(entry.personas || {})) {
+        if (!/^[\w-]+$/.test(role)) continue
+        const file = personaFile(prof, role)
+        fs.mkdirSync(path.dirname(file), { recursive: true })
+        fs.writeFileSync(file, String(md))
+      }
+    }
+    return { ok: true, extras: data.extras || null }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ── Servidores MCP por perfil ────────────────────────────────────────────────
 // Lista desde el .claude.json del perfil (rápido, sin health-check); agrega y
 // quita vía CLI para respetar la semántica de scopes de Claude Code.
