@@ -585,7 +585,7 @@ export default function App() {
     const res = await window.oficina?.artifacts?.pickDir?.()
     if (res?.ok) {
       setArtsDir(res.dir)
-      showToast('📁 Carpeta de artifacts actualizada')
+      showToast('📁 Carpeta de documentos actualizada')
     }
   }
 
@@ -1341,10 +1341,10 @@ export default function App() {
         </div>
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
-          <button type="button" className="iconbtn" onClick={toggleArts} title="Artifacts creados por el squad">
+          <button type="button" className="iconbtn" onClick={toggleArts} title="Documentos creados por el squad">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.5 1.5" />
-              <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <polyline points="14 2 14 8 20 8" />
             </svg>
           </button>
           {/* Historial y Configuración se pueden abrir mientras el squad trabaja:
@@ -1468,7 +1468,7 @@ export default function App() {
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Artifacts:</span>
+              <span className="pref-label">Documentos:</span>
               <button type="button" className="pref-toggle" onClick={pickArtsDir} title={artsDir}>
                 📁 …{artsDir.slice(-30) || 'Carpeta por defecto'}
               </button>
@@ -1732,10 +1732,10 @@ export default function App() {
         {artsOpen && (
           <div className="drawer">
             <div className="drawer-head">
-              <b>🔗 Artifacts</b>
+              <b>📄 Documentos</b>
               <button onClick={() => setArtsOpen(false)}>✕</button>
             </div>
-            {artsList.length === 0 && <div className="hist-empty">Aún no hay artifacts · pídele uno a un agente</div>}
+            {artsList.length === 0 && <div className="hist-empty">Aún no hay documentos · pídele uno a un agente</div>}
             {artsList.map((a) => (
               <div key={a.path} className="hist-item art-item">
                 <div onClick={() => window.oficina?.artifacts?.open?.(a.path)} style={{ cursor: 'pointer' }}>

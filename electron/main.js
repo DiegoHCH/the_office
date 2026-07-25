@@ -590,7 +590,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
     fs.mkdirSync(artDir, { recursive: true })
   } catch {}
   persona +=
-    `\n\nARTIFACTS: si te piden un "artifact", una página web, un dashboard, un diagrama o algo visual, ` +
+    `\n\nDOCUMENTOS: si te piden un "documento", un "reporte", un "artifact", una página web, un dashboard, un diagrama o algo visual, ` +
     `créalo como un archivo HTML y guárdalo con la herramienta Write en la carpeta: ${artDir} ` +
     `(nombre descriptivo terminado en .html). El CSS y el JS van INLINE (sin CDNs ni librerías externas). ` +
     `IMÁGENES: puedes y debes usar imágenes cuando aporten. Busca en la web imágenes relevantes con WebSearch/WebFetch ` +
