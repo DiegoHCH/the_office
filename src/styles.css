@@ -436,7 +436,14 @@ body {
   border: 1px solid #28353a; border-radius: 8px; padding: 6px 10px; font-size: 13px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace; outline: none;
 }
-.squad-label { font-size: 11px; color: #93a6a1; font-family: ui-monospace, Menlo, monospace; white-space: nowrap; }
+/* columnas fijas: label a la derecha, herramientas y switch siempre en el
+   mismo x — sin esto el switch bailaba según el largo del label y los botones */
+.squad-label {
+  font-size: 11px; color: #93a6a1; font-family: ui-monospace, Menlo, monospace;
+  white-space: nowrap; width: 90px; flex: none; text-align: right;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.squad-tools { display: flex; gap: 2px; width: 54px; flex: none; justify-content: flex-end; }
 .squad-save {
   width: 100%; margin-top: 10px; padding: 10px;
   background: #2dd4bf; color: #04201c; border: none; border-radius: 10px;

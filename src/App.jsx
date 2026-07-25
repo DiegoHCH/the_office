@@ -1551,31 +1551,35 @@ export default function App() {
                     style={{ borderColor: metaOf(r).color }}
                   />
                   <span className="squad-label">{r.custom ? 'personalizado' : metaOf(r).label}</span>
-                  {/* switch de activar/desactivar (reemplaza al checkbox y a las flechas) */}
+                  {/* columna de ancho fijo para ✏️/🗑: así el switch queda
+                      alineado verticalmente en todas las filas */}
+                  <span className="squad-tools">
+                    {r.custom && (
+                      <button
+                        type="button"
+                        className="squad-del"
+                        onClick={() => startEditRole(r)}
+                        title="Editar foco, keywords, emoji y color"
+                      >
+                        ✏️
+                      </button>
+                    )}
+                    {canDelete(r) && (
+                      <button
+                        type="button"
+                        className="squad-del"
+                        onClick={() => deleteRole(r.id)}
+                        title={r.custom ? 'Eliminar este rol personalizado' : 'Eliminar este rol'}
+                      >
+                        🗑️
+                      </button>
+                    )}
+                  </span>
+                  {/* switch al borde derecho, misma columna en todas las filas */}
                   <label className="switch" title={r.enabled ? 'Desactivar' : 'Activar'}>
                     <input type="checkbox" checked={r.enabled} onChange={() => toggleMember(r.id)} />
                     <span className="switch-track" />
                   </label>
-                  {r.custom && (
-                    <button
-                      type="button"
-                      className="squad-del"
-                      onClick={() => startEditRole(r)}
-                      title="Editar foco, keywords, emoji y color"
-                    >
-                      ✏️
-                    </button>
-                  )}
-                  {canDelete(r) && (
-                    <button
-                      type="button"
-                      className="squad-del"
-                      onClick={() => deleteRole(r.id)}
-                      title={r.custom ? 'Eliminar este rol personalizado' : 'Eliminar este rol'}
-                    >
-                      🗑️
-                    </button>
-                  )}
                 </div>
                 {/* personaje y personalidad se editan igual esté activo o no */}
                 <div className="squad-actions">
