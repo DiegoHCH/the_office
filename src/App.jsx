@@ -709,11 +709,19 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(null), ms)
   }
 
-  const newChat = () => {
+  // Descarta todo lo pendiente de la conversación actual: mensajes en cola y
+  // handoffs a medias no deben dispararse dentro de la conversación siguiente.
+  const clearConversation = () => {
     setMessages([])
     convIdRef.current = null
     sessionsRef.current = {}
+    queuesRef.current = {}
+    handoffsRef.current = []
     window.oficina?.reset?.()
+  }
+
+  const newChat = () => {
+    clearConversation()
     showToast('conversación nueva ✨')
   }
 
@@ -723,21 +731,13 @@ export default function App() {
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
     setModel(cfg?.defaultModels?.[p] || FALLBACK_MODEL)
     setTheme(localStorage.getItem(`oficina-theme-${p}`) || 'clasico') // tema por cuenta
-    setMessages([])
-    convIdRef.current = null
-    sessionsRef.current = {}
-    queuesRef.current = {}
-    window.oficina?.reset?.()
+    clearConversation()
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
   }
   const changeProject = (e) => {
     setProject(e.target.value)
-    setMessages([])
-    convIdRef.current = null
-    sessionsRef.current = {}
-    queuesRef.current = {}
-    window.oficina?.reset?.()
+    clearConversation()
   }
 
   // ── Config del squad (⚙️) ────────────────────────────────────────────────
