@@ -68,60 +68,67 @@ function SysMonitor({ modelLabel, profile }) {
   if (!s) return null
   const gb = (b) => (b / 1073741824).toFixed(1)
   const ramPct = (s.ramUsed / s.ramTotal) * 100
+  // dos burbujas independientes apiladas: sistema arriba, claude debajo
   return (
-    <div className="sysmon">
-      <div className="mon-title">
-        <AppleIcon /> sistema
+    <div className="sysmon-stack">
+      <div className="sysmon">
+        <div className="mon-title">
+          <AppleIcon /> sistema
+        </div>
+        <div className="mon-row">
+          <span>CPU</span>
+          <Bar pct={s.cpu} />
+          <b>{s.cpu}%</b>
+        </div>
+        <div className="mon-row">
+          <span>RAM</span>
+          <Bar pct={ramPct} />
+          <b>
+            {gb(s.ramUsed)}/{gb(s.ramTotal)}G
+          </b>
+        </div>
+        <div className="mon-row">
+          <span>App</span>
+          <span className="mon-app">{s.appMB} MB</span>
+        </div>
       </div>
-      <div className="mon-row">
-        <span>CPU</span>
-        <Bar pct={s.cpu} />
-        <b>{s.cpu}%</b>
-      </div>
-      <div className="mon-row">
-        <span>RAM</span>
-        <Bar pct={ramPct} />
-        <b>
-          {gb(s.ramUsed)}/{gb(s.ramTotal)}G
-        </b>
-      </div>
-      <div className="mon-row">
-        <span>App</span>
-        <span className="mon-app">{s.appMB} MB</span>
-      </div>
-      {s.claude && (s.claude.session || s.claude.weekly) && (
-        <>
-          <div className="mon-title">
-            <ClaudeIcon /> claude
+      {/* la burbuja de claude existe siempre: si el uso aún no llegó (API
+          rate-limited, sin red, primer arranque) muestra el modelo y un aviso
+          en vez de desaparecer en silencio */}
+      <div className="sysmon">
+        <div className="mon-title">
+          <ClaudeIcon /> claude
+        </div>
+        {modelLabel && (
+          <div className="mon-row">
+            <span>Modelo</span>
+            <span className="mon-model">{modelLabel}</span>
           </div>
-          {modelLabel && (
+        )}
+        {!(s.claude && (s.claude.session || s.claude.weekly)) && (
+          <div className="mon-sub mon-nodata">uso no disponible · reintentando…</div>
+        )}
+        {s.claude?.session && (
+          <>
             <div className="mon-row">
-              <span>Modelo</span>
-              <span className="mon-model">{modelLabel}</span>
+              <span>Sesión</span>
+              <Bar pct={s.claude.session.pct} />
+              <b>{Math.round(s.claude.session.pct)}%</b>
             </div>
-          )}
-          {s.claude.session && (
-            <>
-              <div className="mon-row">
-                <span>Sesión</span>
-                <Bar pct={s.claude.session.pct} />
-                <b>{Math.round(s.claude.session.pct)}%</b>
-              </div>
-              <div className="mon-sub">resetea en {fmtReset(s.claude.session.resetsAt)}</div>
-            </>
-          )}
-          {s.claude.weekly && (
-            <>
-              <div className="mon-row">
-                <span>Semana</span>
-                <Bar pct={s.claude.weekly.pct} />
-                <b>{Math.round(s.claude.weekly.pct)}%</b>
-              </div>
-              <div className="mon-sub">resetea en {fmtReset(s.claude.weekly.resetsAt)}</div>
-            </>
-          )}
-        </>
-      )}
+            <div className="mon-sub">resetea en {fmtReset(s.claude.session.resetsAt)}</div>
+          </>
+        )}
+        {s.claude?.weekly && (
+          <>
+            <div className="mon-row">
+              <span>Semana</span>
+              <Bar pct={s.claude.weekly.pct} />
+              <b>{Math.round(s.claude.weekly.pct)}%</b>
+            </div>
+            <div className="mon-sub">resetea en {fmtReset(s.claude.weekly.resetsAt)}</div>
+          </>
+        )}
+      </div>
     </div>
   )
 }
