@@ -532,6 +532,11 @@ export default function App() {
       return copy
     })
 
+  // badge del Dock: cuántos agentes están trabajando ahora mismo
+  useEffect(() => {
+    window.oficina?.dockBadge?.(running.length)
+  }, [running.length])
+
   // tick de 1s mientras alguien trabaja, para que los cronómetros avancen
   const [, setClockTick] = useState(0)
   useEffect(() => {

@@ -192,9 +192,20 @@ ipcMain.handle('prefs:notify', (_e, v) => {
   return { ok: true }
 })
 
+// Badge del Dock: nº de agentes trabajando (lo reporta el renderer).
+ipcMain.handle('dock:badge', (_e, n) => {
+  try {
+    app.dock?.setBadge(n > 0 ? String(n) : '')
+  } catch {}
+  return { ok: true }
+})
+
 // Notifica solo si la ventana no está al frente (tareas largas en background).
 function notify(displayName, body) {
   if (!notifEnabled || !Notification.isSupported() || !win || win.isDestroyed() || win.isFocused()) return
+  try {
+    app.dock?.bounce('informational') // salto del ícono al terminar en background
+  } catch {}
   const n = new Notification({
     title: `${displayName} terminó`,
     body: (body || '').replace(/\s+/g, ' ').slice(0, 140) || 'Tarea completada',
