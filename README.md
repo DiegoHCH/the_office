@@ -18,26 +18,43 @@ Cada personaje es una sesión real de Claude Code con su propio rol, memoria y c
 
 ## ✨ Qué es
 
-**La Oficina** convierte tu equipo de Claude Code en una tripulación visible en un diorama 3D. En lugar de escribir en Warp, escribes en una app de escritorio: cada agente es un tripulante sentado en su escritorio que se para a escuchar, teclea, camina a entregarte el trabajo y se toma un café cuando no hay nada que hacer.
+**La Oficina** convierte tu equipo de Claude Code en una tripulación visible en un diorama 3D. En lugar de escribir en la terminal, escribes en una app de escritorio: cada agente es un tripulante sentado en su escritorio que se para a escuchar, teclea, camina a entregarte el trabajo y se toma un café cuando no hay nada que hacer.
 
 Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login de tu suscripción — **sin `ANTHROPIC_API_KEY`**, así que no factura por token; consume el cupo de tu plan igual que la terminal.
 
 ## 🎬 Funcionalidades
 
-- **👥 Squad configurable (hasta 6)** — catálogo de roles: Dev, Research, UI/UX, QA, Docs, **Revisor de PR (Robin)** y **Publicador (Franky)**. Nombres y avatares 3D personalizables por cuenta (galería de 46 personajes).
-- **➕🗑️ Crear y eliminar roles desde la app** — arma roles propios (nombre, foco/especialidad, palabras clave de ruteo, emoji, color y personaje 3D) y borra los que no uses. Dev, Research, Revisor PR y Publicador quedan protegidos; UI/UX, QA, Docs y los personalizados se pueden eliminar.
-- **🔎 Robin, dueño del flujo de PR** — corre tus skills de PR de punta a punta (self-review + `push` + `gh pr create` + tracking en Jira/Slack vía conectores MCP), igual que desde la consola.
-- **🚀 Franky publica artifacts** — sube tus artifacts a **GitHub Pages** (crea el repo si no existe, genera el índice y devuelve la URL), siempre con confirmación previa porque quedan públicos.
-- **⚡ Tareas en paralelo** — cada agente tiene su propia sesión de Claude Code. Le hablas a varios a la vez y trabajan simultáneamente; si uno está ocupado, tu mensaje se **encola**.
-- **🤝 Colaboración real (handoffs)** — *"Nami, investiga X y pásaselo a Luffy"*: el resultado de uno se encadena como contexto en la sesión del otro, y el personaje **camina** a entregárselo.
-- **🔗 Artifacts locales** — pide una página/dashboard y se genera un HTML autocontenido (con imágenes de la web) que abres en la app; panel con el listado, carpeta configurable, revelar en Finder y exportar a zip.
-- **📎 Adjuntar contexto** — arrastra **carpetas y archivos** (no solo imágenes) para que el agente los lea; pega/arrastra imágenes al chat.
-- **📋 Standup** — `/standup` y cada agente retoma su última sesión y reporta en qué quedó (memoria persistente).
-- **🎭 Vida ambiental** — frases por rol, música, paseos y visitas entre ellos cuando están libres; caminatas con **detección de obstáculos** (rodean los escritorios) y sillas que **giran al pararse/sentarse**.
-- **🎨 Escena** — oficina isométrica amplia con **6 puestos**, 4 temas (Clásico, Noche con lámparas de piso y **apliques de pared**, Playa, Sakura), estados de mirada y personalidad editable por personaje (`.md`).
-- **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente; botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones.
-- **🎛 Control** — perfiles (work/private), selector de proyecto, modelo y modo edición/lectura; historial retomable con contexto; notificaciones y atajos; monitor de recursos + % de uso de Claude.
-- **🖥 Escape a la terminal** — un botón abre Warp (o la terminal por defecto) en el proyecto, para lo que la app no cubre (plan mode, `/login`, supervisión paso a paso).
+### El squad
+- **👥 Hasta 6 agentes activos** de un catálogo de 7 roles (Dev, Research, UI/UX, QA, Revisor PR, Docs, Publicador) más los **roles personalizados** que crees (nombre, foco, keywords de ruteo, emoji, color y personaje 3D) — y que puedes **editar después** de crearlos.
+- **Panel 👥 Agentes** (submenu de Configuración): activa/desactiva con **switch**, reordena con **drag & drop** (el 1º activo es el principal), renombra, elige personaje en la galería (46 modelos, sin repetir — **aplica al instante**) y edita la **personalidad** de cada uno (un `.md` por rol y perfil). Si borraste un rol predeterminado, **♻️ Restaurar** lo recupera.
+- **Primer arranque limpio**: solo el principal activo, con un **nombre real sorteado** (nada de "Dev" y "QA" como nombres).
+- **⚡ Tareas en paralelo** — cada agente tiene su propia sesión de Claude Code. Si uno está ocupado, tu mensaje se **encola** (y puedes sacarlo con ✕).
+- **🤝 Handoffs** — *"Research, investiga X y pásaselo al Dev"*: el resultado de uno se encadena como contexto en la sesión del otro, y el personaje **camina** a entregárselo.
+- **🔎 Revisor PR** — corre tus skills de PR de punta a punta (self-review + `push` + `gh pr create` + tracking en Jira/Slack vía conectores MCP).
+- **🚀 Publicador** — sube tus documentos a **GitHub Pages** (crea el repo si no existe, genera el índice y devuelve la URL), siempre con confirmación previa.
+
+### El chat
+- **⌨️ Composer multilínea** — Enter envía, Shift+Enter salto de línea; la caja crece con el texto (ancho fijo centrado en pantallas grandes).
+- **✏️/🔒 Chip de permiso** junto al composer — a la vista si el squad puede editar archivos (ámbar) o solo investigar (gris); un clic lo alterna.
+- **🖱 Click en un personaje** — le diriges el mensaje (igual que ⌘1–⌘6).
+- **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente, con **cronómetro** en tareas largas; botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones.
+- **🔁 Errores recuperables** — si `claude` falla, el error llega al chat **con el stderr** y un botón Reintentar; un mensaje cancelado se puede **✏️ editar y reenviar**.
+- **📋 Copiar** — botón en cada bloque de código y en cada respuesta.
+- **📎 Adjuntos** — arrastra carpetas, archivos e imágenes (o pega con ⌘V).
+- **📋 Standup** — `/standup` y cada agente retoma su última sesión y reporta en qué quedó.
+
+### Documentos (antes "artifacts")
+- Pide un **reporte, documento o dashboard** y se genera un HTML autocontenido que abres dentro de la app; panel 📄 con listado, revelar en Finder y exportar a zip. El Publicador los sube a Pages si quieres compartirlos.
+
+### La app
+- **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs, proyectos y **➕ Agregar proyecto…** para carpetas fuera de la raíz del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
+- **🎨 Estilo Material 3** — botones pill, switches M3, superficies con elevación, scrollbars propias.
+- **🕘 Historial con búsqueda** — cada conversación se guarda sola y se retoma con todo su contexto; filtro por título/proyecto.
+- **📊 Monitores** — dos burbujas: Sistema (CPU/RAM reales) y Claude (modelo en uso con nombre completo + % de sesión y semana). El modelo se **sincroniza con el `/model` de tu terminal**.
+- **🖥 Splash screen**, la ventana **recuerda tamaño y posición**, **aviso de versión nueva** (release de GitHub, 1 check/día) y la escena 3D **ahorra batería** cuando la ventana está tapada o minimizada (multi-monitor friendly: visible = 60fps).
+- **🎭 Vida ambiental** — frases por rol, música, paseos y visitas con detección de obstáculos; 4 temas (Clásico, Noche, Playa, Sakura).
+- **🧠 Pizarra SQUAD.md** — memoria común del squad en la raíz del proyecto.
+- **🧹 Mantenimiento solo** — purga de adjuntos viejos y tope de 100 conversaciones al arrancar.
 
 ## 🧱 Stack
 
@@ -62,9 +79,9 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
   claude   # y sigue el flujo de /login con tu cuenta Pro/Max
   ```
 - **Sin** `ANTHROPIC_API_KEY` en el entorno (para usar la suscripción y no la API de pago)
-- **Homebrew** en el PATH de tu shell (`~/.zprofile` con `eval "$(/opt/homebrew/bin/brew shellenv)"`) — los agentes ejecutan comandos con tu perfil de zsh, así encuentran `gh` y el resto de herramientas
+- **Homebrew** en el PATH de tu shell (`~/.zprofile` con `eval "$(/opt/homebrew/bin/brew shellenv)"`) — los agentes ejecutan comandos con tu perfil de zsh; la app además suma `/opt/homebrew/bin`, `/usr/local/bin` y `~/.local/bin` al PATH de cada agente
 
-### Para Robin (flujo de PR) y Franky (publicar artifacts)
+### Para el Revisor PR (flujo de PR) y el Publicador (GitHub Pages)
 
 Ambos usan **GitHub CLI** autenticado con tu cuenta:
 
@@ -77,16 +94,16 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'
 El token queda en el keyring del sistema, así que sirve para los procesos que lanza la app sin re-loguearse. Además:
 
 - **git** configurado (`user.name` / `user.email`) y con acceso a los repos donde vayas a abrir PRs
-- **Franky** necesita permiso para crear repos públicos en tu cuenta (usa `gh repo create` y GitHub Pages); siempre pide confirmación antes de publicar
-- Opcional para Robin: **acli** (Atlassian CLI) y los conectores MCP de Jira/Slack configurados en Claude Code, si tus skills de PR hacen tracking en esas herramientas
+- El **Publicador** necesita permiso para crear repos públicos en tu cuenta (usa `gh repo create` y GitHub Pages); siempre pide confirmación antes de publicar
+- Opcional para el Revisor PR: **acli** (Atlassian CLI) y los conectores MCP de Jira/Slack configurados en Claude Code, si tus skills de PR hacen tracking en esas herramientas
 
 ### Para desarrollo (solo si compilas la app)
 
 - **Node.js ≥ 18** (probado con v22)
 
-> **¿Qué cuenta necesito?** La Oficina no agrega costo: solo lanza el `claude` que ya usas. Funciona con **cualquier plan con el que el CLI corra en tu terminal** — Claude Code hoy requiere un plan **Pro/Max** (o créditos de API); la cuenta **gratuita** de la web no habilita el CLI. Regla simple: **si `claude` arranca en tu terminal, La Oficina funciona**. Ojo: correr varios agentes en paralelo consume el cupo de tu plan más rápido.
+> **¿Qué cuenta necesito?** La Oficina no agrega costo: solo lanza el `claude` que ya usas. Funciona con **cualquier plan con el que el CLI corra en tu terminal** — Claude Code hoy requiere un plan **Pro/Max** (o créditos de API); la cuenta **gratuita** de la web no habilita el CLI. Ojo: correr varios agentes en paralelo consume el cupo de tu plan más rápido.
 
-> Opcional: crea `~/.claude-work` y `~/.claude-private` (vía `CLAUDE_CONFIG_DIR`) para tener dos cuentas con squads y proyectos independientes.
+> Opcional: crea `~/.claude-work` y `~/.claude-private` (vía `CLAUDE_CONFIG_DIR`) para tener dos cuentas con squads, proyectos, historial y preferencias independientes.
 
 ## 🚀 Uso
 
@@ -111,12 +128,13 @@ xattr -cr "/Applications/La Oficina.app"
 | Escribes | Resultado |
 |---|---|
 | `arregla el bug del login` | Va al agente principal (o al del rol según palabras clave) |
-| `Zoro, corre los tests` | Nombre al inicio → a ese agente |
-| `@nami investiga X` | `@nombre` en cualquier parte |
-| `Nami, investiga X y pásaselo a Luffy` | Handoff encadenado entre agentes |
+| `<nombre del QA>, corre los tests` | Nombre al inicio → a ese agente |
+| `@<nombre> investiga X` | `@nombre` en cualquier parte |
+| `<Research>, investiga X y pásaselo a <Dev>` | Handoff encadenado entre agentes |
+| 🖱 click en un personaje | Prefija su nombre en el composer |
 
-**Comandos:** `/standup` · `/squad` · `/model <opus\|sonnet\|haiku\|fable>` · `/clear` · cualquier otro `/comando` pasa a Claude Code (tus skills funcionan).
-**Atajos:** <kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigir a cada agente · <kbd>Esc</kbd> cerrar paneles.
+**Comandos:** `/standup` · `/squad` · `/model <opus\|fable\|sonnet\|haiku>` · `/clear` · cualquier otro `/comando` pasa a Claude Code (tus skills funcionan).
+**Atajos:** <kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigir a cada agente · <kbd>Esc</kbd> cerrar paneles (por capas).
 
 ## 🏗 Arquitectura
 
@@ -127,9 +145,9 @@ xattr -cr "/Applications/La Oficina.app"
                                      · sin ANTHROPIC_API_KEY → suscripción → $0
 ```
 
-- `electron/main.js` — spawnea y gobierna los procesos `claude`, parsea el stream NDJSON a eventos, persiste sesiones/historial, monitor de recursos.
-- `src/App.jsx` — chat, enrutado por rol, handoffs, comandos, configuración.
-- `src/Office.jsx` — la escena 3D (sala, escritorios, personajes, temas, vida ambiental).
+- `electron/main.js` — spawnea y gobierna los procesos `claude`, parsea el stream NDJSON a eventos, persiste sesiones/historial/bounds, monitor de recursos, splash, aviso de versión, limpieza de almacenamiento.
+- `src/App.jsx` — chat, enrutado por rol, handoffs, cola, comandos, paneles y configuración.
+- `src/Office.jsx` — la escena 3D (sala, escritorios, personajes, temas, vida ambiental, render por visibilidad).
 - `src/scene/` — carga de personajes glTF (`Character3D`), props (`GltfProp`), miniaturas de avatares.
 
 ## 🎨 Créditos de assets
@@ -140,9 +158,10 @@ xattr -cr "/Applications/La Oficina.app"
 
 ## 🗺 Roadmap
 
-- ✅ **v1.0.0** — squad de hasta 6, **crear/eliminar roles** desde la app, **Robin** (flujo de PR) y **Franky** (publicar artifacts en Pages), artifacts locales, adjuntar carpetas/archivos, cola de mensajes, sala ampliada con ruteo de caminatas + sillas animadas + apliques de pared, temas, monitor, standup, instalador DMG
+- ✅ **v1.0** — squad de hasta 6, crear/eliminar roles, Revisor PR y Publicador, documentos locales, adjuntos, cola de mensajes, sala ampliada, temas, monitor, standup, instalador DMG
+- ✅ **v1.1** *(en main)* — onboarding (solo principal + nombres reales + splash), barra con contexto unificado y proyectos externos, panel Agentes (switch, drag & drop, restaurar, editar), errores con reintentar, cronómetro, cola cancelable, copiar, búsqueda de historial, click al personaje, render por visibilidad, ventana persistente, aviso de versión, permisos a la vista, preferencias por perfil, estilo Material 3
 - ⏭️ soporte **Windows** (portar Keychain, `vm_stat`, rutas y binario)
-- 💡 firma/notarización Apple · restaurar roles predeterminados borrados · steering (limitado por el modo headless)
+- 💡 firma/notarización Apple · steering (limitado por el modo headless)
 
 ## ⚠️ Notas
 
