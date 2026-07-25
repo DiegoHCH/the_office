@@ -146,6 +146,11 @@ body {
 }
 .msg.assistant:hover .msg-copy { opacity: 0.65; }
 .msg-copy:hover { opacity: 1 !important; }
+/* tokens consumidos por la tarea (desglose en el tooltip) */
+.msg-tokens {
+  margin-top: 6px; font-size: 10.5px; color: #93a6a1;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; cursor: default;
+}
 /* bloque de código con botón de copiar */
 .pre-wrap { position: relative; }
 .pre-wrap .copy-btn {

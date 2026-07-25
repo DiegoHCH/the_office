@@ -72,7 +72,8 @@ function Bar({ pct }) {
   )
 }
 
-function SysMonitor({ modelLabel, profile }) {
+function SysMonitor({ modelLabel, profile, tokens }) {
+  const tokTotal = tokens ? tokens.in + tokens.out + tokens.cache : 0
   const [s, setS] = useState(null)
   useEffect(() => {
     let on = true
@@ -132,6 +133,12 @@ function SysMonitor({ modelLabel, profile }) {
           <div className="mon-row">
             <span>Modelo</span>
             <span className="mon-model">{modelLabel}</span>
+          </div>
+        )}
+        {tokTotal > 0 && (
+          <div className="mon-row" title={`entrada ${fmtTokens(tokens.in)} · salida ${fmtTokens(tokens.out)} · caché ${fmtTokens(tokens.cache)}`}>
+            <span>Tokens</span>
+            <span className="mon-model">🪙 {fmtTokens(tokTotal)} esta conversación</span>
           </div>
         )}
         {!(s.claude && (s.claude.session || s.claude.weekly)) && (
@@ -406,6 +413,16 @@ const fmtElapsed = (ms) => {
   return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
 }
 
+// 950 → «950» · 12 400 → «12.4k» · 3 200 000 → «3.2M»
+const fmtTokens = (n) => (n >= 1e6 ? `${(n / 1e6).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}k` : String(n))
+// total y desglose del usage que reporta Claude Code en el evento result
+const usageTotal = (u) =>
+  (u?.input_tokens || 0) + (u?.output_tokens || 0) + (u?.cache_creation_input_tokens || 0) + (u?.cache_read_input_tokens || 0)
+const usageTitle = (u) =>
+  `entrada ${fmtTokens(u?.input_tokens || 0)} · salida ${fmtTokens(u?.output_tokens || 0)} · caché ${fmtTokens(
+    (u?.cache_creation_input_tokens || 0) + (u?.cache_read_input_tokens || 0)
+  )}`
+
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -472,6 +489,7 @@ function detectHandoff(text, squad, fromId) {
 
 export default function App() {
   const [messages, setMessages] = useState([])
+  const [convTokens, setConvTokens] = useState({ in: 0, out: 0, cache: 0 }) // tokens de la conversación
   const [status, setStatus] = useState('Esperándote')
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
@@ -734,15 +752,23 @@ export default function App() {
           return [...ms, { role: 'assistant', who, text: e.text, streaming: true }]
         })
       } else if (e.kind === 'done') {
+        const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
             const copy = [...ms]
-            copy[idx] = { ...copy[idx], streaming: false }
+            copy[idx] = { ...copy[idx], streaming: false, usage }
             return copy
           }
-          return e.result ? [...ms, { role: 'assistant', who, text: e.result }] : ms
+          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage }] : ms
         })
+        // acumulado de tokens de la conversación (para el monitor de claude)
+        if (usage)
+          setConvTokens((t) => ({
+            in: t.in + (usage.input_tokens || 0),
+            out: t.out + (usage.output_tokens || 0),
+            cache: t.cache + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+          }))
         // si generó un artifact este turno, adjuntar su enlace al mensaje del agente
         if (pendingArtifactRef.current[who]) {
           delete pendingArtifactRef.current[who]
@@ -768,7 +794,9 @@ export default function App() {
         // chip transitorio anunciando la respuesta final (con duración si fue larga)
         const doneName = squadRef.current.find((m) => m.id === who)?.name || who
         const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
-        setDoneChip(`✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}`)
+        setDoneChip(
+          `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
+        )
         clearTimeout(doneChipTimer.current)
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
         if (isP) setStatus('Esperándote')
@@ -953,6 +981,7 @@ export default function App() {
   const clearConversation = () => {
     setMessages([])
     setChatFilter(null)
+    setConvTokens({ in: 0, out: 0, cache: 0 })
     convIdRef.current = null
     sessionsRef.current = {}
     queuesRef.current = {}
@@ -1202,7 +1231,7 @@ export default function App() {
       model,
       sessions: { ...sessionsRef.current },
       updatedAt: Date.now(),
-      messages: messages.map(({ role, text, who, to, artifact, atts }) => ({ role, text, who, to, artifact, atts })),
+      messages: messages.map(({ role, text, who, to, artifact, atts, usage }) => ({ role, text, who, to, artifact, atts, usage })),
     })
   }, [busy, messages, profile, project, model])
 
@@ -1521,7 +1550,7 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <SysMonitor profile={profile} modelLabel={modelLabelOf(model)} />
+        <SysMonitor profile={profile} modelLabel={modelLabelOf(model)} tokens={convTokens} />
         <Office
           roleStates={roleStates}
           status={status}
@@ -2040,6 +2069,11 @@ export default function App() {
                   m.text
                 )}
                 {m.streaming ? '▍' : ''}
+                {m.usage && (
+                  <div className="msg-tokens" title={usageTitle(m.usage)}>
+                    🪙 {fmtTokens(usageTotal(m.usage))} tokens
+                  </div>
+                )}
                 {m.role === 'assistant' && !m.streaming && !m.error && (
                   <button
                     type="button"

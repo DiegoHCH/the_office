@@ -440,7 +440,7 @@ function makeLineHandler(role, sessionKey, displayName) {
         rememberSession(sessionKey, msg.session_id)
       }
       console.log('[claude:result]', role, JSON.stringify({ cost: msg.total_cost_usd, session: msg.session_id }))
-      emit({ kind: 'done', role, result: msg.result ?? '', cost: msg.total_cost_usd ?? null })
+      emit({ kind: 'done', role, result: msg.result ?? '', cost: msg.total_cost_usd ?? null, usage: msg.usage ?? null })
       notify(displayName, msg.result)
     }
   }
