@@ -926,6 +926,18 @@ export default function App() {
   }
   const deleteRole = (id) => setDraft((d) => d.filter((r) => !(r.id === id && canDelete(r))))
 
+  // Built-ins borrables que faltan en el draft = fueron eliminados (tombstones).
+  // Restaurarlos aquí y guardar hace que saveSquad ya no escriba sus tombstones.
+  const DELETABLE_BUILTINS = ['design', 'qa', 'docs']
+  const missingBuiltins = DELETABLE_BUILTINS.filter((id) => !draft.some((r) => r.id === id))
+  const restoreDefaults = () => {
+    setDraft((d) => [
+      ...d,
+      ...missingBuiltins.map((id) => ({ id, name: ROLE_META[id].label, enabled: false, avatar: null, custom: false })),
+    ])
+    showToast('roles predeterminados restaurados — guardá para aplicar')
+  }
+
   const saveSquad = async () => {
     const clean = draft.map((r) => ({ ...r, name: r.name.trim() || metaOf(r).label }))
     // sin personajes duplicados entre los activos
@@ -1493,6 +1505,11 @@ export default function App() {
             ) : (
               <button className="squad-add" type="button" onClick={() => setAddingRole(true)}>
                 ➕ Agregar rol
+              </button>
+            )}
+            {missingBuiltins.length > 0 && (
+              <button className="squad-add" type="button" onClick={restoreDefaults} title="Recupera UI/UX, QA o Docs si los borraste">
+                ♻️ Restaurar roles predeterminados ({missingBuiltins.length})
               </button>
             )}
             <button className="squad-save" onClick={saveSquad}>
