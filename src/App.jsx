@@ -735,7 +735,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  })
+    // histOpen: toggleHist lo lee para cargar la lista antes de abrir
+  }, [squad, histOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
