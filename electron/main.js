@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell, Tray, Menu, nativeImage, globalShortcut } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell, Tray, Menu, nativeImage, globalShortcut, powerSaveBlocker, powerMonitor } = require('electron')
 const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -192,7 +192,10 @@ ipcMain.handle('prefs:notify', (_e, v) => {
   return { ok: true }
 })
 
-// Badge del Dock + Tray: nº de agentes trabajando (lo reporta el renderer).
+// Badge del Dock + Tray + energía: nº de agentes trabajando (del renderer).
+// Con trabajo en curso el Mac NO debe dormirse: una siesta congela el proceso
+// claude y su stream con Anthropic muere por timeout.
+let powerBlockId = null
 ipcMain.handle('dock:badge', (_e, n) => {
   try {
     app.dock?.setBadge(n > 0 ? String(n) : '')
@@ -200,6 +203,13 @@ ipcMain.handle('dock:badge', (_e, n) => {
   try {
     tray?.setTitle(n > 0 ? `🏢 ${n}` : '🏢')
     tray?.setToolTip(n > 0 ? `La Oficina — ${n} agente${n > 1 ? 's' : ''} trabajando` : 'La Oficina — squad libre')
+  } catch {}
+  try {
+    if (n > 0 && powerBlockId === null) powerBlockId = powerSaveBlocker.start('prevent-app-suspension')
+    else if (n === 0 && powerBlockId !== null) {
+      powerSaveBlocker.stop(powerBlockId)
+      powerBlockId = null
+    }
   } catch {}
   return { ok: true }
 })
@@ -1599,6 +1609,13 @@ function checkForUpdates() {
 app.whenReady().then(() => {
   pruneStorage()
   createTray()
+  // Si el sistema durmió pese a todo (batería crítica, tapa cerrada), avisar
+  // al renderer al despertar: las tareas que estaban corriendo quedaron rotas.
+  powerMonitor.on('resume', () => {
+    try {
+      win?.webContents.send('claude:event', { kind: 'system-resumed' })
+    } catch {}
+  })
   // Atajo global ⌥Espacio: trae la app al frente con el composer enfocado,
   // listo para lanzar un prompt desde cualquier otra app.
   try {

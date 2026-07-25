@@ -642,6 +642,10 @@ export default function App() {
 
   const projects = cfg?.projectsByProfile?.[profile] || []
   const running = Object.keys(roleStates)
+  const runningRef = useRef([])
+  useEffect(() => {
+    runningRef.current = running
+  }, [roleStates])
   // 'delivering' es la caminata de entrega (cosmética): la respuesta ya llegó,
   // así que no bloquea la UI — historial, config y selectores siguen usables.
   const busy = running.some((r) => roleStates[r] !== 'delivering')
@@ -788,6 +792,14 @@ export default function App() {
       }
       if (e.kind === 'focus-composer') {
         inputRef.current?.focus()
+        return
+      }
+      if (e.kind === 'system-resumed') {
+        // el Mac durmió: los streams en curso murieron — avisar si había trabajo
+        if (runningRef.current.length) {
+          showToast('😴 El Mac se suspendió a media tarea — usa ⏹ y 🔁 Reintentar si algún agente quedó colgado', 8000)
+        }
+        window.oficina?.refreshUsage?.()
         return
       }
       const who = e.role || principalRef.current
