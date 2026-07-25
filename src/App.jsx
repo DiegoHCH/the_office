@@ -273,26 +273,32 @@ const TOOL_INFO = {
 }
 const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `usando ${name}`]
 
-// Modelos disponibles para --model (siempre explícito). El orden define el selector.
-const MODEL_LABELS = {
-  'claude-opus-5': 'Opus 5',
+// Opciones del selector: las mismas que ofrece /model en la terminal.
+const MODEL_OPTIONS = {
   'claude-opus-5[1m]': 'Opus 5 · 1M',
+  'claude-fable-5': 'Fable 5',
   'claude-sonnet-5': 'Sonnet 5',
   'claude-haiku-4-5': 'Haiku 4.5',
-  'claude-fable-5': 'Fable 5',
+}
+// Etiquetas conocidas (superset): IDs heredados de configs viejas también
+// muestran nombre bonito, aunque no se ofrezcan como opción.
+const MODEL_LABELS = {
+  ...MODEL_OPTIONS,
+  'claude-opus-5': 'Opus 5',
   'claude-fable-5[1m]': 'Fable 5 · 1M',
   'claude-opus-4-8': 'Opus 4.8',
-  'claude-haiku-4-5-20251001': 'Haiku 4.5', // ID con fecha (configs viejas)
+  'claude-haiku-4-5-20251001': 'Haiku 4.5',
 }
+// "opus" en la terminal es Opus 5 con contexto 1M — mismo mapeo aquí.
 const MODEL_ALIASES = {
-  opus: 'claude-opus-5',
-  opus1m: 'claude-opus-5[1m]',
+  opus: 'claude-opus-5[1m]',
   sonnet: 'claude-sonnet-5',
   haiku: 'claude-haiku-4-5',
   fable: 'claude-fable-5',
   fable1m: 'claude-fable-5[1m]',
 }
-const FALLBACK_MODEL = 'claude-sonnet-5'
+// El default recomendado de la terminal (sin modelo en settings.json).
+const FALLBACK_MODEL = 'claude-opus-5[1m]'
 
 // Etiqueta legible de un modelo: acepta IDs completos y alias, con o sin
 // sufijo [1m] ("opus[1m]" — la forma que guarda /model de la terminal).
@@ -909,7 +915,7 @@ export default function App() {
     if (cmd === '/model') {
       const arg = rest[0]?.toLowerCase()
       if (!arg) {
-        showToast(`modelo actual: ${modelLabelOf(model)} · usa /model opus | opus1m | sonnet | haiku | fable | fable1m`)
+        showToast(`modelo actual: ${modelLabelOf(model)} · usa /model opus | fable | sonnet | haiku`)
         return true
       }
       const resolved = MODEL_ALIASES[arg] ?? arg
@@ -1122,7 +1128,7 @@ export default function App() {
             <div className="pref-row">
               <span className="pref-label">Modelo:</span>
               <select className="sel pref-sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy}>
-                {[...new Set([model, ...Object.keys(MODEL_LABELS)])].map((id) => (
+                {[...new Set([model, ...Object.keys(MODEL_OPTIONS)])].map((id) => (
                   <option key={id} value={id}>
                     {modelLabelOf(id)}
                   </option>
