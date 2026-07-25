@@ -492,6 +492,15 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [convTokens, setConvTokens] = useState({ in: 0, out: 0, cache: 0 }) // tokens de la conversación
   const [agentTodos, setAgentTodos] = useState({}) // rol → checklist (TodoWrite) mientras trabaja
+  // buscar dentro de la conversación (⌘F)
+  const [findOpen, setFindOpen] = useState(false)
+  const [findQuery, setFindQuery] = useState('')
+  const [findIdx, setFindIdx] = useState(0)
+  const findInputRef = useRef(null)
+  const messagesRef = useRef([])
+  useEffect(() => {
+    messagesRef.current = messages
+  }, [messages])
   const [status, setStatus] = useState('Esperándote')
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
@@ -922,11 +931,15 @@ export default function App() {
     }
   }, [roleStates, profile, project, writeMode, model])
 
-  // Atajos: ⌘K nueva · ⌘1-⌘6 miembro del squad · ⌘Y historial · Esc cierra paneles
+  // Atajos: ⌘K nueva · ⌘1-⌘6 miembro del squad · ⌘Y historial · ⌘F buscar · Esc cierra paneles
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         // por capas: primero el submenu de Agentes; Configuración queda debajo
+        if (findOpen) {
+          setFindOpen(false)
+          return
+        }
         if (agentsOpen) closeAgents()
         else closePanels()
         return
@@ -935,6 +948,12 @@ export default function App() {
       if (e.key === 'k') {
         e.preventDefault()
         newChat()
+      } else if (e.key === 'f') {
+        // buscar dentro de la conversación abierta
+        if (!messagesRef.current.length) return
+        e.preventDefault()
+        setFindOpen(true)
+        requestAnimationFrame(() => findInputRef.current?.focus())
       } else if (e.key === 'y') {
         e.preventDefault()
         toggleHist()
@@ -953,8 +972,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // histOpen/prefsOpen: sus toggles los leen · agentsOpen: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen])
+    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen: Esc por capas
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -1332,6 +1351,23 @@ export default function App() {
       requestAnimationFrame(() => autoGrow(el))
     }
   }
+
+  // ── Buscar en la conversación (⌘F) ───────────────────────────────────────
+  // busca sobre lo visible (respeta el filtro por agente); índices de messages
+  const visibleMessages = chatFilter ? messages.filter((m) => m.who === chatFilter || m.to === chatFilter) : messages
+  const findHits =
+    findOpen && findQuery.trim()
+      ? visibleMessages.filter((m) => m.text && norm(m.text).includes(norm(findQuery))).map((m) => messages.indexOf(m))
+      : []
+  const gotoHit = (n) => {
+    if (!findHits.length) return
+    const idx = ((n % findHits.length) + findHits.length) % findHits.length
+    setFindIdx(idx)
+    logRef.current?.querySelector(`[data-mi="${findHits[idx]}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }
+  useEffect(() => {
+    if (findOpen && findQuery.trim()) gotoHit(0)
+  }, [findQuery]) // al escribir, salta a la primera coincidencia
 
   // ── Comandos locales ─────────────────────────────────────────────────────
   const handleLocalCommand = (text) => {
@@ -2059,6 +2095,29 @@ export default function App() {
 
         {messages.length > 0 && (
           <div className="chat" ref={logRef} onScroll={onLogScroll}>
+            {findOpen && (
+              <div className="find-bar">
+                <input
+                  ref={findInputRef}
+                  placeholder="Buscar en la conversación…"
+                  value={findQuery}
+                  onChange={(e) => {
+                    setFindQuery(e.target.value)
+                    setFindIdx(0)
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      gotoHit(e.shiftKey ? findIdx - 1 : findIdx + 1)
+                    }
+                  }}
+                />
+                <span className="find-count">{findQuery.trim() ? (findHits.length ? `${findIdx + 1}/${findHits.length}` : '0') : ''}</span>
+                <button type="button" onClick={() => gotoHit(findIdx - 1)} title="Anterior (⇧Enter)">↑</button>
+                <button type="button" onClick={() => gotoHit(findIdx + 1)} title="Siguiente (Enter)">↓</button>
+                <button type="button" onClick={() => setFindOpen(false)} title="Cerrar (Esc)">✕</button>
+              </div>
+            )}
             {chatFilter && (
               <div className="chat-filter">
                 Viendo solo a {memberOf(chatFilter).emoji} {memberOf(chatFilter).name}
@@ -2073,7 +2132,11 @@ export default function App() {
                 m.role === 'assistant' && !m.streaming && i === messages.length - 1 && !busy
               const options = isLastAssistant ? extractOptions(m.text) : []
               return (
-              <div key={i} className={`msg ${m.role}`}>
+              <div
+                key={i}
+                data-mi={i}
+                className={`msg ${m.role}${findOpen && findHits[findIdx] === i ? ' find-current' : findOpen && findHits.includes(i) ? ' find-hit' : ''}`}
+              >
                 {m.role === 'assistant' && m.who && (
                   <div
                     className="who whobtn"

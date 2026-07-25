@@ -146,6 +146,25 @@ body {
 }
 .msg.assistant:hover .msg-copy { opacity: 0.65; }
 .msg-copy:hover { opacity: 1 !important; }
+/* buscador de la conversación (⌘F): barrita sticky arriba del chat */
+.find-bar {
+  position: sticky; top: 0; z-index: 2; align-self: stretch;
+  display: flex; align-items: center; gap: 6px;
+  background: #121a1f; border: 1px solid #28353a; border-radius: 999px;
+  padding: 4px 6px 4px 14px; margin-bottom: 4px;
+  box-shadow: 0 4px 14px rgba(4, 10, 13, 0.45);
+}
+.find-bar input {
+  flex: 1; background: none; border: none; outline: none; color: #f2f8f6; font-size: 13px;
+}
+.find-bar .find-count { color: #93a6a1; font-size: 11px; font-family: ui-monospace, Menlo, monospace; }
+.find-bar button {
+  background: none; border: none; color: #93a6a1; cursor: pointer; font-size: 13px;
+  width: 26px; height: 26px; border-radius: 999px;
+}
+.find-bar button:hover { background: #16222a; color: #7fd8c8; }
+.msg.find-hit { outline: 1px solid rgba(45, 212, 191, 0.35); }
+.msg.find-current { outline: 2px solid #2dd4bf; }
 /* tokens consumidos por la tarea (desglose en el tooltip) */
 .msg-tokens {
   margin-top: 6px; font-size: 10.5px; color: #93a6a1;
