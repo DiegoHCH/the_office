@@ -1150,9 +1150,35 @@ function isNewerVersion(a, b) {
   return false
 }
 
+// Descarga el DMG del release a ~/Downloads y abre el instalador al terminar.
+// Si algo falla, cae al navegador (que descarga el mismo archivo).
+function downloadUpdate(dmgUrl, version) {
+  const ses = win?.webContents?.session
+  if (!ses) {
+    shell.openExternal(dmgUrl)
+    return
+  }
+  ses.once('will-download', (_e, item) => {
+    const dest = path.join(app.getPath('downloads'), item.getFilename())
+    item.setSavePath(dest)
+    item.once('done', (_ev, state) => {
+      if (state === 'completed') {
+        const ok = new Notification({ title: 'La Oficina', body: `v${version} descargada — abriendo el instalador…` })
+        ok.show()
+        shell.openPath(dest)
+      } else {
+        shell.openExternal(dmgUrl)
+      }
+    })
+  })
+  new Notification({ title: 'La Oficina', body: `Descargando v${version}…` }).show()
+  ses.downloadURL(dmgUrl)
+}
+
 // Aviso de nueva versión (sin auto-update): consulta el último release de
 // GitHub en cada arranque y notifica como mucho una vez por versión (se
-// recuerda la última notificada). Clic en la notificación abre el release.
+// recuerda la última notificada). Clic en la notificación descarga el DMG
+// y abre el instalador (o abre el release si el asset no está).
 function checkForUpdates() {
   if (isDev) return // el dev comparte userData con la app instalada: no interferir
   const stamp = path.join(app.getPath('userData'), 'last-notified-version.txt')
@@ -1181,11 +1207,18 @@ function checkForUpdates() {
           } catch {}
           if (notified === latest) return // ya se avisó de esta versión
           if (!Notification.isSupported()) return
+          // el DMG de esta arquitectura, si el release lo trae
+          const arch = process.arch === 'arm64' ? 'arm64' : 'x64'
+          const assets = j.assets || []
+          const dmg = assets.find((a) => a.name?.endsWith(`${arch}.dmg`)) || assets.find((a) => a.name?.endsWith('.dmg'))
           const n = new Notification({
             title: 'La Oficina',
-            body: `Hay una versión nueva: v${latest} (tienes v${app.getVersion()}). Clic para ver el release.`,
+            body: `Hay una versión nueva: v${latest} (tienes v${app.getVersion()}). Clic para ${dmg ? 'descargarla' : 'ver el release'}.`,
           })
-          n.on('click', () => shell.openExternal(j.html_url || 'https://github.com/DiegoHCH/the_office/releases'))
+          n.on('click', () => {
+            if (dmg?.browser_download_url) downloadUpdate(dmg.browser_download_url, latest)
+            else shell.openExternal(j.html_url || 'https://github.com/DiegoHCH/the_office/releases')
+          })
           n.show()
           try {
             fs.writeFileSync(stamp, latest) // solo tras mostrarla: un fallo no quema el aviso
