@@ -1305,6 +1305,32 @@ export default function App() {
       showToast('Sin Electron — corre npm run dev')
       return
     }
+    // "@todos <mensaje>": el mismo prompt a todos los agentes libres a la vez
+    const bcast = /^@?todos[\s,:]+/i.exec(text)
+    if (bcast) {
+      const rest = text.slice(bcast[0].length).trim()
+      if (!rest) {
+        showToast('⚠️ @todos necesita un mensaje')
+        return
+      }
+      const free = squad.filter((m) => !roleStates[m.id] && !(queuesRef.current[m.id]?.length > 0))
+      if (!free.length) {
+        showToast('Todo el squad está ocupado — intenta en un momento')
+        return
+      }
+      if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+      // un solo jobId compartido: el mensaje del usuario se pinta una vez
+      const sharedId = crypto.randomUUID()
+      free.forEach((m, i) =>
+        setTimeout(() => dispatchJob({ id: sharedId, target: m.id, text: rest, display: `📢 @todos — ${rest}`, prompt: rest, atts: [] }), i * 400)
+      )
+      showToast(`📢 Enviado a ${free.length} agente${free.length > 1 ? 's' : ''}`)
+      setInput('')
+      setAttachments([])
+      setRefs([])
+      if (inputRef.current) inputRef.current.style.height = 'auto'
+      return
+    }
     const target = routeMessage(text, squad, principal)
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     const handoffTo = detectHandoff(text, squad, target)
