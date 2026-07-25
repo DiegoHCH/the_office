@@ -429,6 +429,7 @@ export default function App() {
   const [model, setModel] = useState(FALLBACK_MODEL)
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
+  const [histQuery, setHistQuery] = useState('') // filtro del panel de historial
   const [artsOpen, setArtsOpen] = useState(false)
   const [artsList, setArtsList] = useState([])
   const [artsDir, setArtsDir] = useState('')
@@ -1068,11 +1069,18 @@ export default function App() {
   }, [busy, messages, profile, project, model])
 
   const toggleHist = async () => {
-    if (!histOpen) setHistList((await window.oficina?.history?.list()) || [])
+    if (!histOpen) {
+      setHistList((await window.oficina?.history?.list()) || [])
+      setHistQuery('') // el filtro arranca limpio en cada apertura
+    }
     const next = !histOpen
     closePanels()
     setHistOpen(next)
   }
+  // filtro por título o proyecto, insensible a mayúsculas y tildes
+  const histFiltered = histQuery.trim()
+    ? histList.filter((h) => norm(`${h.title || ''} ${h.project || ''}`).includes(norm(histQuery)))
+    : histList
 
   const loadConvo = async (id) => {
     if (busy) return
@@ -1741,8 +1749,19 @@ export default function App() {
               <b>Historial</b>
               <button onClick={() => setHistOpen(false)}>✕</button>
             </div>
-            {histList.length === 0 && <div className="hist-empty">sin conversaciones guardadas</div>}
-            {histList.map((h) => (
+            {histList.length > 0 && (
+              <input
+                className="hist-search"
+                placeholder="🔍 Buscar por título o proyecto…"
+                value={histQuery}
+                onChange={(e) => setHistQuery(e.target.value)}
+                autoFocus
+              />
+            )}
+            {histFiltered.length === 0 && (
+              <div className="hist-empty">{histList.length ? 'sin resultados para esa búsqueda' : 'sin conversaciones guardadas'}</div>
+            )}
+            {histFiltered.map((h) => (
               <div key={h.id} className="hist-item" onClick={() => loadConvo(h.id)}>
                 <div className="hist-title">{h.title}</div>
                 <div className="hist-meta">

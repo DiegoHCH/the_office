@@ -286,6 +286,14 @@ body {
 }
 .art-actions button:hover { opacity: 1; }
 .hist-empty { color: #93a6a1; font-size: 12.5px; padding: 8px; font-family: ui-monospace, Menlo, monospace; }
+/* buscador del historial */
+.hist-search {
+  width: 100%; margin-bottom: 8px;
+  background: #0e1417; color: #dce6e3; border: 1px solid #2a3a3f;
+  border-radius: 8px; padding: 8px 10px; font-size: 12.5px; outline: none;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.hist-search:focus { border-color: #2dd4bf; }
 .linkish { color: #2dd4bf; cursor: pointer; text-decoration: underline; }
 
 /* chips para detener tareas en curso */
