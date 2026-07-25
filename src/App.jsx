@@ -904,6 +904,26 @@ export default function App() {
       ;[copy[i], copy[j]] = [copy[j], copy[i]]
       return copy
     })
+  // Drag & drop (grip ⠿): arrastrar una fila y soltarla sobre otra la mueve
+  // ahí — antes si viene de abajo, después si viene de arriba.
+  const [dragId, setDragId] = useState(null)
+  const [dropId, setDropId] = useState(null)
+  const dropRole = (targetId) => {
+    if (dragId && dragId !== targetId) {
+      setDraft((d) => {
+        const i = d.findIndex((r) => r.id === dragId)
+        const j = d.findIndex((r) => r.id === targetId)
+        if (i < 0 || j < 0) return d
+        const copy = [...d]
+        const [item] = copy.splice(i, 1)
+        const j2 = copy.findIndex((r) => r.id === targetId)
+        copy.splice(i < j ? j2 + 1 : j2, 0, item)
+        return copy
+      })
+    }
+    setDragId(null)
+    setDropId(null)
+  }
   const setMemberAvatar = (id, avatar) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r)))
   // avatar efectivo de un miembro (elegido o el default de su rol)
   const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
@@ -1441,8 +1461,41 @@ export default function App() {
             </div>
             <div className="drawer-sep agents-sub">Squad · hasta {MAX_ACTIVE} activos · el 1º es el principal ({profile})</div>
             {draft.map((r) => (
-              <div key={r.id} className={r.enabled ? 'squad-row' : 'squad-row off'}>
+              <div
+                key={r.id}
+                className={[
+                  'squad-row',
+                  r.enabled ? '' : 'off',
+                  dragId === r.id ? 'dragging' : '',
+                  dropId === r.id && dragId !== r.id ? 'droptarget' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+                onDragOver={(e) => {
+                  e.preventDefault()
+                  if (dropId !== r.id) setDropId(r.id)
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  dropRole(r.id)
+                }}
+              >
                 <div className="squad-row-top">
+                  <span
+                    className="squad-grip"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = 'move'
+                      setDragId(r.id)
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null)
+                      setDropId(null)
+                    }}
+                    title="Arrastrar para reordenar"
+                  >
+                    ⠿
+                  </span>
                   <input
                     type="checkbox"
                     checked={r.enabled}

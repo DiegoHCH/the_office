@@ -406,6 +406,16 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
 .squad-save:hover { filter: brightness(1.08); }
+/* grip de drag & drop para reordenar filas */
+.squad-grip {
+  flex: none; cursor: grab; color: #55707a; font-size: 13px;
+  padding: 0 2px; -webkit-user-select: none; user-select: none;
+}
+.squad-grip:hover { color: #2dd4bf; }
+.squad-grip:active { cursor: grabbing; }
+.squad-row.dragging { opacity: 0.45; }
+.squad-row.droptarget { box-shadow: inset 0 2px 0 #2dd4bf; border-radius: 4px 4px 9px 9px; }
+
 /* flechas para reordenar el roster (el 1º activo es el principal) */
 .squad-move { display: flex; gap: 3px; flex: none; }
 .squad-move button {
