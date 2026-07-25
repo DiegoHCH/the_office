@@ -233,6 +233,27 @@ const PROJECT_ROOTS = { work: 'Workspace', private: 'personal' }
 // Sin perfiles work/private (usuario con ~/.claude a secas): buscar raíces comunes.
 const DEFAULT_ROOT_CANDIDATES = ['Workspace', 'workspace', 'Projects', 'projects', 'dev', 'code', 'repos', 'personal']
 
+// Splash: ventana chica sin marco mientras carga el renderer.
+let splash = null
+function createSplash() {
+  splash = new BrowserWindow({
+    width: 420,
+    height: 260,
+    frame: false,
+    resizable: false,
+    backgroundColor: '#0e1417',
+    webPreferences: { contextIsolation: true },
+  })
+  splash.loadFile(path.join(__dirname, 'splash.html'))
+  splash.on('closed', () => {
+    splash = null
+  })
+}
+function closeSplash() {
+  if (splash && !splash.isDestroyed()) splash.close()
+  splash = null
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1100,
@@ -241,12 +262,25 @@ function createWindow() {
     minHeight: 640,
     backgroundColor: '#0e1417',
     title: 'La Oficina',
+    show: false, // aparece cuando el renderer está listo (el splash cubre la espera)
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
   })
+
+  win.once('ready-to-show', () => {
+    win.show()
+    closeSplash()
+  })
+  // red de seguridad: si ready-to-show no llega (renderer colgado), mostrar igual
+  setTimeout(() => {
+    if (win && !win.isDestroyed() && !win.isVisible()) {
+      win.show()
+      closeSplash()
+    }
+  }, 15000)
 
   if (isDev) {
     win.loadURL('http://localhost:5173')
@@ -992,11 +1026,14 @@ app.whenReady().then(() => {
     })
   }
   console.log('[oficina] usando binario claude en:', CLAUDE_BIN)
+  createSplash()
   createWindow()
   // Aviso claro al arrancar si no encontramos el binario — antes el fallo
   // aparecía como "spawn claude ENOENT" recién al enviar el primer mensaje.
+  // (se muestra cuando la ventana ya es visible: un sheet sobre una ventana
+  // oculta no se vería)
   if (CLAUDE_BIN === 'claude') {
-    dialog.showMessageBox(win, {
+    win.once('show', () => dialog.showMessageBox(win, {
       type: 'warning',
       title: 'La Oficina',
       message: 'No encontré el binario de Claude Code',
@@ -1004,7 +1041,7 @@ app.whenReady().then(() => {
         'Busqué en ~/.local/bin, /usr/local/bin y /opt/homebrew/bin.\n\n' +
         'Instálalo con:\n  curl -fsSL https://claude.ai/install.sh | bash\n\n' +
         'inicia sesión con `claude` en la terminal y vuelve a abrir La Oficina.',
-    })
+    }))
   }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
