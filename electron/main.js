@@ -71,13 +71,14 @@ const ROLE_TEMPLATES = {
     `Eres ${n}, publicador/DevOps del squad. Tu foco: tomar artifacts (páginas HTML) que crean tus compañeros y publicarlos en la web como GitHub Pages, además de tareas ligeras de despliegue. Cuando un compañero te pase un artifact para publicar, localízalo, prepáralo y súbelo siguiendo el procedimiento de publicación indicado. REGLA DE ORO: siempre confirma con el usuario antes de hacer cualquier cosa pública. Preséntate como ${n} cuando te saluden.`,
 }
 
-// Squad por defecto: nombres genéricos — cada usuario los personaliza
-// desde ⚙️ y ahí sí se guardan sus nombres en su perfil.
+// Squad por defecto: en una instalación nueva SOLO el principal (dev) está
+// activo — los demás roles los activa el usuario desde 👥 Agentes. Los
+// nombres son fallback: el primer arranque los reemplaza por nombres reales.
 const DEFAULT_SQUAD = [
   { id: 'dev', name: 'Dev', enabled: true },
-  { id: 'research', name: 'Research', enabled: true },
-  { id: 'design', name: 'Diseño', enabled: true },
-  { id: 'qa', name: 'QA', enabled: true },
+  { id: 'research', name: 'Research', enabled: false },
+  { id: 'design', name: 'Diseño', enabled: false },
+  { id: 'qa', name: 'QA', enabled: false },
   { id: 'pr', name: 'Revisor PR', enabled: false },
   { id: 'docs', name: 'Docs', enabled: false },
   { id: 'publish', name: 'Publicador', enabled: false },
