@@ -259,6 +259,32 @@ const prettyArtifact = (f = '') => {
 const avatarLabel = (f) =>
   f.replace('.gltf', '').replace(/_/g, ' ').replace('Female', '♀').replace('Male', '♂')
 
+// Bloque de código del markdown con botón de copiar (visible al hover).
+function CodePre({ children, ...props }) {
+  const ref = useRef(null)
+  const [copied, setCopied] = useState(false)
+  return (
+    <div className="pre-wrap">
+      <pre ref={ref} {...props}>
+        {children}
+      </pre>
+      <button
+        type="button"
+        className="copy-btn"
+        title="Copiar código"
+        onClick={() => {
+          navigator.clipboard.writeText(ref.current?.innerText || '')
+          setCopied(true)
+          setTimeout(() => setCopied(false), 1400)
+        }}
+      >
+        {copied ? '✓ copiado' : '📋'}
+      </button>
+    </div>
+  )
+}
+const MD_COMPONENTS = { pre: CodePre }
+
 // Cómo se muestra cada herramienta de Claude en pantalla.
 const TOOL_INFO = {
   Read: ['📖', 'leyendo archivos'],
@@ -1803,8 +1829,27 @@ export default function App() {
                 {m.role === 'user' && m.atts?.length > 0 && (
                   <div className="msg-atts">{m.atts.map((n, j) => <span key={j}>🖼 {n}</span>)}</div>
                 )}
-                {m.role === 'assistant' ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{m.text}</ReactMarkdown> : m.text}
+                {m.role === 'assistant' ? (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+                    {m.text}
+                  </ReactMarkdown>
+                ) : (
+                  m.text
+                )}
                 {m.streaming ? '▍' : ''}
+                {m.role === 'assistant' && !m.streaming && !m.error && (
+                  <button
+                    type="button"
+                    className="msg-copy"
+                    title="Copiar respuesta completa"
+                    onClick={() => {
+                      navigator.clipboard.writeText(m.text)
+                      showToast('respuesta copiada 📋')
+                    }}
+                  >
+                    📋
+                  </button>
+                )}
                 {m.artifact && (
                   <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
                     🔗 Abrir · {prettyArtifact(m.artifact.name)}
