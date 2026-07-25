@@ -638,8 +638,15 @@ export default function App() {
     })
   }, [])
 
+  // Auto-scroll del chat SOLO si ya estabas pegado al fondo: si subiste a
+  // releer, el streaming no te arrastra de vuelta. Volver abajo re-engancha.
+  const atBottomRef = useRef(true)
+  const onLogScroll = () => {
+    const el = logRef.current
+    if (el) atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120
+  }
   useEffect(() => {
-    logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
+    if (atBottomRef.current) logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [messages])
 
   // Watchdog: una entrega normal (caminar, entregar, volver) toma <20s. Si la
@@ -1000,6 +1007,7 @@ export default function App() {
   }
   // sitúa un job: si el tripulante está libre y sin cola → va; si no → encola
   const routeJob = (job) => {
+    atBottomRef.current = true // enviar algo re-engancha el auto-scroll
     const busyOrQueued = !!roleStates[job.target] || (queuesRef.current[job.target]?.length > 0)
     if (busyOrQueued) enqueueJob(job)
     else dispatchJob(job)
@@ -1457,7 +1465,7 @@ export default function App() {
         )}
 
         {messages.length > 0 && (
-          <div className="chat" ref={logRef}>
+          <div className="chat" ref={logRef} onScroll={onLogScroll}>
             {messages.map((m, i) => {
               // botones de respuesta rápida: solo en el último mensaje del asistente,
               // ya terminado, si detecto un menú de opciones y nadie está ocupado
