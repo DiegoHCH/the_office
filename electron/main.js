@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell, Tray, Menu, nativeImage, globalShortcut } = require('electron')
 const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -192,13 +192,52 @@ ipcMain.handle('prefs:notify', (_e, v) => {
   return { ok: true }
 })
 
-// Badge del Dock: nº de agentes trabajando (lo reporta el renderer).
+// Badge del Dock + Tray: nº de agentes trabajando (lo reporta el renderer).
 ipcMain.handle('dock:badge', (_e, n) => {
   try {
     app.dock?.setBadge(n > 0 ? String(n) : '')
   } catch {}
+  try {
+    tray?.setTitle(n > 0 ? `🏢 ${n}` : '🏢')
+    tray?.setToolTip(n > 0 ? `La Oficina — ${n} agente${n > 1 ? 's' : ''} trabajando` : 'La Oficina — squad libre')
+  } catch {}
   return { ok: true }
 })
+
+// Icono en la barra de menús: estado del squad de un vistazo + menú rápido.
+let tray = null
+function createTray() {
+  try {
+    tray = new Tray(nativeImage.createEmpty())
+    tray.setTitle('🏢')
+    tray.setToolTip('La Oficina')
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        {
+          label: 'Mostrar La Oficina',
+          click: () => {
+            win?.show()
+            win?.focus()
+          },
+        },
+        {
+          label: 'Nueva conversación',
+          click: () => {
+            win?.show()
+            win?.focus()
+            win?.webContents.send('claude:event', { kind: 'new-chat' })
+          },
+        },
+        { type: 'separator' },
+        { label: 'Salir', role: 'quit' },
+      ])
+    )
+    tray.on('click', () => {
+      win?.show()
+      win?.focus()
+    })
+  } catch {}
+}
 
 // Notifica solo si la ventana no está al frente (tareas largas en background).
 function notify(displayName, body) {
@@ -1257,6 +1296,7 @@ function checkForUpdates() {
 
 app.whenReady().then(() => {
   pruneStorage()
+  createTray()
   setTimeout(checkForUpdates, 5000) // sin estorbar el arranque
   if (!isDev) {
     protocol.handle('app', (req) => {

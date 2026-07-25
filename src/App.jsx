@@ -738,6 +738,15 @@ export default function App() {
   useEffect(() => {
     if (!window.oficina?.onEvent) return
     return window.oficina.onEvent((e) => {
+      // órdenes del proceso principal (Tray, atajo global) — no son del stream
+      if (e.kind === 'new-chat') {
+        newChat()
+        return
+      }
+      if (e.kind === 'focus-composer') {
+        inputRef.current?.focus()
+        return
+      }
       const who = e.role || principalRef.current
       const isP = who === principalRef.current
       if (e.kind === 'init') {
