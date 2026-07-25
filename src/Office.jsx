@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useRef, useState } from 'react'
-import { Canvas, useFrame, useLoader } from '@react-three/fiber'
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
 import { MathUtils, Shape, ExtrudeGeometry, DoubleSide } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
@@ -632,6 +632,18 @@ const WANDER_SPOTS = [
 ]
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)]
 
+// Con frameloop='demand' (app sin foco) nada avanza solo: este ticker pide
+// frames a ~12fps mientras haya movimiento que mostrar, para que una caminata
+// no se congele a mitad (parecía que la app se había bloqueado).
+function DemandTicker({ fps = 12 }) {
+  const invalidate = useThree((s) => s.invalidate)
+  useEffect(() => {
+    const iv = setInterval(invalidate, 1000 / fps)
+    return () => clearInterval(iv)
+  }, [invalidate, fps])
+  return null
+}
+
 // Grupo silla+personaje que gira suavemente hacia el yaw objetivo.
 function Turn({ position, yaw, children }) {
   const ref = useRef()
@@ -655,9 +667,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
 
-  // Sin foco, el render continuo se pausa ('demand': solo re-pinta cuando algo
-  // cambia de verdad) — la escena congelada no gasta GPU/batería con la app
-  // detrás de otras ventanas. Al volver el foco se reanuda todo.
+  // Sin foco, el render continuo pasa a 'demand' para no gastar GPU/batería
+  // con la app detrás de otras ventanas. Pero congelar una caminata a medias
+  // parece un cuelgue: mientras haya movimiento (tours, entregas, alguien
+  // trabajando) un ticker pide frames a ~12fps; solo con todos sentados y
+  // quietos la escena se congela de verdad. Con foco vuelve a 60fps.
   const [focused, setFocused] = useState(() => document.hasFocus())
   useEffect(() => {
     const on = () => setFocused(true)
@@ -791,8 +805,13 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         ? ambient[main.id]?.tour || null
         : null
 
+  // ¿hay algo moviéndose que valga la pena seguir pintando sin foco?
+  // (agentes activos en cualquier estado, o paseos/visitas de la vida ambiental)
+  const anyMotion = Object.keys(roleStates).length > 0 || Object.values(ambient).some((a) => a && a.tour)
+
   return (
     <Canvas shadows dpr={[1, 2]} frameloop={focused ? 'always' : 'demand'} style={{ width: '100%', height: '100%' }}>
+      {!focused && anyMotion && <DemandTicker />}
       <color attach="background" args={[T.bg]} />
 
       <OrthographicCamera makeDefault position={[11, 9.5, 11]} zoom={80} near={0.1} far={100} />
