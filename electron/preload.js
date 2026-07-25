@@ -59,6 +59,8 @@ contextBridge.exposeInMainWorld('oficina', {
     list: (profile) => ipcRenderer.invoke('skills:list', profile),
     install: (profile, id, repo) => ipcRenderer.invoke('skills:install', { profile, id, repo }),
     remove: (profile, id) => ipcRenderer.invoke('skills:remove', { profile, id }),
+    scan: (source) => ipcRenderer.invoke('skills:scan', source),
+    create: (profile, name, description) => ipcRenderer.invoke('skills:create', { profile, name, description }),
   },
   // Configuración del squad (roster por perfil: nombres y activos).
   squad: {

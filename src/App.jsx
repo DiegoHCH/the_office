@@ -1166,11 +1166,31 @@ export default function App() {
     setAvatarPicker(null)
   }
   // ── Submenu 🧩 Skills: catálogo instalable por perfil (encima de Config) ──
+  const [scanUrl, setScanUrl] = useState('')
+  const [scanResult, setScanResult] = useState(null) // null | {loading} | {repo, skills} | {error}
+  const [skillForm, setSkillForm] = useState(null) // {name, desc} | null
   const refreshSkills = async () => setInstalledSkills((await window.oficina?.skills?.list(profile)) || [])
   const openSkills = () => {
     setInstalledSkills(null)
+    setScanUrl('')
+    setScanResult(null)
+    setSkillForm(null)
     setSkillsOpen(true)
     refreshSkills()
+  }
+  const scanRepo = async () => {
+    if (!scanUrl.trim()) return
+    setScanResult({ loading: true })
+    const res = await window.oficina?.skills?.scan(scanUrl)
+    setScanResult(res?.ok ? { repo: res.repo, skills: res.skills } : { error: res?.error || 'No se pudo leer el repo' })
+  }
+  const createSkill = async () => {
+    const res = await window.oficina?.skills?.create(profile, skillForm.name, skillForm.desc)
+    if (res?.ok) {
+      showToast(`🧩 Skill /${res.id} creada — se abrió en el editor`)
+      setSkillForm(null)
+      refreshSkills()
+    } else showToast(`⚠️ ${res?.error || 'No se pudo crear'}`)
   }
   const installSkill = async (s) => {
     setSkillBusy(s.id)
@@ -1985,6 +2005,72 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+
+                {/* instalar desde cualquier repo de GitHub */}
+                <div className="menu-sec">Desde un repo</div>
+                <div className="skill-scan">
+                  <input
+                    placeholder="usuario/repo o URL de GitHub…"
+                    value={scanUrl}
+                    onChange={(e) => setScanUrl(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && scanRepo()}
+                  />
+                  <button type="button" className="skill-install" onClick={scanRepo} disabled={scanResult?.loading}>
+                    {scanResult?.loading ? '⏳' : 'Buscar'}
+                  </button>
+                </div>
+                {scanResult?.error && <div className="hist-empty">⚠️ {scanResult.error}</div>}
+                {scanResult?.skills?.length === 0 && <div className="hist-empty">Ese repo no trae carpetas con SKILL.md</div>}
+                {scanResult?.skills?.map((s) => {
+                  const inst = installedSkills.some((x) => x.id === s.id)
+                  return (
+                    <div key={s.id} className="hist-item skill-item">
+                      <div className="skill-info">
+                        <div className="hist-title">
+                          {s.id} {inst && <span className="skill-ok">✓ instalada</span>}
+                        </div>
+                        <div className="hist-meta">{s.desc || `de ${scanResult.repo}`}</div>
+                      </div>
+                      <div className="art-actions">
+                        {skillBusy === s.id ? (
+                          <span className="skill-busy">⏳</span>
+                        ) : (
+                          <button className="skill-install" onClick={() => installSkill({ id: s.id, repo: scanResult.repo, name: s.id })}>
+                            {inst ? 'Actualizar' : 'Instalar'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* crear una skill propia */}
+                {skillForm ? (
+                  <div className="snip-form">
+                    <input
+                      placeholder="Nombre (ej: estilo-mis-proyectos)"
+                      value={skillForm.name}
+                      onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })}
+                      autoFocus
+                    />
+                    <textarea
+                      placeholder="¿Cuándo debe usarla el agente? (esto decide su activación)"
+                      rows={2}
+                      value={skillForm.desc}
+                      onChange={(e) => setSkillForm({ ...skillForm, desc: e.target.value })}
+                    />
+                    <div className="snip-form-row">
+                      <button type="button" onClick={() => setSkillForm(null)}>Cancelar</button>
+                      <button type="button" className="snip-save" disabled={!skillForm.name.trim()} onClick={createSkill}>
+                        Crear y abrir
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button type="button" className="snip-new" onClick={() => setSkillForm({ name: '', desc: '' })}>
+                    ➕ Crear skill propia
+                  </button>
+                )}
               </>
             )}
           </div>

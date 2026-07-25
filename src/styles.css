@@ -408,6 +408,13 @@ body {
 }
 .skill-install:hover { filter: brightness(1.08); }
 .skill-busy { font-size: 13px; }
+.skill-scan { display: flex; gap: 8px; padding: 4px 8px 8px; }
+.skill-scan input {
+  flex: 1; background: #22303a; border: 1.5px solid #45585f; color: #f2f8f6;
+  border-radius: 999px; padding: 7px 14px; font-size: 12.5px; outline: none;
+}
+.skill-scan input:focus { border-color: #2dd4bf; }
+.skill-scan .skill-install:disabled { opacity: 0.5; cursor: default; }
 .art-item > div:first-child { flex: 1; min-width: 0; }
 .art-actions { display: flex; gap: 4px; flex: none; }
 .art-actions button {

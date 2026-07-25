@@ -1143,14 +1143,10 @@ function findSkillDir(root, id, depth = 0) {
 // Instala (o actualiza) una skill del catálogo: clon superficial del repo en
 // caché + copia de la carpeta de la skill al skills/ del perfil.
 ipcMain.handle('skills:install', async (_e, { profile, id, repo }) => {
-  if (!/^[a-z0-9-]+$/.test(id || '') || !/^[\w.-]+\/[\w.-]+$/.test(repo || '')) return { ok: false, error: 'Entrada inválida' }
-  const cache = path.join(app.getPath('userData'), 'skills-cache', repo.replace('/', '__'))
+  if (!/^[\w.-]+$/.test(id || '') || !/^[\w.-]+\/[\w.-]+$/.test(repo || '')) return { ok: false, error: 'Entrada inválida' }
+  let cache
   try {
-    if (fs.existsSync(path.join(cache, '.git'))) await execFileP('git', ['-C', cache, 'pull', '--ff-only'], { timeout: 60000 })
-    else {
-      fs.mkdirSync(path.dirname(cache), { recursive: true })
-      await execFileP('git', ['clone', '--depth', '1', `https://github.com/${repo}.git`, cache], { timeout: 120000 })
-    }
+    cache = await fetchRepo(repo)
   } catch (err) {
     return { ok: false, error: `git: ${err.message}` }
   }
@@ -1162,6 +1158,79 @@ ipcMain.handle('skills:install', async (_e, { profile, id, repo }) => {
     fs.mkdirSync(path.dirname(dest), { recursive: true })
     fs.cpSync(src, dest, { recursive: true })
     return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// Normaliza «user/repo», «https://github.com/user/repo(.git)» → user/repo
+const normRepo = (s = '') => {
+  const m = /^(?:https?:\/\/github\.com\/)?([\w.-]+\/[\w.-]+?)(?:\.git)?\/?$/.exec(s.trim())
+  return m ? m[1] : null
+}
+
+// Clona (o actualiza) un repo en caché y devuelve su ruta local.
+async function fetchRepo(repo) {
+  const cache = path.join(app.getPath('userData'), 'skills-cache', repo.replace('/', '__'))
+  if (fs.existsSync(path.join(cache, '.git'))) await execFileP('git', ['-C', cache, 'pull', '--ff-only'], { timeout: 60000 })
+  else {
+    fs.mkdirSync(path.dirname(cache), { recursive: true })
+    await execFileP('git', ['clone', '--depth', '1', `https://github.com/${repo}.git`, cache], { timeout: 120000 })
+  }
+  return cache
+}
+
+// Escanea un repo cualquiera y lista las skills (carpetas con SKILL.md) que trae.
+ipcMain.handle('skills:scan', async (_e, source) => {
+  const repo = normRepo(source)
+  if (!repo) return { ok: false, error: 'Pega un repo de GitHub («usuario/repo» o su URL)' }
+  let cache
+  try {
+    cache = await fetchRepo(repo)
+  } catch (err) {
+    return { ok: false, error: `git: ${err.message}` }
+  }
+  const found = []
+  const walk = (dir, depth) => {
+    if (depth > 4 || found.length >= 60) return
+    let entries
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return
+    }
+    for (const d of entries) {
+      if (!d.isDirectory() || d.name.startsWith('.') || d.name === 'node_modules') continue
+      const p = path.join(dir, d.name)
+      if (fs.existsSync(path.join(p, 'SKILL.md'))) found.push({ id: d.name, ...skillMeta(p) })
+      else walk(p, depth + 1)
+    }
+  }
+  walk(cache, 0)
+  return { ok: true, repo, skills: found }
+})
+
+// Crea el esqueleto de una skill propia y lo abre en el editor de texto.
+ipcMain.handle('skills:create', (_e, { profile, name, description }) => {
+  const id = String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+  if (!id) return { ok: false, error: 'Nombre inválido' }
+  const dir = path.join(skillsDirFor(profile), id)
+  const file = path.join(dir, 'SKILL.md')
+  try {
+    fs.mkdirSync(dir, { recursive: true })
+    if (!fs.existsSync(file))
+      fs.writeFileSync(
+        file,
+        `---\nname: ${id}\ndescription: ${String(description || '').trim() || 'Describe aquí CUÁNDO debe usarse esta skill — el agente lee esto para decidir activarla'}\n---\n\n# ${name}\n\nInstrucciones para el agente cuando esta skill se activa:\n\n- …\n- …\n\n<!-- Puedes añadir más archivos a esta carpeta (plantillas, ejemplos, scripts)\n     y referenciarlos desde aquí. -->\n`
+      )
+    execFile('open', ['-t', file], (err) => {
+      if (err) execFile('open', [file], () => {})
+    })
+    return { ok: true, id }
   } catch (err) {
     return { ok: false, error: err.message }
   }
