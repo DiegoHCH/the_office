@@ -929,15 +929,19 @@ export default function App() {
     if (!wasOpen) setPrefsOpen(true)
   }
   const draftEnabled = draft.filter((r) => r.enabled).length
-  const toggleMember = (id) =>
-    setDraft((d) =>
-      d.map((r) => {
-        if (r.id !== id) return r
-        if (r.enabled && draftEnabled <= 1) return r // mínimo 1
-        if (!r.enabled && draftEnabled >= MAX_ACTIVE) return r // máximo MAX_ACTIVE
-        return { ...r, enabled: !r.enabled }
-      })
-    )
+  const toggleMember = (id) => {
+    const target = draft.find((r) => r.id === id)
+    if (!target) return
+    if (target.enabled && draftEnabled <= 1) {
+      showToast('⚠️ debe quedar al menos un agente activo')
+      return
+    }
+    if (!target.enabled && draftEnabled >= MAX_ACTIVE) {
+      showToast(`👥 squad completo (${MAX_ACTIVE}/${MAX_ACTIVE}) — desactiva uno para poder activar otro`)
+      return
+    }
+    setDraft((d) => d.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)))
+  }
   const renameMember = (id, name) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, name } : r)))
   // Drag & drop (grip ⠿): arrastrar una fila y soltarla sobre otra la mueve
   // ahí — antes si viene de abajo, después si viene de arriba.
@@ -1503,7 +1507,6 @@ export default function App() {
               <b>👥 Agentes</b>
               <button onClick={closeAgents} title="Volver a Configuración">✕</button>
             </div>
-            <div className="drawer-sep agents-sub">Squad · hasta {MAX_ACTIVE} activos · el 1º es el principal ({profile})</div>
             {draft.map((r) => (
               <div
                 key={r.id}

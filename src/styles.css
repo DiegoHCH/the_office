@@ -392,8 +392,6 @@ body {
   margin: 12px 4px 6px; padding-top: 10px; border-top: 1px solid #28353a;
   font-size: 11px; color: #93a6a1; font-family: ui-monospace, Menlo, monospace;
 }
-/* subtítulo del panel Agentes: va justo bajo el encabezado, sin línea extra */
-.drawer-sep.agents-sub { margin-top: 0; padding-top: 0; border-top: none; }
 
 /* panel de configuración del squad — activos e inactivos se ven igual:
    el switch es el único indicador de estado */
