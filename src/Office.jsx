@@ -1004,7 +1004,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           const st = (m && roleStates[m.id]) || 'idle'
           const amb = m ? ambient[m.id] : null
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
-          const bubble = inStandup(m.id, st)
+          const bubble = m && inStandup(m.id, st)
             ? `📋 ${m.emoji} en el standup`
             : st === 'working'
               ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'Trabajando…'}${elapsed[m.id] ? ` · ${elapsed[m.id]}` : ''}`
