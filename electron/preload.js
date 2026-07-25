@@ -62,6 +62,15 @@ contextBridge.exposeInMainWorld('oficina', {
     scan: (source) => ipcRenderer.invoke('skills:scan', source),
     create: (profile, name, description) => ipcRenderer.invoke('skills:create', { profile, name, description }),
   },
+  // Plugins de Claude Code por perfil (marketplaces del CLI).
+  plugins: {
+    list: (profile) => ipcRenderer.invoke('plugins:list', profile),
+    marketplaces: (profile) => ipcRenderer.invoke('plugins:marketplaces', profile),
+    addMarketplace: (profile, source) => ipcRenderer.invoke('plugins:addMarketplace', { profile, source }),
+    removeMarketplace: (profile, name) => ipcRenderer.invoke('plugins:removeMarketplace', { profile, name }),
+    install: (profile, id) => ipcRenderer.invoke('plugins:install', { profile, id }),
+    uninstall: (profile, id) => ipcRenderer.invoke('plugins:uninstall', { profile, id }),
+  },
   // Configuración del squad (roster por perfil: nombres y activos).
   squad: {
     get: (profile) => ipcRenderer.invoke('squad:get', profile),

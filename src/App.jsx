@@ -1175,8 +1175,11 @@ export default function App() {
     setScanUrl('')
     setScanResult(null)
     setSkillForm(null)
+    setMktUrl('')
+    setPluginQuery('')
     setSkillsOpen(true)
     refreshSkills()
+    refreshPlugins()
   }
   const scanRepo = async () => {
     if (!scanUrl.trim()) return
@@ -1191,6 +1194,51 @@ export default function App() {
       setSkillForm(null)
       refreshSkills()
     } else showToast(`⚠️ ${res?.error || 'No se pudo crear'}`)
+  }
+
+  // ── Plugins del perfil (claude plugin CLI) ────────────────────────────────
+  const [pluginData, setPluginData] = useState(null) // null | {loading} | {error} | {installed, available, marketplaces}
+  const [pluginBusy, setPluginBusy] = useState(null)
+  const [mktUrl, setMktUrl] = useState('')
+  const [pluginQuery, setPluginQuery] = useState('')
+  const refreshPlugins = async () => {
+    setPluginData({ loading: true })
+    const [lst, mkts] = await Promise.all([window.oficina?.plugins?.list(profile), window.oficina?.plugins?.marketplaces(profile)])
+    if (!lst?.ok) setPluginData({ error: lst?.error?.slice(0, 200) || 'No se pudo consultar el CLI de plugins' })
+    else setPluginData({ installed: lst.installed, available: lst.available, marketplaces: mkts?.ok ? mkts.marketplaces : [] })
+  }
+  const addMkt = async () => {
+    if (!mktUrl.trim()) return
+    setPluginBusy('mkt')
+    const res = await window.oficina?.plugins?.addMarketplace(profile, mktUrl)
+    setPluginBusy(null)
+    if (res?.ok) {
+      showToast('📦 Fuente añadida')
+      setMktUrl('')
+      refreshPlugins()
+    } else showToast(`⚠️ ${res?.error?.slice(0, 160) || 'No se pudo añadir'}`, 6000)
+  }
+  const removeMkt = async (name) => {
+    setPluginBusy(name)
+    const res = await window.oficina?.plugins?.removeMarketplace(profile, name)
+    setPluginBusy(null)
+    showToast(res?.ok ? 'Fuente quitada' : `⚠️ ${res?.error?.slice(0, 160) || 'No se pudo quitar'}`)
+    refreshPlugins()
+  }
+  const installPlugin = async (id) => {
+    setPluginBusy(id)
+    const res = await window.oficina?.plugins?.install(profile, id)
+    setPluginBusy(null)
+    if (res?.ok) showToast(`🔌 ${id.split('@')[0]} instalado — tus agentes ya lo tienen`)
+    else showToast(`⚠️ ${res?.error?.slice(0, 160) || 'No se pudo instalar'}`, 6000)
+    refreshPlugins()
+  }
+  const uninstallPlugin = async (id) => {
+    setPluginBusy(id)
+    const res = await window.oficina?.plugins?.uninstall(profile, id)
+    setPluginBusy(null)
+    showToast(res?.ok ? 'Plugin desinstalado' : `⚠️ ${res?.error?.slice(0, 160) || 'No se pudo desinstalar'}`)
+    refreshPlugins()
   }
   const installSkill = async (s) => {
     setSkillBusy(s.id)
@@ -2070,6 +2118,97 @@ export default function App() {
                   <button type="button" className="snip-new" onClick={() => setSkillForm({ name: '', desc: '' })}>
                     ➕ Crear skill propia
                   </button>
+                )}
+
+                {/* plugins: paquetes completos vía claude plugin CLI */}
+                <div className="menu-sec">Plugins</div>
+                <div className="skills-note">
+                  Paquetes completos (skills + comandos + agentes + MCP) instalados con el CLI de Claude Code. Cualquier repo de
+                  GitHub sirve como fuente.
+                </div>
+                {pluginData?.loading && <div className="hist-empty">Consultando plugins del perfil…</div>}
+                {pluginData?.error && <div className="hist-empty">⚠️ {pluginData.error}</div>}
+                {pluginData?.installed && (
+                  <>
+                    <div className="skill-scan">
+                      <input
+                        placeholder="Añadir fuente: usuario/repo o URL…"
+                        value={mktUrl}
+                        onChange={(e) => setMktUrl(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addMkt()}
+                      />
+                      <button type="button" className="skill-install" onClick={addMkt} disabled={pluginBusy === 'mkt'}>
+                        {pluginBusy === 'mkt' ? '⏳' : 'Añadir'}
+                      </button>
+                    </div>
+                    {pluginData.marketplaces.map((m) => (
+                      <div key={m.name} className="hist-item skill-item">
+                        <div className="skill-info">
+                          <div className="hist-title">📦 {m.name}</div>
+                          <div className="hist-meta">{m.repo}</div>
+                        </div>
+                        <div className="art-actions">
+                          {pluginBusy === m.name ? (
+                            <span className="skill-busy">⏳</span>
+                          ) : (
+                            m.name !== 'claude-plugins-official' && (
+                              <button title="Quitar fuente" onClick={() => removeMkt(m.name)}>🗑</button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    {pluginData.installed.map((p) => (
+                      <div key={p.id} className="hist-item skill-item">
+                        <div className="skill-info">
+                          <div className="hist-title">
+                            🔌 {p.name} <span className="skill-ok">✓ instalado</span>
+                          </div>
+                          <div className="hist-meta">{p.desc}</div>
+                        </div>
+                        <div className="art-actions">
+                          {pluginBusy === p.id ? (
+                            <span className="skill-busy">⏳</span>
+                          ) : (
+                            <button title="Desinstalar" onClick={() => uninstallPlugin(p.id)}>🗑</button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                    <div className="skill-scan">
+                      <input
+                        placeholder={`🔍 Buscar entre ${pluginData.available.length} plugins disponibles…`}
+                        value={pluginQuery}
+                        onChange={(e) => setPluginQuery(e.target.value)}
+                      />
+                    </div>
+                    {pluginQuery.trim() &&
+                      pluginData.available
+                        .filter((p) => norm(`${p.name} ${p.desc}`).includes(norm(pluginQuery)))
+                        .sort((a, b) => b.installs - a.installs)
+                        .slice(0, 8)
+                        .map((p) => (
+                          <div key={p.id} className="hist-item skill-item">
+                            <div className="skill-info">
+                              <div className="hist-title">{p.name}</div>
+                              <div className="hist-meta">{p.desc}</div>
+                              <div className="skill-tags">
+                                <span className="skill-tag">📦 {p.marketplace}</span>
+                                {p.installs > 0 && <span className="skill-tag">⬇ {fmtTokens(p.installs)}</span>}
+                              </div>
+                            </div>
+                            <div className="art-actions">
+                              {pluginBusy === p.id ? (
+                                <span className="skill-busy">⏳</span>
+                              ) : pluginData.installed.some((x) => x.name === p.name) ? (
+                                <span className="skill-ok">✓</span>
+                              ) : (
+                                <button className="skill-install" onClick={() => installPlugin(p.id)}>Instalar</button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                  </>
                 )}
               </>
             )}

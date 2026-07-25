@@ -1246,6 +1246,88 @@ ipcMain.handle('skills:remove', (_e, { profile, id }) => {
   }
 })
 
+// ── Plugins de Claude Code por perfil (marketplaces) ─────────────────────────
+// Mismo entorno que los agentes headless: el CLI opera sobre el perfil elegido.
+function claudeEnvFor(profile) {
+  const env = { ...process.env }
+  delete env.ANTHROPIC_API_KEY
+  delete env.ANTHROPIC_AUTH_TOKEN
+  const extraPaths = ['/opt/homebrew/bin', '/usr/local/bin', path.join(app.getPath('home'), '.local', 'bin')]
+  env.PATH = [...new Set([...(env.PATH || '').split(':').filter(Boolean), ...extraPaths])].join(':')
+  if (PROFILE_DIRS[profile]) env.CLAUDE_CONFIG_DIR = PROFILE_DIRS[profile]()
+  else delete env.CLAUDE_CONFIG_DIR
+  return env
+}
+const claudePlugin = (profile, args, timeout = 180000) =>
+  execFileP(CLAUDE_BIN, ['plugin', ...args], { env: claudeEnvFor(profile), timeout, maxBuffer: 16 * 1024 * 1024 })
+
+ipcMain.handle('plugins:list', async (_e, profile) => {
+  try {
+    const j = JSON.parse(await claudePlugin(profile, ['list', '--available', '--json']))
+    const slim = (p) => ({
+      id: p.pluginId || p.name,
+      name: p.name || p.pluginId,
+      desc: String(p.description || '').slice(0, 180),
+      marketplace: p.marketplaceName || '',
+      installs: p.installCount || 0,
+      enabled: p.enabled !== false,
+    })
+    return { ok: true, installed: (j.installed || []).map(slim), available: (j.available || []).map(slim) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('plugins:marketplaces', async (_e, profile) => {
+  try {
+    const j = JSON.parse(await claudePlugin(profile, ['marketplace', 'list', '--json']))
+    return { ok: true, marketplaces: (Array.isArray(j) ? j : []).map((m) => ({ name: m.name, repo: m.repo || m.source || '' })) }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('plugins:addMarketplace', async (_e, { profile, source }) => {
+  const src = String(source || '').trim()
+  if (!src || /\s/.test(src)) return { ok: false, error: 'Fuente inválida' }
+  try {
+    await claudePlugin(profile, ['marketplace', 'add', src])
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('plugins:removeMarketplace', async (_e, { profile, name }) => {
+  if (!/^[\w.-]+$/.test(name || '')) return { ok: false, error: 'Nombre inválido' }
+  try {
+    await claudePlugin(profile, ['marketplace', 'remove', name])
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('plugins:install', async (_e, { profile, id }) => {
+  if (!/^[\w.@/-]+$/.test(id || '')) return { ok: false, error: 'Id inválido' }
+  try {
+    await claudePlugin(profile, ['install', id])
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+ipcMain.handle('plugins:uninstall', async (_e, { profile, id }) => {
+  if (!/^[\w.@/-]+$/.test(id || '')) return { ok: false, error: 'Id inválido' }
+  try {
+    await claudePlugin(profile, ['uninstall', id])
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // Diff del proyecto (staged + unstaged) para la vista de cambios del agente.
 ipcMain.handle('git:diff', async (_e, cwd) => {
   if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
