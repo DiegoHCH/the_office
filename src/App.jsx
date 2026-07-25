@@ -781,7 +781,7 @@ export default function App() {
     }
   }, [roleStates, profile, project, writeMode, model, squad])
 
-  // Procesador de cola: cuando un tripulante queda libre, toma su siguiente
+  // Procesador de cola: cuando un agente queda libre, toma su siguiente
   // mensaje en cola (como la consola: se procesa al terminar el turno actual).
   useEffect(() => {
     for (const role of Object.keys(queuesRef.current)) {
@@ -1179,7 +1179,7 @@ export default function App() {
     return false
   }
 
-  // Lanza un job a su tripulante (o lo ENCOLA si está ocupado — como la consola).
+  // Lanza un job a su agente (o lo ENCOLA si está ocupado — como la consola).
   const enqueueJob = (job) => {
     setMessages((ms) => [...ms, { role: 'user', text: job.display, to: job.target, atts: job.atts, jobId: job.id, queued: true }])
     ;(queuesRef.current[job.target] ||= []).push(job)
@@ -1203,7 +1203,7 @@ export default function App() {
       if (job.target === principal) setStatus('Esperándote')
     }
   }
-  // sitúa un job: si el tripulante está libre y sin cola → va; si no → encola
+  // sitúa un job: si el agente está libre y sin cola → va; si no → encola
   const routeJob = (job) => {
     atBottomRef.current = true // enviar algo re-engancha el auto-scroll
     const busyOrQueued = !!roleStates[job.target] || (queuesRef.current[job.target]?.length > 0)
@@ -1225,7 +1225,7 @@ export default function App() {
     showToast('Mensaje sacado de la cola')
   }
 
-  // Respuesta rápida: envía una opción elegida al tripulante (encola si ocupado).
+  // Respuesta rápida: envía una opción elegida al agente (encola si ocupado).
   const quickReply = (option, target) => {
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     routeJob({ id: crypto.randomUUID(), target, text: option, display: option, prompt: option, atts: [] })

@@ -540,7 +540,7 @@ ipcMain.handle('squad:save', (_e, { profile, roster }) => {
   }
 })
 
-// Detiene la tarea en curso de un tripulante (mata su proceso claude).
+// Detiene la tarea en curso de un agente (mata su proceso claude).
 ipcMain.handle('claude:stop', (_e, role) => {
   const child = children.get(role)
   if (!child) return { ok: false, error: 'no hay tarea corriendo' }

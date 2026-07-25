@@ -74,9 +74,9 @@
 <div class="page">
 
   <h1>La Oficina 🏢</h1>
-  <p class="lede">Tu squad de IA en una oficina 3D. Escribes aquí en vez de la terminal: cada tripulante es una sesión real de <b>Claude Code</b> con su rol, su memoria y sus tareas en paralelo.</p>
+  <p class="lede">Tu squad de IA en una oficina 3D. Escribes aquí en vez de la terminal: cada agente es una sesión real de <b>Claude Code</b> con su rol, su memoria y sus tareas en paralelo.</p>
   <span class="badge">$0 de API — usa tu suscripción</span>
-  <span class="badge">Sesión propia por tripulante</span>
+  <span class="badge">Sesión propia por agente</span>
   <span class="badge">Tareas en paralelo</span>
 
   <h2>Requisitos previos</h2>
@@ -117,7 +117,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   </div>
 
   <h2>Primer arranque</h2>
-  <p>Verás el splash de La Oficina y una oficina con <b>un solo tripulante activo</b> (el principal, con un nombre real sorteado). Activa más roles desde <b>⚙️ Configuración → 👥 Agentes</b> — hasta 6 a la vez, de un catálogo de 7 (Dev, Research, UI/UX, QA, Revisor PR, Docs, Publicador) más los que crees tú.</p>
+  <p>Verás el splash de La Oficina y una oficina con <b>un solo agente activo</b> (el principal, con un nombre real sorteado). Activa más roles desde <b>⚙️ Configuración → 👥 Agentes</b> — hasta 6 a la vez, de un catálogo de 7 (Dev, Research, UI/UX, QA, Revisor PR, Docs, Publicador) más los que crees tú.</p>
 
   <h2>La barra superior</h2>
   <ul>
@@ -132,16 +132,16 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   <div class="tablewrap"><table>
     <tr><th>Haces…</th><th>Pasa esto</th></tr>
     <tr><td class="mono">arregla el bug del login</td><td>Va al <b>principal</b> (el del escritorio grande) o a quien matcheen las palabras clave (test → QA, diseño → UI/UX…)</td></tr>
-    <tr><td class="mono">&lt;nombre del QA&gt;, corre los tests</td><td>El nombre de un tripulante al inicio → va a ese tripulante</td></tr>
-    <tr><td class="mono">@&lt;nombre&gt; investiga X</td><td>@nombre en cualquier parte → va a ese tripulante</td></tr>
+    <tr><td class="mono">&lt;nombre del QA&gt;, corre los tests</td><td>El nombre de un agente al inicio → va a ese agente</td></tr>
+    <tr><td class="mono">@&lt;nombre&gt; investiga X</td><td>@nombre en cualquier parte → va a ese agente</td></tr>
     <tr><td class="mono">&lt;Research&gt;, investiga X y pásaselo a &lt;Dev&gt;</td><td><b>Handoff:</b> el de Research termina, camina al escritorio del Dev 🤝 y la sesión del Dev arranca con el resultado como contexto</td></tr>
     <tr><td>🖱 Click en un personaje</td><td>Prefija su nombre en el mensaje (igual que <kbd>⌘1</kbd>–<kbd>⌘6</kbd>)</td></tr>
   </table></div>
   <ul>
     <li><b>⌨️ Composer multilínea:</b> <kbd>Enter</kbd> envía, <kbd>Shift</kbd>+<kbd>Enter</kbd> hace salto de línea; la caja crece con el texto.</li>
     <li><b>✏️/🔒 Chip de permiso</b> (junto al composer): ámbar = <i>edición</i> (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git); gris = <i>lectura</i> (solo investiga). Un clic lo alterna.</li>
-    <li><b>⏳ Cola:</b> si un tripulante está ocupado, tu mensaje se encola (✕ para sacarlo). Un mensaje <b>⏹ Cancelado</b> trae ✏️ Editar para corregirlo y reenviarlo.</li>
-    <li><b>👁 Detalle en vivo:</b> el globo de cada tripulante muestra qué hace (archivo, comando, búsqueda…) y, pasado un minuto, cuánto lleva (<i>· 2m 15s</i>).</li>
+    <li><b>⏳ Cola:</b> si un agente está ocupado, tu mensaje se encola (✕ para sacarlo). Un mensaje <b>⏹ Cancelado</b> trae ✏️ Editar para corregirlo y reenviarlo.</li>
+    <li><b>👁 Detalle en vivo:</b> el globo de cada agente muestra qué hace (archivo, comando, búsqueda…) y, pasado un minuto, cuánto lleva (<i>· 2m 15s</i>).</li>
     <li><b>⏹ Detener:</b> chip rojo con el nombre de quien trabaja; click para cancelar su tarea. Si algo falla, el error trae el detalle y un botón <b>🔁 Reintentar</b>.</li>
     <li><b>🔘 Respuesta rápida:</b> si la respuesta termina en un menú de opciones, salen como botones.</li>
     <li><b>🖼📁 Adjuntos:</b> pega (<kbd>⌘V</kbd>) o arrastra imágenes, archivos y carpetas al chat.</li>
@@ -151,13 +151,13 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   <h2>Comandos y atajos</h2>
   <div class="tablewrap"><table>
     <tr><th>Comando</th><th>Qué hace</th></tr>
-    <tr><td class="mono">/standup</td><td>📋 Cada tripulante libre retoma su última sesión del proyecto y reporta: qué hizo, pendientes y sugerencia para hoy</td></tr>
+    <tr><td class="mono">/standup</td><td>📋 Cada agente libre retoma su última sesión del proyecto y reporta: qué hizo, pendientes y sugerencia para hoy</td></tr>
     <tr><td class="mono">/squad</td><td>Lista el equipo activo</td></tr>
     <tr><td class="mono">/model opus</td><td>Cambia el modelo (opus · fable · sonnet · haiku). También se sincroniza con el /model de tu terminal al volver a la app</td></tr>
     <tr><td class="mono">/clear</td><td>Conversación nueva</td></tr>
     <tr><td class="mono">/tu-skill</td><td>Cualquier otro /comando pasa directo a Claude Code — tus skills funcionan</td></tr>
   </table></div>
-  <p><kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigirte a cada tripulante · <kbd>Esc</kbd> cierra paneles (por capas) · <kbd>Enter</kbd> envía.</p>
+  <p><kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigirte a cada agente · <kbd>Esc</kbd> cierra paneles (por capas) · <kbd>Enter</kbd> envía.</p>
 
   <h2>Configuración ⚙️</h2>
   <ul>
@@ -173,7 +173,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   <div class="tip">💡 <b>La Oficina vs la terminal:</b> usa la app para el flujo del día (tareas, investigación, standup, trabajo en paralelo) y el botón 🖥 para la cirugía fina interactiva.</div>
 
   <h2>Documentos 📄</h2>
-  <p>Pide un <b>reporte, documento, dashboard o página</b> y el tripulante genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder y exportar como .zip. Y si quieres publicarlo en la web, el <b>Publicador</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
+  <p>Pide un <b>reporte, documento, dashboard o página</b> y el agente genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder y exportar como .zip. Y si quieres publicarlo en la web, el <b>Publicador</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
 
   <h2>Historial 🕘</h2>
   <p>Cada conversación se guarda sola (se conservan las 100 más recientes). Hay <b>buscador</b> por título y proyecto. Al abrir una, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
@@ -189,7 +189,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <li>Si falta el binario <code>claude</code>, la app te lo dice al arrancar con las instrucciones de instalación.</li>
     <li>La primera notificación de macOS puede pedir permiso (Ajustes → Notificaciones).</li>
     <li>¿Respuestas sin personalidad o personajes "pegados"? Puede haber una instancia vieja corriendo: cierra todas las ventanas de La Oficina y ábrela de nuevo (o <code>pkill -f "la-oficina"</code>).</li>
-    <li>El primer mensaje de cada tripulante tarda unos segundos (arranque de Claude Code).</li>
+    <li>El primer mensaje de cada agente tarda unos segundos (arranque de Claude Code).</li>
     <li>¿El Revisor PR o el Publicador fallan con git o GitHub? → revisa <code>gh auth status</code> en tu terminal.</li>
     <li>La app avisa cuando hay una versión nueva en GitHub (notificación clickeable, máximo una vez al día).</li>
   </ul>

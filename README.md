@@ -18,7 +18,7 @@ Cada personaje es una sesión real de Claude Code con su propio rol, memoria y c
 
 ## ✨ Qué es
 
-**La Oficina** convierte tu equipo de Claude Code en una tripulación visible en un diorama 3D. En lugar de escribir en la terminal, escribes en una app de escritorio: cada agente es un tripulante sentado en su escritorio que se para a escuchar, teclea, camina a entregarte el trabajo y se toma un café cuando no hay nada que hacer.
+**La Oficina** convierte tu equipo de Claude Code en un squad de agentes visible en un diorama 3D. En lugar de escribir en la terminal, escribes en una app de escritorio: cada agente es un personaje sentado en su escritorio que se para a escuchar, teclea, camina a entregarte el trabajo y se toma un café cuando no hay nada que hacer.
 
 Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login de tu suscripción — **sin `ANTHROPIC_API_KEY`**, así que no factura por token; consume el cupo de tu plan igual que la terminal.
 
