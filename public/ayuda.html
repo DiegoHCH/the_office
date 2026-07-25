@@ -30,13 +30,19 @@
     font-family: ui-monospace, Menlo, monospace;
   }
   h2::before { content: ""; width: 22px; height: 2px; background: var(--accent); border-radius: 2px; }
+  h3 { font-size: 15px; margin: 18px 0 8px; }
   p { margin: 0 0 12px; font-size: 15px; }
   code {
     font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px;
     background: var(--surface2); padding: 2px 7px; border-radius: 6px; color: var(--accent);
   }
+  pre {
+    background: var(--surface2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; overflow-x: auto; font-size: 13px; margin: 8px 0 14px;
+  }
+  pre code { background: none; padding: 0; }
   .card {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
     padding: 16px 18px; margin-bottom: 12px;
   }
   .card b { color: var(--ink); }
@@ -48,7 +54,7 @@
     text-transform: uppercase; color: var(--muted); background: var(--surface2);
   }
   tr:last-child td { border-bottom: none; }
-  .tablewrap { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; margin-bottom: 12px; }
+  .tablewrap { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 12px; }
   ul { margin: 0 0 12px; padding-left: 22px; font-size: 15px; }
   li { margin: 6px 0; }
   .tip {
@@ -73,32 +79,73 @@
   <span class="badge">Sesión propia por tripulante</span>
   <span class="badge">Tareas en paralelo</span>
 
-  <h2>Pasos previos (una sola vez)</h2>
+  <h2>Requisitos previos</h2>
+
+  <h3>Para usar la app (obligatorio)</h3>
   <div class="card">
-    <p><b>1. Claude Code instalado y con sesión iniciada.</b> En una terminal debe funcionar el comando <code>claude</code> (si no has iniciado sesión, córrelo una vez y haz login con tu cuenta/suscripción).</p>
-    <p><b>2. Nada más.</b> La app encuentra el binario sola y hereda tu login. No necesita API key — de hecho, <b>no debe</b> haber una <code>ANTHROPIC_API_KEY</code> en tu entorno, o pagarías por token en vez de usar tu plan.</p>
-  </div>
-  <div class="card">
-    <p><b>Opcional — dos cuentas (💼 work / 🔒 private):</b> si creas los directorios de configuración <code>~/.claude-work</code> y <code>~/.claude-private</code> (iniciando sesión una vez con cada cuenta usando <code>CLAUDE_CONFIG_DIR</code>), la app te muestra un selector de perfil y cada cuenta tiene su squad, sus proyectos y su historial. Sin ellos, la app usa tu cuenta normal ("🧑 mi cuenta").</p>
+    <p><b>1. macOS con Apple Silicon.</b> Windows está en el roadmap.</p>
+    <p><b>2. Claude Code instalado y con sesión iniciada.</b> La regla simple: si <code>claude</code> arranca en tu terminal, La Oficina funciona. Requiere un plan <b>Pro o Max</b> (la cuenta gratuita de la web no habilita el CLI).</p>
+    <pre><code># Instalar (si no lo tienes)
+curl -fsSL https://claude.ai/install.sh | bash
+claude   # y sigue el flujo de /login con tu cuenta</code></pre>
+    <p><b>3. Sin <code>ANTHROPIC_API_KEY</code> en el entorno.</b> Si existe, Claude Code cobra por token en vez de usar tu plan. La app la quita del entorno de sus agentes, pero revisa tu <code>~/.zshrc</code> por si acaso.</p>
   </div>
 
-  <h2>Cómo funciona</h2>
-  <p>Cada mensaje lanza el binario <code>claude</code> en modo headless con tu login. Cada tripulante mantiene <b>su propia sesión por proyecto</b> (con <code>--resume</code>), así que recuerdan lo que han hecho contigo. Pueden trabajar <b>varios a la vez</b> — un proceso independiente por tripulante.</p>
+  <h3>Para que los agentes usen herramientas (recomendado)</h3>
+  <div class="card">
+    <p><b>Homebrew en el PATH del shell.</b> Los agentes ejecutan comandos con tu perfil de zsh; para que encuentren <code>gh</code>, <code>node</code> y demás, asegúrate de tener en <code>~/.zprofile</code>:</p>
+    <pre><code>eval "$(/opt/homebrew/bin/brew shellenv)"</code></pre>
+    <p>La app además suma <code>/opt/homebrew/bin</code>, <code>/usr/local/bin</code> y <code>~/.local/bin</code> al PATH de cada agente por si el perfil no carga.</p>
+  </div>
+
+  <h3>Para Robin (flujo de PR) y Franky (publicar en la web)</h3>
+  <div class="card">
+    <p>Ambos usan <b>GitHub CLI</b> autenticado con tu cuenta:</p>
+    <pre><code>brew install gh
+gh auth login    # GitHub.com → SSH (o HTTPS) → Login with a web browser
+gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre>
+    <p>El token queda en el keyring del sistema, así que sirve para los procesos que lanza la app sin re-loguearse. Además:</p>
+    <p>· <b>git configurado</b> (<code>git config --global user.name</code> / <code>user.email</code>) y con acceso a los repos donde vayas a abrir PRs.</p>
+    <p>· <b>Franky</b> necesita permiso para crear repos públicos en tu cuenta (usa <code>gh repo create</code> y GitHub Pages) — siempre pide confirmación antes de publicar algo.</p>
+    <p>· Opcional para Robin: <b>acli</b> (Atlassian CLI) y los conectores MCP de Jira/Slack configurados en Claude Code, si tus skills de PR hacen tracking en esas herramientas.</p>
+  </div>
+
+  <h3>Opcionales</h3>
+  <div class="card">
+    <p><b>Dos cuentas (💼 work / 🔒 private):</b> crea los directorios <code>~/.claude-work</code> y <code>~/.claude-private</code> iniciando sesión una vez con cada cuenta usando <code>CLAUDE_CONFIG_DIR</code>. La app te muestra ambos perfiles y cada uno tiene su squad, sus proyectos, su historial y sus preferencias. Sin ellos, usa tu cuenta normal ("🧑 mi cuenta").</p>
+    <p><b>Desarrollo (compilar la app):</b> Node.js ≥ 18 · <code>npm install</code> · <code>npm run dev</code>.</p>
+  </div>
+
+  <h2>Primer arranque</h2>
+  <p>Verás el splash de La Oficina y una oficina con <b>un solo tripulante activo</b> (el principal, con un nombre real sorteado). Activa más roles desde <b>⚙️ Configuración → 👥 Agentes</b> — hasta 6 a la vez, de un catálogo de 7 (Dev, Research, UI/UX, QA, Revisor PR, Docs, Publicador) más los que crees tú.</p>
+
+  <h2>La barra superior</h2>
+  <ul>
+    <li><b>💼 work / proyecto ▾</b> — el contexto en un solo control: perfiles como pestañas, la lista de proyectos debajo y <b>➕ Agregar proyecto…</b> para sumar carpetas fuera de la raíz del perfil (quedan con 📌).</li>
+    <li><b>📄 Documentos</b> — reportes, dashboards y páginas que genera el squad.</li>
+    <li><b>🕘 Historial</b> — conversaciones guardadas, con buscador.</li>
+    <li><b>+ Nueva</b> — conversación nueva (<kbd>⌘K</kbd>).</li>
+    <li><b>⚙️ Configuración</b> — preferencias y acceso a Agentes (<kbd>⌘,</kbd>).</li>
+  </ul>
 
   <h2>Hablarle al squad</h2>
   <div class="tablewrap"><table>
-    <tr><th>Escribes…</th><th>Pasa esto</th></tr>
+    <tr><th>Haces…</th><th>Pasa esto</th></tr>
     <tr><td class="mono">arregla el bug del login</td><td>Va al <b>principal</b> (el del escritorio grande) o a quien matcheen las palabras clave (test → QA, diseño → UI/UX…)</td></tr>
     <tr><td class="mono">Zoro, corre los tests</td><td>Nombre al inicio → va a ese tripulante</td></tr>
     <tr><td class="mono">@nami investiga X</td><td>@nombre en cualquier parte → va a ese tripulante</td></tr>
     <tr><td class="mono">Nami, investiga X y pásaselo a Luffy</td><td><b>Handoff:</b> Nami termina, camina al escritorio de Luffy 🤝 y la sesión de Luffy arranca con el resultado como contexto</td></tr>
+    <tr><td>🖱 Click en un personaje</td><td>Prefija su nombre en el mensaje (igual que <kbd>⌘1</kbd>–<kbd>⌘6</kbd>)</td></tr>
   </table></div>
-  <p>Mientras uno trabaja puedes pedirle cosas a otro — el que está ocupado te lo dice.</p>
   <ul>
-    <li><b>👁 Detalle en vivo:</b> el globo de cada tripulante muestra qué está haciendo (archivo que edita, comando que corre, búsqueda…).</li>
-    <li><b>⏹ Detener:</b> mientras alguien trabaja aparece un chip rojo con su nombre arriba; click para cancelar su tarea al instante.</li>
-    <li><b>🔘 Respuesta rápida:</b> si un tripulante responde con opciones, salen como botones — click y respondes sin escribir.</li>
-    <li><b>🖼 Imágenes:</b> pega (<kbd>⌘V</kbd>) o arrastra un screenshot al chat; el tripulante lo lee y lo analiza.</li>
+    <li><b>⌨️ Composer multilínea:</b> <kbd>Enter</kbd> envía, <kbd>Shift</kbd>+<kbd>Enter</kbd> hace salto de línea; la caja crece con el texto.</li>
+    <li><b>✏️/🔒 Chip de permiso</b> (junto al composer): ámbar = <i>edición</i> (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git); gris = <i>lectura</i> (solo investiga). Un clic lo alterna.</li>
+    <li><b>⏳ Cola:</b> si un tripulante está ocupado, tu mensaje se encola (✕ para sacarlo). Un mensaje <b>⏹ Cancelado</b> trae ✏️ Editar para corregirlo y reenviarlo.</li>
+    <li><b>👁 Detalle en vivo:</b> el globo de cada tripulante muestra qué hace (archivo, comando, búsqueda…) y, pasado un minuto, cuánto lleva (<i>· 2m 15s</i>).</li>
+    <li><b>⏹ Detener:</b> chip rojo con el nombre de quien trabaja; click para cancelar su tarea. Si algo falla, el error trae el detalle y un botón <b>🔁 Reintentar</b>.</li>
+    <li><b>🔘 Respuesta rápida:</b> si la respuesta termina en un menú de opciones, salen como botones.</li>
+    <li><b>🖼📁 Adjuntos:</b> pega (<kbd>⌘V</kbd>) o arrastra imágenes, archivos y carpetas al chat.</li>
+    <li><b>📋 Copiar:</b> cada bloque de código tiene botón de copiar al hover, y cada respuesta uno en su esquina.</li>
   </ul>
 
   <h2>Comandos y atajos</h2>
@@ -106,42 +153,48 @@
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td class="mono">/standup</td><td>📋 Cada tripulante libre retoma su última sesión del proyecto y reporta: qué hizo, pendientes y sugerencia para hoy</td></tr>
     <tr><td class="mono">/squad</td><td>Lista el equipo activo</td></tr>
-    <tr><td class="mono">/model sonnet</td><td>Cambia el modelo (opus · sonnet · haiku · fable · fable1m)</td></tr>
+    <tr><td class="mono">/model opus</td><td>Cambia el modelo (opus · fable · sonnet · haiku). También se sincroniza con el /model de tu terminal al volver a la app</td></tr>
     <tr><td class="mono">/clear</td><td>Conversación nueva</td></tr>
     <tr><td class="mono">/tu-skill</td><td>Cualquier otro /comando pasa directo a Claude Code — tus skills funcionan</td></tr>
   </table></div>
-  <p><kbd>⌘K</kbd> nueva conversación · <kbd>⌘Y</kbd> historial · <kbd>⌘1</kbd>–<kbd>⌘4</kbd> dirigirte a cada tripulante · <kbd>Esc</kbd> cierra paneles · <kbd>Enter</kbd> envía.</p>
+  <p><kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigirte a cada tripulante · <kbd>Esc</kbd> cierra paneles (por capas) · <kbd>Enter</kbd> envía.</p>
 
   <h2>Configuración ⚙️</h2>
   <ul>
-    <li><b>Modelo</b> — el modelo de Claude para los próximos mensajes.</li>
-    <li><b>Permiso</b> — ✏️ <i>edición</i>: puede modificar archivos y correr comandos (auto-acepta sus ediciones; úsalo en repos con git). 🔒 <i>lectura</i>: solo investiga.</li>
+    <li><b>👥 Agentes</b> — el submenu del squad: activa/desactiva con el <b>switch</b> (hasta 6; el <b>1º activo es el principal</b>), reordena arrastrando el grip <b>⠿</b>, renombra, elige personaje en la galería 3D (46 modelos, sin repetir — el cambio aplica al instante) y edita su <b>✏️ Personalidad</b> (un <code>.md</code> por personaje). Los roles personalizados se crean y editan ahí mismo, y si borraste UI/UX, QA o Docs, <b>♻️ Restaurar predeterminados</b> los recupera.</li>
+    <li><b>Modelo</b> — Opus 5 · 1M (recomendado), Fable 5, Sonnet 5 o Haiku 4.5. Se recuerda por perfil.</li>
+    <li><b>Permiso</b> — el mismo ✏️/🔒 del chip del composer. Se recuerda por perfil.</li>
     <li><b>Tema</b> — Clásico, Noche (con lámparas encendidas 🌙), Playa, Sakura.</li>
-    <li><b>Notificaciones</b> — sonidos + avisos de macOS cuando alguien termina y estás en otra app.</li>
-    <li><b>Squad</b> — activa hasta 4 roles (Dev, Research, UI/UX, QA, Revisor PR, Docs). El <b>1º activo es el principal</b>. Renómbralos, elige su personaje en la galería 3D (46 modelos, sin repetir) y edita su <b>✏️ personalidad</b> (un <code>.md</code> por personaje con estilo, reglas y expertise que se añaden a su rol). Todo se guarda por cuenta.</li>
+    <li><b>Documentos</b> — la carpeta donde el squad guarda lo que genera.</li>
     <li><b>🧠 Pizarra SQUAD.md</b> — memoria común del squad en la raíz del proyecto: los agentes la leen y anotan avances para el resto.</li>
-    <li><b>📖 Guía de uso</b> — este documento.</li>
-    <li><b>🖥 Abrir terminal en el proyecto</b> — abre Warp (o la terminal predeterminada) en la carpeta del proyecto actual, por si necesitas algo <b>interactivo</b> que la app no cubre (plan mode, <code>/login</code>, supervisar cambios paso a paso, git…).</li>
+    <li><b>Notificaciones</b> — sonidos + avisos de macOS cuando alguien termina y estás en otra app.</li>
+    <li><b>🖥 Abrir terminal en el proyecto</b> — Warp (o la predeterminada) en la carpeta del proyecto actual, para lo <b>interactivo</b> que la app no cubre (plan mode, <code>/login</code>, git fino…).</li>
   </ul>
   <div class="tip">💡 <b>La Oficina vs la terminal:</b> usa la app para el flujo del día (tareas, investigación, standup, trabajo en paralelo) y el botón 🖥 para la cirugía fina interactiva.</div>
 
-  <h2>Historial 🕘</h2>
-  <p>Cada conversación se guarda sola. Al abrir una del historial, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
+  <h2>Documentos 📄</h2>
+  <p>Pide un <b>reporte, documento, dashboard o página</b> y el tripulante genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder y exportar como .zip. Y si quieres publicarlo en la web, <b>Franky</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
 
-  <h2>Monitor 📊</h2>
-  <p>Arriba a la izquierda: CPU y RAM del Mac (medida real, como el Activity Monitor), memoria de la app, y tu <b>% de uso de Claude</b> — sesión (5h) y semana con sus tiempos de reset, igual que la app de la barra de menú.</p>
+  <h2>Historial 🕘</h2>
+  <p>Cada conversación se guarda sola (se conservan las 100 más recientes). Hay <b>buscador</b> por título y proyecto. Al abrir una, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
+
+  <h2>Monitores 📊</h2>
+  <p>Arriba a la izquierda, dos burbujas: <b>Sistema</b> (CPU y RAM reales del Mac, memoria de la app) y <b>Claude</b> (modelo en uso y tu % de suscripción — sesión de 5h y semana con sus tiempos de reset). Si el uso no está disponible un momento, la burbuja lo dice y reintenta sola.</p>
 
   <h2>La vida de la oficina</h2>
-  <p>Cuando nadie les pide nada: toman café, sueltan frases de su rol, escuchan música 🎧, pasean y se visitan. En cuanto llega trabajo, <span class="ok">vuelven a su puesto</span>. Al terminar una tarea, caminan a entregarla 🙌.</p>
+  <p>Cuando nadie les pide nada: toman café, sueltan frases de su rol, escuchan música 🎧, pasean y se visitan. En cuanto llega trabajo, <span class="ok">vuelven a su puesto</span>. Al terminar una tarea, caminan a entregarla 🙌. Si la ventana queda tapada o minimizada, la escena baja el ritmo para no gastar batería; visible (aunque sea en otra pantalla), corre a 60fps.</p>
 
   <h2>Si algo se ve raro</h2>
   <ul>
+    <li>Si falta el binario <code>claude</code>, la app te lo dice al arrancar con las instrucciones de instalación.</li>
     <li>La primera notificación de macOS puede pedir permiso (Ajustes → Notificaciones).</li>
     <li>¿Respuestas sin personalidad o personajes "pegados"? Puede haber una instancia vieja corriendo: cierra todas las ventanas de La Oficina y ábrela de nuevo (o <code>pkill -f "la-oficina"</code>).</li>
     <li>El primer mensaje de cada tripulante tarda unos segundos (arranque de Claude Code).</li>
+    <li>Robin/Franky fallan con git o GitHub → revisa <code>gh auth status</code> en tu terminal.</li>
+    <li>La app avisa cuando hay una versión nueva en GitHub (notificación clickeable, máximo una vez al día).</li>
   </ul>
 
-  <footer>La Oficina v1.0 · corre Claude Code con tu suscripción · hecha con Electron + React Three Fiber</footer>
+  <footer>La Oficina · corre Claude Code con tu suscripción · hecha con Electron + React Three Fiber</footer>
 </div>
 </body>
 </html>
