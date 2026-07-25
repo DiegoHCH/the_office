@@ -1151,15 +1151,13 @@ function isNewerVersion(a, b) {
 }
 
 // Aviso de nueva versión (sin auto-update): consulta el último release de
-// GitHub como mucho una vez al día; si es más nuevo, notificación del sistema
-// que abre la página del release al hacer clic.
+// GitHub en cada arranque y notifica como mucho una vez por versión (se
+// recuerda la última notificada). Clic en la notificación abre el release.
 function checkForUpdates() {
-  const stamp = path.join(app.getPath('userData'), 'last-update-check.txt')
+  if (isDev) return // el dev comparte userData con la app instalada: no interferir
+  const stamp = path.join(app.getPath('userData'), 'last-notified-version.txt')
   try {
-    if (Date.now() - (Number(fs.readFileSync(stamp, 'utf8')) || 0) < 24 * 3600 * 1000) return
-  } catch {}
-  try {
-    fs.writeFileSync(stamp, String(Date.now()))
+    fs.unlinkSync(path.join(app.getPath('userData'), 'last-update-check.txt')) // stamp del esquema anterior
   } catch {}
   const req = https.get(
     {
@@ -1177,6 +1175,11 @@ function checkForUpdates() {
           const j = JSON.parse(body)
           const latest = String(j.tag_name || '').replace(/^v/, '')
           if (!latest || !isNewerVersion(latest, app.getVersion())) return
+          let notified = ''
+          try {
+            notified = fs.readFileSync(stamp, 'utf8').trim()
+          } catch {}
+          if (notified === latest) return // ya se avisó de esta versión
           if (!Notification.isSupported()) return
           const n = new Notification({
             title: 'La Oficina',
@@ -1184,6 +1187,9 @@ function checkForUpdates() {
           })
           n.on('click', () => shell.openExternal(j.html_url || 'https://github.com/DiegoHCH/the_office/releases'))
           n.show()
+          try {
+            fs.writeFileSync(stamp, latest) // solo tras mostrarla: un fallo no quema el aviso
+          } catch {}
         } catch {}
       })
     }
