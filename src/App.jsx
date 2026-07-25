@@ -405,8 +405,9 @@ export default function App() {
   const themeLoaded = useRef(false) // evita machacar el guardado antes de hidratar
   const [board, setBoard] = useState(() => localStorage.getItem('oficina-board') !== '0')
   const [roster, setRoster] = useState([]) // config completa (6 roles)
-  const [squadOpen, setSquadOpen] = useState(false)
-  const [draft, setDraft] = useState([]) // copia editable del roster en el panel ⚙️
+  const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
+  const [prefsOpen, setPrefsOpen] = useState(false) // panel ⚙️ Configuración
+  const [draft, setDraft] = useState([]) // copia editable del roster en el panel Agentes
   const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
   const [addingRole, setAddingRole] = useState(false) // form "agregar rol" abierto
   const NEW_ROLE = { name: '', focus: '', emoji: '🛠️', color: '#38bdf8', kw: '', avatar: '' }
@@ -495,11 +496,19 @@ export default function App() {
   }, [])
 
   const refreshArtifacts = async () => setArtsList((await window.oficina?.artifacts?.list?.()) || [])
+  // cierra todos los paneles laterales (cada toggle abre el suyo encima)
+  const closePanels = () => {
+    setHistOpen(false)
+    setArtsOpen(false)
+    setAgentsOpen(false)
+    setPrefsOpen(false)
+    setAvatarPicker(null)
+  }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
-    setArtsOpen((o) => !o)
-    setHistOpen(false)
-    setSquadOpen(false)
+    const next = !artsOpen
+    closePanels()
+    setArtsOpen(next)
   }
   const pickArtsDir = async () => {
     const res = await window.oficina?.artifacts?.pickDir?.()
@@ -711,10 +720,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
-        setHistOpen(false)
-        setSquadOpen(false)
-        setAvatarPicker(null)
-        setArtsOpen(false)
+        closePanels()
         return
       }
       if (!e.metaKey) return
@@ -811,18 +817,19 @@ export default function App() {
     clearConversation()
   }
 
-  // ── Config del squad (⚙️) ────────────────────────────────────────────────
-  const openSquad = () => {
-    // toggle: si ya está abierta, se cierra
-    if (squadOpen) {
-      setSquadOpen(false)
-      setAvatarPicker(null)
-      return
-    }
+  // ── Panel 👥 Agentes (roster del squad) ──────────────────────────────────
+  const openAgents = () => {
+    const wasOpen = agentsOpen
+    closePanels()
+    if (wasOpen) return // toggle: si ya estaba abierto, queda cerrado
     setDraft(roster.map((r) => ({ ...r })))
-    setSquadOpen(true)
-    setAvatarPicker(null)
-    setHistOpen(false)
+    setAgentsOpen(true)
+  }
+  // ── Panel ⚙️ Configuración (preferencias) ────────────────────────────────
+  const openPrefs = () => {
+    const wasOpen = prefsOpen
+    closePanels()
+    if (!wasOpen) setPrefsOpen(true)
   }
   const draftEnabled = draft.filter((r) => r.enabled).length
   const toggleMember = (id) =>
@@ -878,7 +885,7 @@ export default function App() {
     }
     await window.oficina?.squad?.save(profile, clean)
     setRoster(clean)
-    setSquadOpen(false)
+    setAgentsOpen(false)
     showToast(
       `squad actualizado: ${clean
         .filter((r) => r.enabled)
@@ -906,8 +913,9 @@ export default function App() {
 
   const toggleHist = async () => {
     if (!histOpen) setHistList((await window.oficina?.history?.list()) || [])
-    setHistOpen((o) => !o)
-    setSquadOpen(false)
+    const next = !histOpen
+    closePanels()
+    setHistOpen(next)
   }
 
   const loadConvo = async (id) => {
@@ -1102,13 +1110,24 @@ export default function App() {
           </svg>
           Nueva Conversación
         </button>
-        <button type="button" className="gear" onClick={openSquad} disabled={busy} title="Modelo, permisos, notificaciones y squad">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="3" />
-            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-          </svg>
-          Configuración
-        </button>
+        <div className="hud-right">
+          <button type="button" className="newchat" onClick={openAgents} disabled={busy} title="Squad: roles, personajes y personalidad">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+              <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Agentes
+          </button>
+          <button type="button" className="gear" onClick={openPrefs} disabled={busy} title="Modelo, permisos, tema y notificaciones">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            Configuración
+          </button>
+        </div>
       </header>
 
       <div className="stage">
@@ -1130,11 +1149,11 @@ export default function App() {
           }}
         />
 
-        {squadOpen && (
+        {prefsOpen && (
           <div className="drawer">
             <div className="drawer-head">
               <b>⚙️ Configuración</b>
-              <button onClick={() => setSquadOpen(false)}>✕</button>
+              <button onClick={() => setPrefsOpen(false)}>✕</button>
             </div>
 
             {/* guía de uso + terminal */}
@@ -1225,8 +1244,16 @@ export default function App() {
                 {sound ? '🔔 encendidas' : '🔕 apagadas'}
               </button>
             </div>
+          </div>
+        )}
 
-            <div className="drawer-sep">Squad · hasta {MAX_ACTIVE} activos · el 1º es el principal ({profile})</div>
+        {agentsOpen && (
+          <div className="drawer">
+            <div className="drawer-head">
+              <b>👥 Agentes</b>
+              <button onClick={() => closePanels()}>✕</button>
+            </div>
+            <div className="drawer-sep agents-sub">Squad · hasta {MAX_ACTIVE} activos · el 1º es el principal ({profile})</div>
             {draft.map((r) => (
               <div key={r.id} className={r.enabled ? 'squad-row' : 'squad-row off'}>
                 <div className="squad-row-top">
@@ -1347,7 +1374,7 @@ export default function App() {
           </div>
         )}
 
-        {squadOpen &&
+        {agentsOpen &&
           avatarPicker &&
           (() => {
             const r = draft.find((x) => x.id === avatarPicker)

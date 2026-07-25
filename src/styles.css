@@ -34,9 +34,10 @@ body {
 }
 .newchat svg { width: 15px; height: 15px; }
 .newchat:hover { background: rgba(45, 212, 191, 0.18); }
-/* botón de configuración: pegado a la derecha, tuerca SVG + texto */
+/* grupo derecho del HUD: Agentes + Configuración */
+.hud-right { margin-left: auto; display: flex; gap: 10px; }
+/* botón de configuración: tuerca SVG + texto */
 .gear {
-  margin-left: auto;
   display: inline-flex; align-items: center; gap: 7px;
   background: rgba(45, 212, 191, 0.08); color: #2dd4bf;
   border: 1px solid rgba(45, 212, 191, 0.45); border-radius: 9px;
@@ -255,6 +256,8 @@ body {
   margin: 12px 4px 6px; padding-top: 10px; border-top: 1px solid #28353a;
   font-size: 11px; color: #93a6a1; font-family: ui-monospace, Menlo, monospace;
 }
+/* subtítulo del panel Agentes: va justo bajo el encabezado, sin línea extra */
+.drawer-sep.agents-sub { margin-top: 0; padding-top: 0; border-top: none; }
 
 /* panel de configuración del squad */
 .squad-row { padding: 8px 6px; border-radius: 9px; }
