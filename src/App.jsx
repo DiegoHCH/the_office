@@ -1584,7 +1584,23 @@ export default function App() {
                     </button>
                   </div>
                 )}
-                {m.role === 'user' && m.cancelled && <div className="who to">⏹ cancelado</div>}
+                {m.role === 'user' && m.cancelled && (
+                  <div className="who to">
+                    ⏹ cancelado
+                    <button
+                      type="button"
+                      className="queue-cancel"
+                      title="Editar y reenviar"
+                      onClick={() => {
+                        setInput(m.text)
+                        inputRef.current?.focus()
+                        requestAnimationFrame(() => autoGrow(inputRef.current))
+                      }}
+                    >
+                      ✏️ editar
+                    </button>
+                  </div>
+                )}
                 {m.role === 'user' && m.atts?.length > 0 && (
                   <div className="msg-atts">{m.atts.map((n, j) => <span key={j}>🖼 {n}</span>)}</div>
                 )}
