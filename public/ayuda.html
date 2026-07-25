@@ -135,40 +135,50 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <tr><td class="mono">&lt;nombre del QA&gt;, corre los tests</td><td>El nombre de un agente al inicio → va a ese agente</td></tr>
     <tr><td class="mono">@&lt;nombre&gt; investiga X</td><td>@nombre en cualquier parte → va a ese agente</td></tr>
     <tr><td class="mono">&lt;Research&gt;, investiga X y pásaselo a &lt;Dev&gt;</td><td><b>Handoff:</b> el de Research termina, camina al escritorio del Dev 🤝 y la sesión del Dev arranca con el resultado como contexto</td></tr>
+    <tr><td class="mono">@todos revisen sus áreas</td><td><b>Broadcast:</b> el mismo mensaje llega a todos los agentes libres a la vez</td></tr>
     <tr><td>🖱 Click en un personaje</td><td>Prefija su nombre en el mensaje (igual que <kbd>⌘1</kbd>–<kbd>⌘6</kbd>)</td></tr>
   </table></div>
   <ul>
     <li><b>⌨️ Composer multilínea:</b> <kbd>Enter</kbd> envía, <kbd>Shift</kbd>+<kbd>Enter</kbd> hace salto de línea; la caja crece con el texto.</li>
-    <li><b>✏️/🔒 Chip de permiso</b> (junto al composer): ámbar = <i>edición</i> (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git); gris = <i>lectura</i> (solo investiga). Un clic lo alterna.</li>
-    <li><b>⏳ Cola:</b> si un agente está ocupado, tu mensaje se encola (✕ para sacarlo). Un mensaje <b>⏹ Cancelado</b> trae ✏️ Editar para corregirlo y reenviarlo.</li>
-    <li><b>👁 Detalle en vivo:</b> el globo de cada agente muestra qué hace (archivo, comando, búsqueda…) y, pasado un minuto, cuánto lleva (<i>· 2m 15s</i>).</li>
+    <li><b>📌 Plantillas:</b> escribe <code>/</code> y salen tus plantillas de prompts guardadas (por perfil); <kbd>Enter</kbd> o <kbd>Tab</kbd> insertan la primera, y desde el mismo popover se crean y borran.</li>
+    <li><b>✏️/🔒 Chip de permiso</b> (junto al composer): ámbar = <i>edición</i> (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git; sin git, la app te lo advierte); gris = <i>lectura</i> (solo investiga). Un clic lo alterna.</li>
+    <li><b>⏳ Cola:</b> si un agente está ocupado, tu mensaje se encola (✕ para sacarlo) y el personaje muestra un badge <b>⏳ N</b>. La cola <b>sobrevive un cierre de la app</b>: al volver pregunta si retoma los pendientes. Un mensaje <b>⏹ Cancelado</b> trae ✏️ Editar.</li>
+    <li><b>✏️ Editar y reenviar:</b> pasa el mouse por cualquiera de tus mensajes y el lápiz lo carga al composer para corregirlo.</li>
+    <li><b>👁 Detalle en vivo:</b> el globo de cada agente muestra qué hace y cuánto lleva; si organiza su trabajo, junto al personaje aparece su <b>checklist 📝 2/5</b> en tiempo real.</li>
+    <li><b>🪙 Tokens:</b> cada respuesta muestra cuántos tokens consumió (desglose en el tooltip) y el monitor lleva el acumulado de la conversación.</li>
+    <li><b>🔀 Ver cambios:</b> si la tarea editó archivos, la respuesta ofrece el <code>git diff</code> del proyecto coloreado, con los archivos nuevos aparte.</li>
+    <li><b>🔍 Buscar (⌘F):</b> barrita sobre el chat con n/total y navegación entre coincidencias. Y un click en el <b>nombre</b> de un mensaje filtra el chat a solo ese agente.</li>
     <li><b>⏹ Detener:</b> chip rojo con el nombre de quien trabaja; click para cancelar su tarea. Si algo falla, el error trae el detalle y un botón <b>🔁 Reintentar</b>.</li>
     <li><b>🔘 Respuesta rápida:</b> si la respuesta termina en un menú de opciones, salen como botones.</li>
     <li><b>🖼📁 Adjuntos:</b> pega (<kbd>⌘V</kbd>) o arrastra imágenes, archivos y carpetas al chat.</li>
-    <li><b>📋 Copiar:</b> cada bloque de código tiene botón de copiar al hover, y cada respuesta uno en su esquina.</li>
+    <li><b>📋 Copiar:</b> cada bloque de código tiene botón de copiar al hover (y <b>resaltado de sintaxis</b>), y cada respuesta el suyo en la esquina.</li>
   </ul>
 
   <h2>Comandos y atajos</h2>
   <div class="tablewrap"><table>
     <tr><th>Comando</th><th>Qué hace</th></tr>
-    <tr><td class="mono">/standup</td><td>📋 Cada agente libre retoma su última sesión del proyecto y reporta: qué hizo, pendientes y sugerencia para hoy</td></tr>
+    <tr><td class="mono">/standup</td><td>📋 Cada agente libre retoma su última sesión del proyecto y reporta — y en la escena, ¡el squad camina al centro y se reúne en círculo mientras tanto!</td></tr>
+    <tr><td class="mono">@todos &lt;mensaje&gt;</td><td>📢 El mismo prompt a todos los agentes libres a la vez</td></tr>
     <tr><td class="mono">/squad</td><td>Lista el equipo activo</td></tr>
-    <tr><td class="mono">/model opus</td><td>Cambia el modelo (opus · fable · sonnet · haiku). También se sincroniza con el /model de tu terminal al volver a la app</td></tr>
+    <tr><td class="mono">/model opus</td><td>Cambia el modelo global (opus · fable · sonnet · haiku). También se sincroniza con el /model de tu terminal al volver a la app</td></tr>
     <tr><td class="mono">/clear</td><td>Conversación nueva</td></tr>
-    <tr><td class="mono">/tu-skill</td><td>Cualquier otro /comando pasa directo a Claude Code — tus skills funcionan</td></tr>
+    <tr><td class="mono">/mi-plantilla</td><td>Con plantillas guardadas, / las lista y filtra; sin coincidencia, el /comando pasa directo a Claude Code — tus skills funcionan</td></tr>
   </table></div>
-  <p><kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigirte a cada agente · <kbd>Esc</kbd> cierra paneles (por capas) · <kbd>Enter</kbd> envía.</p>
+  <p><kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘F</kbd> buscar en la conversación · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigirte a cada agente · <kbd>Esc</kbd> cierra paneles (por capas) · <kbd>Enter</kbd> envía. Y desde <b>cualquier app</b>: <kbd>⌥Espacio</kbd> trae La Oficina con el composer listo (segundo toque la aparta).</p>
 
   <h2>Configuración ⚙️</h2>
   <ul>
-    <li><b>👥 Agentes</b> — el submenu del squad: activa/desactiva con el <b>switch</b> (hasta 6; el <b>1º activo es el principal</b>), reordena arrastrando el grip <b>⠿</b>, renombra, elige personaje en la galería 3D (46 modelos, sin repetir — el cambio aplica al instante) y edita su <b>✏️ Personalidad</b> (un <code>.md</code> por personaje). Los roles personalizados se crean y editan ahí mismo, y si borraste UI/UX, QA o Docs, <b>♻️ Restaurar predeterminados</b> los recupera.</li>
-    <li><b>Modelo</b> — Opus 5 · 1M (recomendado), Fable 5, Sonnet 5 o Haiku 4.5. Se recuerda por perfil.</li>
+    <li><b>👥 Agentes</b> — el submenu del squad: activa/desactiva con el <b>switch</b> (hasta 6; el <b>1º activo es el principal</b>), reordena arrastrando el grip <b>⠿</b>, renombra, elige personaje en la galería 3D (46 modelos, sin repetir — el cambio aplica al instante), edita su <b>✏️ Personalidad</b> (un <code>.md</code> por personaje) y fija su <b>🧠 modelo propio</b> (UI/UX con Opus, QA con Haiku… los demás usan el global). Los roles personalizados se crean y editan ahí mismo, y <b>♻️ Restaurar predeterminados</b> recupera los borrados.</li>
+    <li><b>🧩 Skills</b> — superpoderes del perfil: catálogo curado del repo oficial de Anthropic (frontend design para el UI/UX, testing con navegador para QA, Word/PDF/PowerPoint/Excel para Docs…), instalar desde <b>cualquier repo de GitHub</b> (detecta las skills adentro), crear las tuyas con el esqueleto listo, y la sección <b>Plugins</b>: paquetes completos (skills + comandos + agentes + MCP) instalables desde marketplaces o repos directos. Todo llega a tus agentes automáticamente.</li>
+    <li><b>🌐 Servidores MCP</b> — herramientas externas para los agentes: <b>Playwright</b> (manejan un navegador real — QA de interfaces vivas), Chrome DevTools, Context7 (docs al día), Figma, o cualquier servidor propio (comando npx o URL).</li>
+    <li><b>Modelo</b> — el global: Opus 5 · 1M (recomendado), Fable 5, Sonnet 5 o Haiku 4.5. Se recuerda por perfil.</li>
     <li><b>Permiso</b> — el mismo ✏️/🔒 del chip del composer. Se recuerda por perfil.</li>
-    <li><b>Tema</b> — Clásico, Noche (con lámparas encendidas 🌙), Playa, Sakura.</li>
+    <li><b>Tema</b> — Clásico, Noche 🌙, Playa, Sakura… o <b>🌗 Auto</b>: Noche de 19:00 a 07:00, Clásico de día.</li>
     <li><b>Documentos</b> — la carpeta donde el squad guarda lo que genera.</li>
     <li><b>🧠 Pizarra SQUAD.md</b> — memoria común del squad en la raíz del proyecto: los agentes la leen y anotan avances para el resto.</li>
     <li><b>Notificaciones</b> — sonidos + avisos de macOS cuando alguien termina y estás en otra app.</li>
     <li><b>🖥 Abrir terminal en el proyecto</b> — Warp (o la predeterminada) en la carpeta del proyecto actual, para lo <b>interactivo</b> que la app no cubre (plan mode, <code>/login</code>, git fino…).</li>
+    <li><b>💾 Exportar / 📥 Importar configuración</b> — squad, personalidades, plantillas y proyectos en un JSON, para respaldar o migrar de máquina.</li>
   </ul>
   <div class="tip">💡 <b>La Oficina vs la terminal:</b> usa la app para el flujo del día (tareas, investigación, standup, trabajo en paralelo) y el botón 🖥 para la cirugía fina interactiva.</div>
 
@@ -176,13 +186,13 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   <p>Pide un <b>reporte, documento, dashboard o página</b> y el agente genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder y exportar como .zip. Y si quieres publicarlo en la web, el <b>Publicador</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
 
   <h2>Historial 🕘</h2>
-  <p>Cada conversación se guarda sola (se conservan las 100 más recientes). Hay <b>buscador</b> por título y proyecto. Al abrir una, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
+  <p>Cada conversación se guarda sola (se conservan las 100 más recientes). Hay <b>buscador</b> por título y proyecto, <b>📌 fijar</b> (las fijadas van arriba y no se purgan nunca) y <b>⬇ exportar a Markdown</b> con metadatos y todos los mensajes. Al abrir una, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
 
   <h2>Monitores 📊</h2>
-  <p>Arriba a la izquierda, dos burbujas: <b>Sistema</b> (CPU y RAM reales del Mac, memoria de la app) y <b>Claude</b> (modelo en uso y tu % de suscripción — sesión de 5h y semana con sus tiempos de reset). Si el uso no está disponible un momento, la burbuja lo dice y reintenta sola.</p>
+  <p>Arriba a la izquierda, dos burbujas: <b>Sistema</b> (CPU y RAM reales del Mac, memoria de la app) y <b>Claude</b> (modelo en uso, <b>🪙 tokens acumulados de la conversación</b> y tu % de suscripción — sesión de 5h y semana con sus tiempos de reset). Si vas por encima del 90% de la sesión, la app te avisa al despachar una tarea. Fuera de la ventana, el <b>Dock</b> muestra cuántos agentes trabajan (y el ícono salta al terminar en background) y la <b>barra de menús 🏢</b> tiene lo mismo con menú rápido.</p>
 
   <h2>La vida de la oficina</h2>
-  <p>Cuando nadie les pide nada: toman café, sueltan frases de su rol, escuchan música 🎧, pasean y se visitan. En cuanto llega trabajo, <span class="ok">vuelven a su puesto</span>. Al terminar una tarea, caminan a entregarla 🙌. Si la ventana queda tapada o minimizada, la escena baja el ritmo para no gastar batería; visible (aunque sea en otra pantalla), corre a 60fps.</p>
+  <p>Cuando nadie les pide nada: toman café, sueltan frases de su rol, escuchan música 🎧, pasean y se visitan. En cuanto llega trabajo, <span class="ok">vuelven a su puesto</span>. Al terminar una tarea, caminan a entregarla 🙌, y en el <b>standup se reúnen de pie en el centro de la sala</b>. El encuadre de la cámara <b>se recuerda entre sesiones</b> — doble click en la escena lo restablece. Si la ventana queda tapada o minimizada, la escena baja el ritmo para no gastar batería; visible (aunque sea en otra pantalla), corre a 60fps. Y mientras el squad trabaja, la app <b>evita que el Mac se duerma</b> para no matar tareas a medias.</p>
 
   <h2>Si algo se ve raro</h2>
   <ul>
@@ -191,7 +201,8 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <li>¿Respuestas sin personalidad o personajes "pegados"? Puede haber una instancia vieja corriendo: cierra todas las ventanas de La Oficina y ábrela de nuevo (o <code>pkill -f "la-oficina"</code>).</li>
     <li>El primer mensaje de cada agente tarda unos segundos (arranque de Claude Code).</li>
     <li>¿El Revisor PR o el Publicador fallan con git o GitHub? → revisa <code>gh auth status</code> en tu terminal.</li>
-    <li>La app avisa cuando hay una versión nueva en GitHub (notificación clickeable, máximo una vez al día).</li>
+    <li>Cuando hay versión nueva en GitHub, la notificación la <b>descarga directo a ~/Descargas y abre el instalador</b> — solo arrastras a Aplicaciones.</li>
+    <li>Si el Mac se suspendió a media tarea (batería, tapa cerrada), al despertar la app te avisa: cancela con ⏹ y usa 🔁 Reintentar.</li>
   </ul>
 
   <footer>La Oficina · corre Claude Code con tu suscripción · hecha con Electron + React Three Fiber</footer>
