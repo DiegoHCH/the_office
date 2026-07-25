@@ -539,6 +539,17 @@ export default function App() {
     localStorage.setItem(`oficina-theme-${profile}`, theme)
   }, [theme, profile])
 
+  // modelo y permiso también se persisten por perfil: al reiniciar la app no
+  // vuelven al default de settings.json ni al modo edición
+  useEffect(() => {
+    if (!themeLoaded.current) return
+    localStorage.setItem(`oficina-model-${profile}`, model)
+  }, [model, profile])
+  useEffect(() => {
+    if (!themeLoaded.current) return
+    localStorage.setItem(`oficina-write-${profile}`, writeMode ? '1' : '0')
+  }, [writeMode, profile])
+
   useEffect(() => {
     localStorage.setItem('oficina-board', board ? '1' : '0')
     window.oficina?.setBoard?.(board)
@@ -584,7 +595,9 @@ export default function App() {
       const first = c.profiles[0]
       setProfile(first)
       setProject(c.projectsByProfile[first]?.[0]?.path || '')
-      setModel(c.defaultModels?.[first] || FALLBACK_MODEL)
+      // el modelo persistido gana sobre el default de settings.json
+      setModel(localStorage.getItem(`oficina-model-${first}`) || c.defaultModels?.[first] || FALLBACK_MODEL)
+      setWriteMode(localStorage.getItem(`oficina-write-${first}`) !== '0')
       themeLoaded.current = true
       setTheme(localStorage.getItem(`oficina-theme-${first}`) || 'clasico')
       loadSquad(first)
@@ -871,7 +884,8 @@ export default function App() {
     if (p === profile) return
     setProfile(p)
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
-    setModel(cfg?.defaultModels?.[p] || FALLBACK_MODEL)
+    setModel(localStorage.getItem(`oficina-model-${p}`) || cfg?.defaultModels?.[p] || FALLBACK_MODEL)
+    setWriteMode(localStorage.getItem(`oficina-write-${p}`) !== '0')
     setTheme(localStorage.getItem(`oficina-theme-${p}`) || 'clasico') // tema por cuenta
     clearConversation()
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
