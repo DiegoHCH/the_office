@@ -86,6 +86,33 @@ const DEFAULT_SQUAD = [
 
 const squadFile = (profile) => path.join(app.getPath('userData'), `squad-${profile}.json`)
 
+// Nombres reales para el primer arranque: los personajes no deben llamarse
+// como su rol ("Dev", "QA"…). Se sortean una vez por perfil y se persisten.
+const FIRST_RUN_NAMES = [
+  'Sofía', 'Mateo', 'Valentina', 'Santiago', 'Emma', 'Sebastián', 'Camila',
+  'Lucía', 'Martín', 'Julieta', 'Tomás', 'Renata', 'Andrés', 'Elena', 'Pablo', 'Mariana',
+]
+
+// Primer arranque del perfil (sin squad-<profile>.json): roster por defecto
+// con nombres reales únicos al azar, guardado de inmediato para que el
+// sorteo no cambie entre arranques.
+function firstRunSquad(profile) {
+  const pool = [...FIRST_RUN_NAMES].sort(() => Math.random() - 0.5)
+  const roster = DEFAULT_SQUAD.map((d, i) => ({ ...d, name: pool[i % pool.length], custom: false }))
+  try {
+    fs.mkdirSync(app.getPath('userData'), { recursive: true })
+    fs.writeFileSync(
+      squadFile(profile),
+      JSON.stringify(
+        roster.map((r) => ({ id: r.id, name: r.name, enabled: r.enabled, avatar: null, custom: false })),
+        null,
+        2
+      )
+    )
+  } catch {}
+  return roster
+}
+
 // Personalidad editable por personaje: userData/personas/<profile>/<role>.md
 const personaFile = (profile, role) => path.join(app.getPath('userData'), 'personas', profile, `${role}.md`)
 function readPersonaMd(profile, role) {
@@ -129,6 +156,8 @@ function getSquad(profile) {
   try {
     saved = JSON.parse(fs.readFileSync(squadFile(profile), 'utf8'))
   } catch {}
+  // Sin roster guardado = primer arranque: nombres reales sorteados.
+  if (!saved) return firstRunSquad(profile)
   // Formato antiguo (mapa {id:{name,enabled,avatar}}): solo built-ins.
   if (saved && !Array.isArray(saved)) {
     return DEFAULT_SQUAD.map((d) => ({ ...d, ...(saved[d.id] || {}), custom: false }))
