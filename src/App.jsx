@@ -1913,6 +1913,23 @@ export default function App() {
       )}
 
       <form className="composer" onSubmit={send}>
+        {/* el permiso a la vista: edición (auto-acepta cambios) vs solo lectura */}
+        <button
+          type="button"
+          className={writeMode ? 'perm-chip write' : 'perm-chip read'}
+          onClick={() => {
+            setWriteMode((w) => !w)
+            showToast(writeMode ? '🔒 modo lectura — solo investigar' : '✏️ modo edición — puede modificar y correr comandos')
+          }}
+          disabled={busy}
+          title={
+            writeMode
+              ? 'Modo edición: los agentes pueden modificar archivos y correr comandos (auto-aceptado). Clic para pasar a solo lectura.'
+              : 'Modo lectura: los agentes solo investigan. Clic para permitir edición.'
+          }
+        >
+          {writeMode ? '✏️' : '🔒'}
+        </button>
         <textarea
           ref={inputRef}
           value={input}
