@@ -79,6 +79,7 @@ contextBridge.exposeInMainWorld('oficina', {
   // Servidores MCP por perfil.
   mcp: {
     list: (profile) => ipcRenderer.invoke('mcp:list', profile),
+    account: (profile) => ipcRenderer.invoke('mcp:account', profile),
     add: (profile, name, opts) => ipcRenderer.invoke('mcp:add', { profile, name, ...opts }),
     remove: (profile, name) => ipcRenderer.invoke('mcp:remove', { profile, name }),
   },

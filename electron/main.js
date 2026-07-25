@@ -272,7 +272,7 @@ function notify(displayName, body) {
 // Herramientas por modo. Lectura: investigar sin tocar nada.
 const READ_TOOLS = 'Read,Glob,Grep,WebSearch,WebFetch'
 const WRITE_TOOLS = `${READ_TOOLS},Edit,Write,NotebookEdit,Bash`
-// Robin (rol PR) además necesita las tools MCP de los conectores que usan los
+// El Revisor PR además necesita las tools MCP de los conectores que usan los
 // skills de PR del equipo (Jira/Slack): p. ej. flash-pre-pr setea el campo
 // "PR en prod" con `editJiraIssue`. Cubrimos ambas variantes de nombre del
 // conector Atlassian (con y sin "Rovo") por si el prefijo cambia.
@@ -666,7 +666,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
     `Para máxima fiabilidad, si tienes Bash disponible, descárgalas con curl a una subcarpeta 'assets/' junto al HTML y refiérelas con ruta relativa; ` +
     `si no, úsalas por su URL directa en <img src>. Si no consigues una imagen fiable, usa un emoji, un SVG inline o un placeholder — nunca dejes imágenes rotas. ` +
     `No publiques a internet ni uses .md para esto; la app abrirá el HTML renderizado.`
-  // Rol publicador (Franky): procedimiento concreto para publicar artifacts en GitHub Pages.
+  // Rol publicador: procedimiento concreto para publicar artifacts en GitHub Pages.
   if (role === 'publish') {
     persona +=
       `\n\nPUBLICACIÓN EN GITHUB PAGES: eres quien publica artifacts en la web. Los artifacts viven en: ${artDir} ` +
@@ -683,7 +683,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   if (customMd) persona += `\n\nInstrucciones personalizadas de ${displayName}:\n${customMd}`
   if (boardEnabled) persona += `\n\n${SQUAD_BOARD_NOTE}`
 
-  // Robin (rol PR) ejecuta skills que llaman conectores MCP (Jira/Slack). En
+  // El Revisor PR ejecuta skills que llaman conectores MCP (Jira/Slack). En
   // headless no hay prompt para aprobarlos y el conector OAuth puede aparecer con
   // un UUID en vez de su nombre, así que el allowlist por sí solo es frágil: para
   // el rol PR usamos bypassPermissions y el allowlist extendido (PR_TOOLS), y así
@@ -1444,6 +1444,22 @@ ipcMain.handle('mcp:list', (_e, profile) => {
     return { ok: true, servers }
   } catch {
     return { ok: true, servers: [] }
+  }
+})
+
+// Lo que ve el CLI completo (incluye los conectores de la cuenta claude.ai y
+// cualquier server configurado desde la terminal). Lento: hace health-check.
+ipcMain.handle('mcp:account', async (_e, profile) => {
+  try {
+    const out = await execFileP(CLAUDE_BIN, ['mcp', 'list'], { env: claudeEnvFor(profile), timeout: 45000, maxBuffer: 4 * 1024 * 1024 })
+    const servers = []
+    for (const line of String(out).split('\n')) {
+      const m = /^(.+?):\s+(\S+)\s+-\s+(.+)$/.exec(line.trim())
+      if (m) servers.push({ name: m[1].trim(), target: m[2], status: m[3].trim() })
+    }
+    return { ok: true, servers }
+  } catch (err) {
+    return { ok: false, error: String(err.message || '').slice(0, 200) }
   }
 })
 

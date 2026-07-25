@@ -413,6 +413,7 @@ body {
 }
 .skill-install:hover { filter: brightness(1.08); }
 .skill-busy { font-size: 13px; }
+.mcp-warn { color: #f5a524; font-size: 10.5px; font-weight: 600; margin-left: 4px; }
 .skill-scan { display: flex; gap: 8px; padding: 4px 8px 8px; }
 .skill-scan input {
   flex: 1; background: #22303a; border: 1.5px solid #45585f; color: #f2f8f6;

@@ -220,7 +220,7 @@ export const ROLE_META = {
     label: 'Revisor PR',
     emoji: '🔎',
     color: '#8b5cf6',
-    hair: '#16181d', // Robin: pelinegra
+    hair: '#16181d', // pelo negro
     url: '/models/pj/Suit_Female.gltf',
     kw: /\bpr\b|\bprs\b|pull request|review|\bdiff\b|merge|mergea|pre-pr|g66-pr|review-pr|merge-hu/,
   },
@@ -236,7 +236,7 @@ export const ROLE_META = {
     label: 'Publicador',
     emoji: '🚀',
     color: '#0ea5e9',
-    hair: '#38bdf8', // Franky: pelo azul
+    hair: '#38bdf8', // pelo azul
     url: '/models/pj/BlueSoldier_Male.gltf',
     kw: /publica|publicar|pages|github pages|despliega|deploy|hostea|sube.*(artifact|web|pagina)/,
   },
@@ -287,7 +287,7 @@ const AVATARS = [
   'Elf.gltf', 'Witch.gltf', 'Wizard.gltf', 'Goblin_Male.gltf', 'Goblin_Female.gltf',
   'Zombie_Male.gltf', 'Zombie_Female.gltf', 'BaseCharacter.gltf',
 ]
-// "nami-lo-que-me-gusta.html" → "Nami lo que me gusta"
+// "reporte-de-uso.html" → "Reporte de uso"
 const prettyArtifact = (f = '') => {
   const s = f.replace(/\.html?$/i, '').replace(/[-_]+/g, ' ').trim()
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : f
@@ -500,8 +500,8 @@ function routeMessage(text, squad, principal) {
   return principal
 }
 
-// ¿El mensaje pide pasarle el resultado a otro miembro? ("...y pásaselo a Luffy",
-// "Nami -> Luffy: ...", "para que Zoro lo pruebe")
+// ¿El mensaje pide pasarle el resultado a otro miembro? ("...y pásaselo al Dev",
+// "Research -> Dev: ...", "para que el QA lo pruebe")
 function detectHandoff(text, squad, fromId) {
   const t = norm(text)
   const verb = /(pasal|pasasel|pasa el resultado|entregal|entregasel|entrega el resultado|dasel|dale el resultado|para que|y que)/.test(t)
@@ -1286,6 +1286,7 @@ export default function App() {
 
   // ── Submenu 🌐 MCP: servidores por perfil (encima de Configuración) ──────
   const [mcpList, setMcpList] = useState(null) // null = leyendo
+  const [mcpAccount, setMcpAccount] = useState(null) // conectores de la cuenta/terminal
   const [mcpBusy, setMcpBusy] = useState(null)
   const [mcpForm, setMcpForm] = useState(null) // {name, target} | null
   const refreshMcp = async () => {
@@ -1297,6 +1298,9 @@ export default function App() {
     setMcpForm(null)
     setMcpOpen(true)
     refreshMcp()
+    // los conectores de la cuenta tardan (health-check del CLI): llegan aparte
+    setMcpAccount({ loading: true })
+    window.oficina?.mcp?.account(profile).then((res) => setMcpAccount(res?.ok ? { servers: res.servers } : { error: res?.error }))
   }
   const addMcp = async (entry) => {
     setMcpBusy(entry.id || entry.name)
@@ -1509,7 +1513,7 @@ export default function App() {
       showToast('⚠️ Dos miembros tienen el mismo personaje — elige otro')
       return
     }
-    // sin nombres duplicados entre los activos: el ruteo por nombre ("Nami, haz X")
+    // sin nombres duplicados entre los activos: el ruteo por nombre ("Ana, haz X")
     // sería ambiguo — siempre ganaría el primero
     const names = active.map((r) => norm(r.name))
     if (new Set(names).size !== names.length) {
@@ -2165,6 +2169,9 @@ export default function App() {
             {mcpList === null && <div className="hist-empty">Leyendo servidores del perfil…</div>}
             {mcpList !== null && (
               <>
+                {mcpList.length === 0 && (
+                  <div className="hist-empty">Aún no tienes servidores en este perfil — conecta del catálogo 👇</div>
+                )}
                 {MCP_CATALOG.map((s) => {
                   const inst = mcpList.some((x) => x.name === s.id)
                   return (
@@ -2211,6 +2218,29 @@ export default function App() {
                       </div>
                     </div>
                   ))}
+                {/* lo que ve el CLI: conectores de la cuenta claude.ai y servers
+                    configurados desde la terminal (solo lectura desde aquí) */}
+                <div className="menu-sec">Desde tu cuenta y terminal</div>
+                {mcpAccount?.loading && <div className="hist-empty">Consultando al CLI (hace health-check, tarda unos segundos)…</div>}
+                {mcpAccount?.error && <div className="hist-empty">⚠️ {mcpAccount.error}</div>}
+                {mcpAccount?.servers &&
+                  (() => {
+                    const extra = mcpAccount.servers.filter((s) => !mcpList.some((x) => x.name === s.name))
+                    if (!extra.length) return <div className="hist-empty">Nada más configurado fuera de la app</div>
+                    return extra.map((s) => (
+                      <div key={s.name} className="hist-item skill-item">
+                        <div className="skill-info">
+                          <div className="hist-title">
+                            {s.name}{' '}
+                            <span className={s.status.startsWith('✔') ? 'skill-ok' : 'mcp-warn'}>
+                              {s.status.startsWith('✔') ? '✓ conectado' : s.status.replace(/^!\s*/, '⚠ ')}
+                            </span>
+                          </div>
+                          <div className="hist-meta">{s.target}</div>
+                        </div>
+                      </div>
+                    ))
+                  })()}
                 {mcpForm ? (
                   <div className="snip-form">
                     <input
@@ -2260,6 +2290,9 @@ export default function App() {
             {installedSkills === null && <div className="hist-empty">Leyendo skills instaladas…</div>}
             {installedSkills !== null && (
               <>
+                {installedSkills.length === 0 && (
+                  <div className="hist-empty">Aún no tienes skills en este perfil — instala del catálogo 👇</div>
+                )}
                 {SKILL_CATALOG.map((s) => {
                   const inst = installedSkills.some((x) => x.id === s.id)
                   return (
