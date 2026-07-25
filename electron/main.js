@@ -503,6 +503,10 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   const env = { ...process.env }
   delete env.ANTHROPIC_API_KEY
   delete env.ANTHROPIC_AUTH_TOKEN
+  // El PATH del shell de login no llega a Electron: añade las rutas típicas
+  // (Homebrew, ~/.local/bin) para que los agentes encuentren gh, acli, etc.
+  const extraPaths = ['/opt/homebrew/bin', '/usr/local/bin', path.join(app.getPath('home'), '.local', 'bin')]
+  env.PATH = [...new Set([...(env.PATH || '').split(':').filter(Boolean), ...extraPaths])].join(':')
   if (PROFILE_DIRS[profile]) env.CLAUDE_CONFIG_DIR = PROFILE_DIRS[profile]()
   else delete env.CLAUDE_CONFIG_DIR
 
@@ -922,6 +926,19 @@ app.whenReady().then(() => {
   }
   console.log('[oficina] usando binario claude en:', CLAUDE_BIN)
   createWindow()
+  // Aviso claro al arrancar si no encontramos el binario — antes el fallo
+  // aparecía como "spawn claude ENOENT" recién al enviar el primer mensaje.
+  if (CLAUDE_BIN === 'claude') {
+    dialog.showMessageBox(win, {
+      type: 'warning',
+      title: 'La Oficina',
+      message: 'No encontré el binario de Claude Code',
+      detail:
+        'Busqué en ~/.local/bin, /usr/local/bin y /opt/homebrew/bin.\n\n' +
+        'Instálalo con:\n  curl -fsSL https://claude.ai/install.sh | bash\n\n' +
+        'inicia sesión con `claude` en la terminal y vuelve a abrir La Oficina.',
+    })
+  }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
