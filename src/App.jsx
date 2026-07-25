@@ -1064,6 +1064,13 @@ export default function App() {
       showToast('⚠️ Dos miembros tienen el mismo personaje — elige otro')
       return
     }
+    // sin nombres duplicados entre los activos: el ruteo por nombre ("Nami, haz X")
+    // sería ambiguo — siempre ganaría el primero
+    const names = active.map((r) => norm(r.name))
+    if (new Set(names).size !== names.length) {
+      showToast('⚠️ Dos agentes activos tienen el mismo nombre — renombra uno')
+      return
+    }
     await window.oficina?.squad?.save(profile, clean)
     setRoster(clean)
     setAgentsOpen(false)
