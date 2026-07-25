@@ -468,6 +468,15 @@ export default function App() {
   const handoffsRef = useRef([]) // [{from, to, original, result?}]
   const lastJobRef = useRef({}) // role → último job despachado (para Reintentar)
   const queuesRef = useRef({}) // role → [jobs] pendientes cuando está ocupado
+  const [queuedCounts, setQueuedCounts] = useState({}) // espejo reactivo de queuesRef (badge ⏳ en la escena)
+  const syncQueues = () => {
+    const counts = {}
+    for (const k of Object.keys(queuesRef.current)) {
+      const n = queuesRef.current[k]?.length || 0
+      if (n) counts[k] = n
+    }
+    setQueuedCounts(counts)
+  }
   const pendingArtifactRef = useRef({}) // role → true si generó un artifact en este turno
   const toastTimer = useRef(null)
   const sessionsRef = useRef({})
@@ -799,6 +808,7 @@ export default function App() {
       const q = queuesRef.current[role]
       if (q?.length && !roleStates[role]) {
         dispatchJob(q.shift())
+        syncQueues()
       }
     }
   }, [roleStates, profile, project, writeMode, model])
@@ -887,6 +897,7 @@ export default function App() {
     convIdRef.current = null
     sessionsRef.current = {}
     queuesRef.current = {}
+    setQueuedCounts({})
     handoffsRef.current = []
     window.oficina?.reset?.()
   }
@@ -1227,6 +1238,7 @@ export default function App() {
   const enqueueJob = (job) => {
     setMessages((ms) => [...ms, { role: 'user', text: job.display, to: job.target, atts: job.atts, jobId: job.id, queued: true }])
     ;(queuesRef.current[job.target] ||= []).push(job)
+    syncQueues()
     showToast(`⏳ En cola para ${memberOf(job.target).name}`)
   }
   const dispatchJob = async (job) => {
@@ -1265,6 +1277,7 @@ export default function App() {
   const cancelQueued = (m) => {
     const q = queuesRef.current[m.to]
     if (q) queuesRef.current[m.to] = q.filter((j) => j.id !== m.jobId)
+    syncQueues()
     setMessages((ms) => ms.map((x) => (x.jobId === m.jobId ? { ...x, queued: false, cancelled: true } : x)))
     showToast('Mensaje sacado de la cola')
   }
@@ -1424,6 +1437,7 @@ export default function App() {
           theme={effectiveTheme}
           tool={tool}
           elapsed={elapsed}
+          queued={queuedCounts}
           deliverTargets={deliverTargets}
           onPickMember={(id) => {
             // clic en un personaje = dirigirle el mensaje (como ⌘1-⌘6)

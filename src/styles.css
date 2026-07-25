@@ -202,6 +202,14 @@ body {
 .msg.assistant hr { border: none; border-top: 1px solid #28353a; margin: 8px 0; }
 .ipc.busy { color: #f5a524; }
 
+/* badge ⏳ de mensajes en cola, bajo el nametag */
+.queue-badge {
+  background: rgba(245, 165, 36, 0.16); color: #f5a524;
+  border: 1px solid rgba(245, 165, 36, 0.7); border-radius: 999px;
+  padding: 1px 8px; font-size: 10px; font-weight: 700;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; white-space: nowrap;
+}
+
 /* etiqueta de nombre bajo cada personaje */
 .nametag {
   background: rgba(14, 20, 23, 0.85); color: #e9f1ee;

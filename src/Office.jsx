@@ -663,7 +663,7 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, onTourDone, onPickMember }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -898,6 +898,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
               <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                 <div className="nametag" style={{ borderColor: main.color }}>{main.name}</div>
               </Html>
+              {queued[main.id] > 0 && (
+                <Html position={[0, 2.55, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                  <div className="queue-badge">⏳ {queued[main.id]}</div>
+                </Html>
+              )}
               {devState === 'idle' && ambient[main.id]?.text && (
                 <Html position={[0, 4.0, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                   <div className="bubble3d">{ambient[main.id].text}</div>
@@ -965,6 +970,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   <Html position={[0, 3.1, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                     <div className="nametag" style={{ borderColor: m.color }}>{m.name}</div>
                   </Html>
+                  {queued[m.id] > 0 && (
+                    <Html position={[0, 2.55, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                      <div className="queue-badge">⏳ {queued[m.id]}</div>
+                    </Html>
+                  )}
                   {bubble && (
                     <Html position={[0, 4.0, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                       <div className={busyBubble ? 'bubble3d busy' : 'bubble3d'}>{bubble}</div>
