@@ -963,7 +963,19 @@ export default function App() {
     setDragId(null)
     setDropId(null)
   }
-  const setMemberAvatar = (id, avatar) => setDraft((d) => d.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r)))
+  // Elegir un personaje aplica AL INSTANTE: cierra la galería, actualiza la
+  // escena y persiste solo ese cambio (sin arrastrar activaciones pendientes
+  // del draft — "Guardar squad" sigue siendo para eso).
+  const pickAvatar = async (id, avatar) => {
+    setDraft((d) => d.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r)))
+    setAvatarPicker(null)
+    const inRoster = roster.some((r) => r.id === id)
+    if (!inRoster) return // rol custom aún no guardado: queda en el draft
+    const updated = roster.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r))
+    setRoster(updated) // la escena cambia ya
+    await window.oficina?.squad?.save(profile, updated)
+    showToast('🧍 personaje actualizado')
+  }
   // avatar efectivo de un miembro (elegido o el default de su rol)
   const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
   // modelos ya ocupados por OTROS miembros activos (no se pueden repetir)
@@ -1701,7 +1713,7 @@ export default function App() {
                       <div
                         key={a}
                         className={`avatar-card${sel ? ' sel' : ''}${isTaken ? ' taken' : ''}`}
-                        onClick={() => !isTaken && setMemberAvatar(r.id, a)}
+                        onClick={() => !isTaken && pickAvatar(r.id, a)}
                         title={isTaken ? 'En uso por otro miembro' : avatarLabel(a)}
                       >
                         <AvatarThumb file={a} />
