@@ -808,6 +808,10 @@ export default function App() {
       } else if (e.key === 'y') {
         e.preventDefault()
         toggleHist()
+      } else if (e.key === ',') {
+        // ⌘, — estándar de macOS para preferencias
+        e.preventDefault()
+        openPrefs()
       } else if (/^[1-9]$/.test(e.key) && Number(e.key) <= squad.length) {
         // un atajo por miembro activo (hasta MAX_ACTIVE)
         e.preventDefault()
@@ -819,8 +823,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // histOpen: toggleHist lo lee antes de abrir · agentsOpen: Esc por capas
-  }, [squad, histOpen, agentsOpen])
+    // histOpen/prefsOpen: sus toggles los leen · agentsOpen: Esc por capas
+  }, [squad, histOpen, agentsOpen, prefsOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -1337,7 +1341,9 @@ export default function App() {
               <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.5-1.5" />
             </svg>
           </button>
-          <button type="button" className="iconbtn" onClick={toggleHist} disabled={busy} title="Historial (⌘Y)">
+          {/* Historial y Configuración se pueden abrir mientras el squad trabaja:
+              sus controles internos ya se deshabilitan solos cuando aplica */}
+          <button type="button" className="iconbtn" onClick={toggleHist} title="Historial (⌘Y)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
@@ -1350,7 +1356,7 @@ export default function App() {
             </svg>
             <span>Nueva</span>
           </button>
-          <button type="button" className="iconbtn gearspin" onClick={openPrefs} disabled={busy} title="Configuración">
+          <button type="button" className="iconbtn gearspin" onClick={openPrefs} title="Configuración (⌘,)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
