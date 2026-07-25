@@ -894,7 +894,7 @@ ipcMain.handle('stats:get', async (_e, profile = 'work') => {
 
 // Ventana de la guía de uso (ayuda.html empaquetada con la app).
 let helpWin = null
-ipcMain.handle('help:open', () => {
+function openHelp() {
   if (helpWin && !helpWin.isDestroyed()) {
     helpWin.focus()
     return { ok: true }
@@ -920,7 +920,8 @@ ipcMain.handle('help:open', () => {
     helpWin = null
   })
   return { ok: true }
-})
+}
+ipcMain.handle('help:open', () => openHelp())
 
 // ── Artifacts locales ────────────────────────────────────────────────────────
 // Carpeta donde el squad guarda los artifacts HTML (configurable desde ⚙️).
@@ -1155,6 +1156,16 @@ app.whenReady().then(() => {
   console.log('[oficina] usando binario claude en:', CLAUDE_BIN)
   createSplash()
   createWindow()
+  // Primer arranque tras instalar: abrir la Guía de uso encima de la ventana
+  // principal (una sola vez), para que el usuario vea requisitos y cómo
+  // hablarle al squad antes de empezar.
+  const firstRunFlag = path.join(app.getPath('userData'), 'first-run-done')
+  if (!fs.existsSync(firstRunFlag)) {
+    try {
+      fs.writeFileSync(firstRunFlag, String(Date.now()))
+    } catch {}
+    win.once('show', () => setTimeout(openHelp, 700))
+  }
   // Aviso claro al arrancar si no encontramos el binario — antes el fallo
   // aparecía como "spawn claude ENOENT" recién al enviar el primer mensaje.
   // (se muestra cuando la ventana ya es visible: un sheet sobre una ventana
