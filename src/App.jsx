@@ -357,6 +357,7 @@ const TOOL_INFO = {
   Edit: ['✍️', 'Editando código'],
   Write: ['✍️', 'Escribiendo archivos'],
   Task: ['🤖', 'Delegando a un agente'],
+  TodoWrite: ['📝', 'Organizando sus tareas'],
 }
 const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `Usando ${name}`]
 
@@ -490,6 +491,7 @@ function detectHandoff(text, squad, fromId) {
 export default function App() {
   const [messages, setMessages] = useState([])
   const [convTokens, setConvTokens] = useState({ in: 0, out: 0, cache: 0 }) // tokens de la conversación
+  const [agentTodos, setAgentTodos] = useState({}) // rol → checklist (TodoWrite) mientras trabaja
   const [status, setStatus] = useState('Esperándote')
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
@@ -729,6 +731,8 @@ export default function App() {
       if (e.kind === 'init') {
         if (e.sessionId) sessionsRef.current[who] = e.sessionId
         if (isP) setStatus('Pensando…')
+      } else if (e.kind === 'todos') {
+        setAgentTodos((t) => ({ ...t, [who]: e.todos }))
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name, detail: e.detail || null })
         // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
@@ -789,6 +793,12 @@ export default function App() {
         // si entrega a un compañero, camina hacia ÉL (no hacia el principal)
         if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
         setTool((t) => (t?.role === who ? null : t))
+        setAgentTodos((t) => {
+          if (!t[who]) return t
+          const copy = { ...t }
+          delete copy[who]
+          return copy
+        })
         dingSound()
         window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
         // chip transitorio anunciando la respuesta final (con duración si fue larga)
@@ -812,6 +822,12 @@ export default function App() {
         handoffsRef.current = handoffsRef.current.filter((h) => !(h.from === who && h.result == null))
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
+        setAgentTodos((t) => {
+          if (!t[who]) return t
+          const copy = { ...t }
+          delete copy[who]
+          return copy
+        })
         buzzSound()
         const name = squadRef.current.find((m) => m.id === who)?.name || who
         setToast(`⏹ ${name}: tarea cancelada`)
@@ -824,6 +840,12 @@ export default function App() {
         setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
+        setAgentTodos((t) => {
+          if (!t[who]) return t
+          const copy = { ...t }
+          delete copy[who]
+          return copy
+        })
         buzzSound()
         if (isP) setStatus('Esperándote')
       }
@@ -982,6 +1004,7 @@ export default function App() {
     setMessages([])
     setChatFilter(null)
     setConvTokens({ in: 0, out: 0, cache: 0 })
+    setAgentTodos({})
     convIdRef.current = null
     sessionsRef.current = {}
     queuesRef.current = {}
@@ -1557,6 +1580,7 @@ export default function App() {
           squad={squad}
           theme={effectiveTheme}
           tool={tool}
+          todos={agentTodos}
           elapsed={elapsed}
           queued={queuedCounts}
           deliverTargets={deliverTargets}

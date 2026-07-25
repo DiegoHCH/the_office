@@ -429,6 +429,14 @@ function makeLineHandler(role, sessionKey, displayName) {
         if (block.type === 'tool_use') {
           // aquí ya viene el input completo → detalle de QUÉ hace exactamente
           emit({ kind: 'tool', role, name: block.name, detail: toolDetail(block.name, block.input) })
+          // la checklist del agente, tal cual la va actualizando
+          if (block.name === 'TodoWrite' && Array.isArray(block.input?.todos)) {
+            emit({
+              kind: 'todos',
+              role,
+              todos: block.input.todos.map((t) => ({ text: t.content || '', status: t.status || 'pending' })),
+            })
+          }
         }
       }
       return

@@ -228,6 +228,18 @@ body {
   font-family: ui-monospace, "SF Mono", Menlo, monospace; white-space: nowrap;
 }
 
+/* checklist del agente (TodoWrite) mientras trabaja */
+.todo-card {
+  background: rgba(14, 20, 23, 0.92); border: 1px solid #28353a; border-radius: 12px;
+  padding: 6px 10px; font-size: 10px; text-align: left; max-width: 220px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  box-shadow: 0 4px 14px rgba(4, 10, 13, 0.4);
+}
+.todo-head { color: #7fd8c8; font-weight: 700; margin-bottom: 3px; }
+.todo-row { color: #c8d6d1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.6; }
+.todo-row.completed { color: #6b7f79; text-decoration: line-through; }
+.todo-row.in_progress { color: #e9f1ee; font-weight: 600; }
+
 /* etiqueta de nombre bajo cada personaje */
 .nametag {
   background: rgba(14, 20, 23, 0.85); color: #e9f1ee;

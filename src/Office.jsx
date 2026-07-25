@@ -663,7 +663,26 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, onTourDone, onPickMember }) {
+// Checklist del agente (TodoWrite) junto al personaje mientras trabaja.
+const todoIcon = (s) => (s === 'completed' ? '✅' : s === 'in_progress' ? '▶️' : '⬜')
+function TodoCard({ items }) {
+  const done = items.filter((t) => t.status === 'completed').length
+  // la actual + vecinas: la lista completa no cabe junto al personaje
+  const cur = Math.max(items.findIndex((t) => t.status !== 'completed'), 0)
+  const shown = items.slice(Math.max(0, Math.min(cur - 1, items.length - 3)), Math.max(0, Math.min(cur - 1, items.length - 3)) + 3)
+  return (
+    <div className="todo-card">
+      <div className="todo-head">📝 {done}/{items.length}</div>
+      {shown.map((t, i) => (
+        <div key={i} className={`todo-row ${t.status}`}>
+          {todoIcon(t.status)} {t.text.length > 30 ? t.text.slice(0, 28) + '…' : t.text}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -950,6 +969,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   <div className="queue-badge">⏳ {queued[main.id]}</div>
                 </Html>
               )}
+              {devState === 'working' && todos[main.id]?.length > 0 && (
+                <Html position={[1.15, 2.2, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                  <TodoCard items={todos[main.id]} />
+                </Html>
+              )}
               {devState === 'idle' && ambient[main.id]?.text && (
                 <Html position={[0, 4.0, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                   <div className="bubble3d">{ambient[main.id].text}</div>
@@ -1020,6 +1044,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   {queued[m.id] > 0 && (
                     <Html position={[0, 2.55, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
                       <div className="queue-badge">⏳ {queued[m.id]}</div>
+                    </Html>
+                  )}
+                  {st === 'working' && todos[m.id]?.length > 0 && (
+                    <Html position={[1.15, 2.2, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+                      <TodoCard items={todos[m.id]} />
                     </Html>
                   )}
                   {bubble && (
