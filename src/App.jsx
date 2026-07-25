@@ -106,7 +106,7 @@ function SysMonitor({ modelLabel, profile }) {
           </div>
         )}
         {!(s.claude && (s.claude.session || s.claude.weekly)) && (
-          <div className="mon-sub mon-nodata">uso no disponible · reintentando…</div>
+          <div className="mon-sub mon-nodata">Uso no disponible · reintentando…</div>
         )}
         {s.claude?.session && (
           <>
@@ -278,7 +278,7 @@ function CodePre({ children, ...props }) {
           setTimeout(() => setCopied(false), 1400)
         }}
       >
-        {copied ? '✓ copiado' : '📋'}
+        {copied ? '✓ Copiado' : '📋'}
       </button>
     </div>
   )
@@ -287,17 +287,17 @@ const MD_COMPONENTS = { pre: CodePre }
 
 // Cómo se muestra cada herramienta de Claude en pantalla.
 const TOOL_INFO = {
-  Read: ['📖', 'leyendo archivos'],
-  Glob: ['🔍', 'buscando archivos'],
-  Grep: ['🔍', 'buscando en el código'],
-  WebSearch: ['🌐', 'buscando en la web'],
-  WebFetch: ['🌐', 'consultando la web'],
-  Bash: ['💻', 'ejecutando comandos'],
-  Edit: ['✍️', 'editando código'],
-  Write: ['✍️', 'escribiendo archivos'],
-  Task: ['🤖', 'delegando a un agente'],
+  Read: ['📖', 'Leyendo archivos'],
+  Glob: ['🔍', 'Buscando archivos'],
+  Grep: ['🔍', 'Buscando en el código'],
+  WebSearch: ['🌐', 'Buscando en la web'],
+  WebFetch: ['🌐', 'Consultando la web'],
+  Bash: ['💻', 'Ejecutando comandos'],
+  Edit: ['✍️', 'Editando código'],
+  Write: ['✍️', 'Escribiendo archivos'],
+  Task: ['🤖', 'Delegando a un agente'],
 }
-const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `usando ${name}`]
+const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `Usando ${name}`]
 
 // Opciones del selector: las mismas que ofrece /model en la terminal.
 const MODEL_OPTIONS = {
@@ -418,7 +418,7 @@ function detectHandoff(text, squad, fromId) {
 
 export default function App() {
   const [messages, setMessages] = useState([])
-  const [status, setStatus] = useState('esperándote')
+  const [status, setStatus] = useState('Esperándote')
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
   const [input, setInput] = useState('')
@@ -585,7 +585,7 @@ export default function App() {
     const res = await window.oficina?.artifacts?.pickDir?.()
     if (res?.ok) {
       setArtsDir(res.dir)
-      showToast('📁 carpeta de artifacts actualizada')
+      showToast('📁 Carpeta de artifacts actualizada')
     }
   }
 
@@ -617,7 +617,7 @@ export default function App() {
       const followingDefault = oldDefault ? model === oldDefault : model === FALLBACK_MODEL
       if (newDefault && newDefault !== oldDefault && followingDefault) {
         setModel(newDefault)
-        showToast(`modelo → ${newDefault} (cambiado desde la terminal)`)
+        showToast(`Modelo → ${modelLabelOf(newDefault)} (cambiado desde la terminal)`)
       }
     }
     window.addEventListener('focus', onFocus)
@@ -631,7 +631,7 @@ export default function App() {
       const isP = who === principalRef.current
       if (e.kind === 'init') {
         if (e.sessionId) sessionsRef.current[who] = e.sessionId
-        if (isP) setStatus('pensando…')
+        if (isP) setStatus('Pensando…')
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name, detail: e.detail || null })
         // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
@@ -644,7 +644,7 @@ export default function App() {
       } else if (e.kind === 'text') {
         setTool((t) => (t?.role === who ? null : t))
         setRS(who, 'talking')
-        if (isP) setStatus('respondiendo…')
+        if (isP) setStatus('Respondiendo…')
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
@@ -692,7 +692,7 @@ export default function App() {
         setDoneChip(`✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}`)
         clearTimeout(doneChipTimer.current)
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
-        if (isP) setStatus('esperándote')
+        if (isP) setStatus('Esperándote')
       } else if (e.kind === 'stopped') {
         // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
         setMessages((ms) => {
@@ -710,7 +710,7 @@ export default function App() {
         setToast(`⏹ ${name}: tarea cancelada`)
         clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => setToast(null), 3500)
-        if (isP) setStatus('esperándote')
+        if (isP) setStatus('Esperándote')
       } else if (e.kind === 'error') {
         // el stderr (si vino) se muestra como bloque de código en el mensaje
         const text = e.detail ? `⚠️ ${e.message}\n\n\`\`\`\n${e.detail}\n\`\`\`` : `⚠️ ${e.message}`
@@ -718,7 +718,7 @@ export default function App() {
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
         buzzSound()
-        if (isP) setStatus('esperándote')
+        if (isP) setStatus('Esperándote')
       }
     })
   }, [])
@@ -775,7 +775,7 @@ export default function App() {
         .then((res) => {
           if (!res?.ok) {
             setRS(h.to, 'idle')
-            showToast(`⚠️ ${res?.error || 'no se pudo entregar'}`)
+            showToast(`⚠️ ${res?.error || 'No se pudo entregar'}`)
           }
         })
     }
@@ -881,7 +881,7 @@ export default function App() {
 
   const newChat = () => {
     clearConversation()
-    showToast('conversación nueva ✨')
+    showToast('Conversación nueva ✨')
   }
 
   const changeProfile = (p) => {
@@ -907,7 +907,7 @@ export default function App() {
       setCfg((await window.oficina?.getConfig?.()) || cfg)
       setProject(res.path)
       clearConversation()
-      showToast(`📌 proyecto añadido: ${res.name}`)
+      showToast(`📌 Proyecto añadido: ${res.name}`)
     }
   }
 
@@ -933,11 +933,11 @@ export default function App() {
     const target = draft.find((r) => r.id === id)
     if (!target) return
     if (target.enabled && draftEnabled <= 1) {
-      showToast('⚠️ debe quedar al menos un agente activo')
+      showToast('⚠️ Debe quedar al menos un agente activo')
       return
     }
     if (!target.enabled && draftEnabled >= MAX_ACTIVE) {
-      showToast(`👥 squad completo (${MAX_ACTIVE}/${MAX_ACTIVE}) — desactiva uno para poder activar otro`)
+      showToast(`👥 Squad completo (${MAX_ACTIVE}/${MAX_ACTIVE}) — desactiva uno para poder activar otro`)
       return
     }
     setDraft((d) => d.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)))
@@ -974,7 +974,7 @@ export default function App() {
     const updated = roster.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r))
     setRoster(updated) // la escena cambia ya
     await window.oficina?.squad?.save(profile, updated)
-    showToast('🧍 personaje actualizado')
+    showToast('🧍 Personaje actualizado')
   }
   // avatar efectivo de un miembro (elegido o el default de su rol)
   const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
@@ -999,7 +999,7 @@ export default function App() {
   const addRole = () => {
     const name = nr.name.trim()
     if (!name) {
-      showToast('⚠️ ponle un nombre al rol')
+      showToast('⚠️ Ponle un nombre al rol')
       return
     }
     if (editingId) {
@@ -1021,7 +1021,7 @@ export default function App() {
       setEditingId(null)
       setNr(NEW_ROLE)
       setAddingRole(false)
-      showToast(`rol "${name}" actualizado — guardá para aplicar`)
+      showToast(`Rol "${name}" actualizado — guardá para aplicar`)
       return
     }
     const avatar = nr.avatar || AVATARS.find((a) => !draft.some((r) => effectiveAvatar(r) === a)) || AVATARS[0]
@@ -1040,7 +1040,7 @@ export default function App() {
     setDraft((d) => [...d, role])
     setNr(NEW_ROLE)
     setAddingRole(false)
-    showToast(`rol "${name}" creado — actívalo y guardá`)
+    showToast(`Rol "${name}" creado — actívalo y guardá`)
   }
   const deleteRole = (id) => setDraft((d) => d.filter((r) => !(r.id === id && canDelete(r))))
 
@@ -1053,7 +1053,7 @@ export default function App() {
       ...d,
       ...missingBuiltins.map((id) => ({ id, name: ROLE_META[id].label, enabled: false, avatar: null, custom: false })),
     ])
-    showToast('roles predeterminados restaurados — guardá para aplicar')
+    showToast('Roles predeterminados restaurados — guardá para aplicar')
   }
 
   const saveSquad = async () => {
@@ -1061,14 +1061,14 @@ export default function App() {
     // sin personajes duplicados entre los activos
     const active = clean.filter((r) => r.enabled)
     if (new Set(active.map(effectiveAvatar)).size !== active.length) {
-      showToast('⚠️ dos miembros tienen el mismo personaje — elige otro')
+      showToast('⚠️ Dos miembros tienen el mismo personaje — elige otro')
       return
     }
     await window.oficina?.squad?.save(profile, clean)
     setRoster(clean)
     setAgentsOpen(false)
     showToast(
-      `squad actualizado: ${clean
+      `Squad actualizado: ${clean
         .filter((r) => r.enabled)
         .slice(0, MAX_ACTIVE)
         .map((r) => `${metaOf(r).emoji} ${r.name}`)
@@ -1122,7 +1122,7 @@ export default function App() {
     setMessages(c.messages || [])
     await window.oficina?.setSession?.({ sessions: saved, profile: c.profile, cwd: c.project })
     setHistOpen(false)
-    showToast(Object.keys(saved).length ? 'retomada — recordamos todo 🧠' : 'conversación cargada')
+    showToast(Object.keys(saved).length ? 'Retomada — recordamos todo 🧠' : 'Conversación cargada')
   }
 
   const deleteConvo = async (e, id) => {
@@ -1138,12 +1138,12 @@ export default function App() {
     if (cmd === '/model') {
       const arg = rest[0]?.toLowerCase()
       if (!arg) {
-        showToast(`modelo actual: ${modelLabelOf(model)} · usa /model opus | fable | sonnet | haiku`)
+        showToast(`Modelo actual: ${modelLabelOf(model)} · usa /model opus | fable | sonnet | haiku`)
         return true
       }
       const resolved = MODEL_ALIASES[arg] ?? arg
       setModel(resolved)
-      showToast(`modelo → ${modelLabelOf(resolved)}`)
+      showToast(`Modelo → ${modelLabelOf(resolved)}`)
       return true
     }
     if (cmd === '/clear' || cmd === '/nueva') {
@@ -1157,7 +1157,7 @@ export default function App() {
     if (cmd === '/standup') {
       const free = squad.filter((m) => !roleStates[m.id])
       if (!free.length) {
-        showToast('todo el squad está ocupado — intenta en un momento')
+        showToast('Todo el squad está ocupado — intenta en un momento')
         return true
       }
       if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
@@ -1183,7 +1183,7 @@ export default function App() {
   const enqueueJob = (job) => {
     setMessages((ms) => [...ms, { role: 'user', text: job.display, to: job.target, atts: job.atts, jobId: job.id, queued: true }])
     ;(queuesRef.current[job.target] ||= []).push(job)
-    showToast(`⏳ en cola para ${memberOf(job.target).name}`)
+    showToast(`⏳ En cola para ${memberOf(job.target).name}`)
   }
   const dispatchJob = async (job) => {
     lastJobRef.current[job.target] = job // para el botón Reintentar tras un error
@@ -1195,12 +1195,12 @@ export default function App() {
     })
     setRS(job.target, 'listening')
     popSound()
-    if (job.target === principal) setStatus('pensando…')
+    if (job.target === principal) setStatus('Pensando…')
     const res = await window.oficina.ask({ prompt: job.prompt, profile, cwd: project, writeMode, model, role: job.target, standup: job.standup })
     if (!res?.ok) {
-      setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'error desconocido'}` }])
+      setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'Error desconocido'}` }])
       setRS(job.target, 'idle')
-      if (job.target === principal) setStatus('esperándote')
+      if (job.target === principal) setStatus('Esperándote')
     }
   }
   // sitúa un job: si el tripulante está libre y sin cola → va; si no → encola
@@ -1222,7 +1222,7 @@ export default function App() {
     const q = queuesRef.current[m.to]
     if (q) queuesRef.current[m.to] = q.filter((j) => j.id !== m.jobId)
     setMessages((ms) => ms.map((x) => (x.jobId === m.jobId ? { ...x, queued: false, cancelled: true } : x)))
-    showToast('mensaje sacado de la cola')
+    showToast('Mensaje sacado de la cola')
   }
 
   // Respuesta rápida: envía una opción elegida al tripulante (encola si ocupado).
@@ -1240,7 +1240,7 @@ export default function App() {
       return
     }
     if (!window.oficina?.ask) {
-      showToast('sin Electron — corre npm run dev')
+      showToast('Sin Electron — corre npm run dev')
       return
     }
     const target = routeMessage(text, squad, principal)
@@ -1423,7 +1423,7 @@ export default function App() {
                 className="menu-item"
                 onClick={async () => {
                   const res = await window.oficina?.openTerminal?.(project)
-                  showToast(res?.ok ? `🖥 abriendo ${res.app}…` : '⚠️ no pude abrir la terminal')
+                  showToast(res?.ok ? `🖥 Abriendo ${res.app}…` : '⚠️ No pude abrir la terminal')
                 }}
               >
                 <span className="mi-icon">🖥</span>
@@ -1453,8 +1453,8 @@ export default function App() {
                 onChange={(e) => setWriteMode(e.target.value === 'write')}
                 disabled={busy}
               >
-                <option value="write">✏️ edición — puede modificar y correr comandos</option>
-                <option value="read">🔒 lectura — solo investigar</option>
+                <option value="write">✏️ Edición — puede modificar y correr comandos</option>
+                <option value="read">🔒 Lectura — solo investigar</option>
               </select>
             </div>
             <div className="pref-row">
@@ -1470,7 +1470,7 @@ export default function App() {
             <div className="pref-row">
               <span className="pref-label">Artifacts:</span>
               <button type="button" className="pref-toggle" onClick={pickArtsDir} title={artsDir}>
-                📁 …{artsDir.slice(-30) || 'carpeta por defecto'}
+                📁 …{artsDir.slice(-30) || 'Carpeta por defecto'}
               </button>
             </div>
             <div className="pref-row">
@@ -1481,7 +1481,7 @@ export default function App() {
                 onClick={() => setBoard((b) => !b)}
                 title="Memoria común del squad en SQUAD.md (leen y anotan lo importante)"
               >
-                {board ? '🧠 SQUAD.md activa' : '🧠 desactivada'}
+                {board ? '🧠 SQUAD.md activa' : '🧠 Desactivada'}
               </button>
               <button
                 type="button"
@@ -1489,11 +1489,11 @@ export default function App() {
                 style={{ flex: 'none' }}
                 onClick={async () => {
                   const res = await window.oficina?.openBoard?.(project)
-                  showToast(res?.ok ? '🧠 abriendo SQUAD.md…' : '⚠️ reinicia la app (npm run dev)')
+                  showToast(res?.ok ? '🧠 Abriendo SQUAD.md…' : '⚠️ Reinicia la app (npm run dev)')
                 }}
                 title="Ver/editar SQUAD.md del proyecto"
               >
-                abrir
+                Abrir
               </button>
             </div>
             <div className="pref-row">
@@ -1504,7 +1504,7 @@ export default function App() {
                 onClick={() => setSound((s) => !s)}
                 title={sound ? 'Apagar sonidos y avisos' : 'Encender sonidos y avisos'}
               >
-                {sound ? '🔔 encendidas' : '🔕 apagadas'}
+                {sound ? '🔔 Encendidas' : '🔕 Apagadas'}
               </button>
             </div>
             </div>
@@ -1608,7 +1608,7 @@ export default function App() {
                     onClick={() => window.oficina?.openPersona?.(profile, r.id, r.name)}
                     title="Editar la personalidad de este personaje (.md)"
                   >
-                    ✏️ personalidad
+                    ✏️ Personalidad
                   </button>
                 </div>
               </div>
@@ -1735,7 +1735,7 @@ export default function App() {
               <b>🔗 Artifacts</b>
               <button onClick={() => setArtsOpen(false)}>✕</button>
             </div>
-            {artsList.length === 0 && <div className="hist-empty">aún no hay artifacts · pídele uno a un agente</div>}
+            {artsList.length === 0 && <div className="hist-empty">Aún no hay artifacts · pídele uno a un agente</div>}
             {artsList.map((a) => (
               <div key={a.path} className="hist-item art-item">
                 <div onClick={() => window.oficina?.artifacts?.open?.(a.path)} style={{ cursor: 'pointer' }}>
@@ -1749,7 +1749,7 @@ export default function App() {
                   <button
                     onClick={async () => {
                       const r = await window.oficina?.artifacts?.zip?.(a.path)
-                      showToast(r?.ok ? '📦 zip exportado' : '⚠️ exportación cancelada')
+                      showToast(r?.ok ? '📦 Zip exportado' : '⚠️ Exportación cancelada')
                     }}
                     title="Exportar como .zip (con imágenes) para compartir"
                   >
@@ -1777,7 +1777,7 @@ export default function App() {
               />
             )}
             {histFiltered.length === 0 && (
-              <div className="hist-empty">{histList.length ? 'sin resultados para esa búsqueda' : 'sin conversaciones guardadas'}</div>
+              <div className="hist-empty">{histList.length ? 'Sin resultados para esa búsqueda' : 'Sin conversaciones guardadas'}</div>
             )}
             {histFiltered.map((h) => (
               <div key={h.id} className="hist-item" onClick={() => loadConvo(h.id)}>
@@ -1840,7 +1840,7 @@ export default function App() {
                 {m.role === 'user' && m.to && m.to !== principal && <div className="who to">→ {memberOf(m.to).name}</div>}
                 {m.role === 'user' && m.queued && (
                   <div className="who to">
-                    ⏳ en cola
+                    ⏳ En cola
                     <button type="button" className="queue-cancel" onClick={() => cancelQueued(m)} title="Quitar de la cola">
                       ✕
                     </button>
@@ -1848,7 +1848,7 @@ export default function App() {
                 )}
                 {m.role === 'user' && m.cancelled && (
                   <div className="who to">
-                    ⏹ cancelado
+                    ⏹ Cancelado
                     <button
                       type="button"
                       className="queue-cancel"
@@ -1859,7 +1859,7 @@ export default function App() {
                         requestAnimationFrame(() => autoGrow(inputRef.current))
                       }}
                     >
-                      ✏️ editar
+                      ✏️ Editar
                     </button>
                   </div>
                 )}
@@ -1881,7 +1881,7 @@ export default function App() {
                     title="Copiar respuesta completa"
                     onClick={() => {
                       navigator.clipboard.writeText(m.text)
-                      showToast('respuesta copiada 📋')
+                      showToast('Respuesta copiada 📋')
                     }}
                   >
                     📋
@@ -1937,7 +1937,7 @@ export default function App() {
           className={writeMode ? 'perm-chip write' : 'perm-chip read'}
           onClick={() => {
             setWriteMode((w) => !w)
-            showToast(writeMode ? '🔒 modo lectura — solo investigar' : '✏️ modo edición — puede modificar y correr comandos')
+            showToast(writeMode ? '🔒 Modo lectura — solo investigar' : '✏️ Modo edición — puede modificar y correr comandos')
           }}
           disabled={busy}
           title={

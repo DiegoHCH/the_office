@@ -915,9 +915,9 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
           const bubble =
             st === 'working'
-              ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'trabajando…'}${elapsed[m.id] ? ` · ${elapsed[m.id]}` : ''}`
+              ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'Trabajando…'}${elapsed[m.id] ? ` · ${elapsed[m.id]}` : ''}`
               : st === 'listening'
-                ? '👂 escuchando…'
+                ? '👂 Escuchando…'
                 : st === 'talking'
                   ? '💬'
                   : st === 'delivering'
