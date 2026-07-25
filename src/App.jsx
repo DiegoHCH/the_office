@@ -293,19 +293,33 @@ const autoGrow = (el) => {
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-// Extrae opciones "seleccionables" del texto de una respuesta (para botones rápidos).
+// ¿La línea es un ítem de menú? → devuelve su etiqueta (o null).
+// Formatos: 1. / 2) / A. / - / • / **1.**  seguidos de contenido corto.
+function optionLabel(line) {
+  const m = line.match(/^(?:\*\*)?(?:\d{1,2}|[a-dA-D])(?:\*\*)?[.)]\s+(.+)$/) || line.match(/^[-•]\s+(.+)$/)
+  if (!m) return null
+  const label = m[1].replace(/\*\*/g, '').replace(/`/g, '').trim()
+  return label.length >= 2 && label.length <= 80 ? label : null
+}
+
+// Extrae opciones "seleccionables" (para botones rápidos) SOLO si el mensaje
+// termina en un menú: una lista contigua de 2–6 ítems al final, opcionalmente
+// seguida de una pregunta corta de cierre. Una lista informativa a mitad del
+// texto (viñetas de un resumen, pasos ya hechos…) no genera botones.
 function extractOptions(text) {
   if (!text) return []
+  const lines = text.split('\n').map((l) => l.trim())
+  let i = lines.length - 1
+  while (i >= 0 && !lines[i]) i-- // ignora líneas vacías finales
+  // se tolera una única pregunta corta después de la lista ("¿Cuál elijo?")
+  if (i >= 0 && !optionLabel(lines[i]) && lines[i].endsWith('?') && lines[i].length <= 60) i--
+  while (i >= 0 && !lines[i]) i--
   const opts = []
-  for (const raw of text.split('\n')) {
-    const line = raw.trim()
-    // 1. / 2) / A. / - / • / **1.**  seguido de contenido corto
-    const m = line.match(/^(?:\*\*)?(?:\d{1,2}|[a-dA-D])(?:\*\*)?[.)]\s+(.+)$/) || line.match(/^[-•]\s+(.+)$/)
-    if (!m) continue
-    let label = m[1].replace(/\*\*/g, '').replace(/`/g, '').trim()
-    if (label.length >= 2 && label.length <= 80) opts.push(label)
+  for (; i >= 0; i--) {
+    const label = lines[i] && optionLabel(lines[i])
+    if (!label) break // fin del bloque contiguo
+    opts.unshift(label)
   }
-  // solo si parece un menú real: 2–6 opciones y el texto termina cerca de la lista
   return opts.length >= 2 && opts.length <= 6 ? opts : []
 }
 
