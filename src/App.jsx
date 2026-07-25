@@ -847,8 +847,21 @@ export default function App() {
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
   }
-  const changeProject = (e) => {
-    setProject(e.target.value)
+  const ADD_PROJECT = '__add_project__'
+  const changeProject = async (e) => {
+    const v = e.target.value
+    if (v === ADD_PROJECT) {
+      // "➕ Agregar proyecto…": picker de carpeta; se persiste por perfil
+      const res = await window.oficina?.addProject?.(profile)
+      if (res?.ok) {
+        setCfg((await window.oficina?.getConfig?.()) || cfg)
+        setProject(res.path)
+        clearConversation()
+        showToast(`📌 proyecto añadido: ${res.name}`)
+      }
+      return // cancelado: el select vuelve solo al proyecto actual (controlado)
+    }
+    setProject(v)
     clearConversation()
   }
 
@@ -1140,6 +1153,7 @@ export default function App() {
               {p.name}
             </option>
           ))}
+          <option value={ADD_PROJECT}>➕ Agregar proyecto…</option>
         </select>
         <button type="button" className="newchat" onClick={toggleArts} title="Artifacts creados por el squad">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

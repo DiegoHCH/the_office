@@ -392,6 +392,32 @@ function makeLineHandler(role, sessionKey, displayName) {
   }
 }
 
+// Proyectos añadidos a mano (fuera de la carpeta raíz del perfil).
+const customProjectsFile = (profile) => path.join(app.getPath('userData'), `projects-${profile}.json`)
+function getCustomProjects(profile) {
+  try {
+    // se filtran rutas que ya no existen (repos movidos/borrados)
+    return JSON.parse(fs.readFileSync(customProjectsFile(profile), 'utf8')).filter((p) => fs.existsSync(p))
+  } catch {
+    return []
+  }
+}
+ipcMain.handle('projects:add', async (_e, profile) => {
+  const res = await dialog.showOpenDialog(win, { properties: ['openDirectory'], title: 'Agregar proyecto' })
+  if (res.canceled || !res.filePaths[0]) return { ok: false }
+  const dir = res.filePaths[0]
+  const list = getCustomProjects(profile)
+  if (!list.includes(dir)) {
+    list.push(dir)
+    try {
+      fs.writeFileSync(customProjectsFile(profile), JSON.stringify(list, null, 2))
+    } catch (err) {
+      return { ok: false, error: err.message }
+    }
+  }
+  return { ok: true, path: dir, name: path.basename(dir) }
+})
+
 // Config para el renderer: perfiles, proyectos y modelos default.
 ipcMain.handle('config:get', () => {
   const home = app.getPath('home')
@@ -418,6 +444,10 @@ ipcMain.handle('config:get', () => {
       } catch {}
     }
     if (!list.length) list.push({ name: '🏠 Home', path: home })
+    // proyectos añadidos a mano (📌): van al final, sin duplicar los detectados
+    for (const cp of getCustomProjects(p)) {
+      if (!list.some((x) => x.path === cp)) list.push({ name: `📌 ${path.basename(cp)}`, path: cp })
+    }
     projectsByProfile[p] = list
   }
   const defaultModels = {}
