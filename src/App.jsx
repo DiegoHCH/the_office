@@ -283,6 +283,13 @@ const MODEL_ALIASES = {
 }
 const FALLBACK_MODEL = 'claude-sonnet-5'
 
+// El composer es un textarea que crece con el contenido (hasta el máximo del CSS).
+const autoGrow = (el) => {
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = `${el.scrollHeight}px`
+}
+
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -957,6 +964,7 @@ export default function App() {
     setInput('')
     setAttachments([])
     setRefs([])
+    if (inputRef.current) inputRef.current.style.height = 'auto' // vuelve a 1 línea
   }
 
   return (
@@ -1432,11 +1440,22 @@ export default function App() {
       )}
 
       <form className="composer" onSubmit={send}>
-        <input
+        <textarea
           ref={inputRef}
           value={input}
+          rows={1}
           onPaste={handlePaste}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value)
+            autoGrow(e.target)
+          }}
+          onKeyDown={(e) => {
+            // Enter envía; Shift+Enter inserta salto de línea
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              e.target.form?.requestSubmit()
+            }
+          }}
           placeholder={
             busy
               ? `${running.map((r) => memberOf(r).name).join(', ')} trabajando… (puedes pedirle algo a otro)`
