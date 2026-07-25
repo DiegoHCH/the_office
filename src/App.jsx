@@ -320,6 +320,12 @@ const autoGrow = (el) => {
   el.style.height = `${el.scrollHeight}px`
 }
 
+// "2m 15s" / "45s" — cuánto lleva un agente en su turno.
+const fmtElapsed = (ms) => {
+  const s = Math.floor(ms / 1000)
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`
+}
+
 const norm = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 const escRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
@@ -463,13 +469,34 @@ export default function App() {
   // 'delivering' es la caminata de entrega (cosmética): la respuesta ya llegó,
   // así que no bloquea la UI — historial, config y selectores siguen usables.
   const busy = running.some((r) => roleStates[r] !== 'delivering')
+  const startedAtRef = useRef({}) // role → Date.now() al arrancar su turno
   const setRS = (role, st) =>
     setRoleStates((s) => {
       const copy = { ...s }
-      if (st === 'idle') delete copy[role]
-      else copy[role] = st
+      if (st === 'idle') {
+        delete copy[role]
+        delete startedAtRef.current[role]
+      } else {
+        if (!s[role]) startedAtRef.current[role] = Date.now() // empieza el cronómetro
+        copy[role] = st
+      }
       return copy
     })
+
+  // tick de 1s mientras alguien trabaja, para que los cronómetros avancen
+  const [, setClockTick] = useState(0)
+  useEffect(() => {
+    if (!running.length) return
+    const iv = setInterval(() => setClockTick((t) => t + 1), 1000)
+    return () => clearInterval(iv)
+  }, [running.length])
+
+  // role → "2m 15s"; solo a partir del minuto (antes sería ruido)
+  const elapsed = {}
+  for (const r of running) {
+    const t = startedAtRef.current[r] ? Date.now() - startedAtRef.current[r] : 0
+    if (t >= 60_000) elapsed[r] = fmtElapsed(t)
+  }
 
   useEffect(() => {
     setSoundEnabled(sound)
@@ -616,9 +643,10 @@ export default function App() {
         setTool((t) => (t?.role === who ? null : t))
         dingSound()
         window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
-        // chip transitorio anunciando la respuesta final
+        // chip transitorio anunciando la respuesta final (con duración si fue larga)
         const doneName = squadRef.current.find((m) => m.id === who)?.name || who
-        setDoneChip(`✅ ${doneName} respondió`)
+        const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
+        setDoneChip(`✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}`)
         clearTimeout(doneChipTimer.current)
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
         if (isP) setStatus('esperándote')
@@ -1152,6 +1180,7 @@ export default function App() {
           squad={squad}
           theme={theme}
           tool={tool}
+          elapsed={elapsed}
           deliverTargets={deliverTargets}
           onPickMember={(id) => {
             // clic en un personaje = dirigirle el mensaje (como ⌘1-⌘6)
@@ -1519,6 +1548,7 @@ export default function App() {
               .map((r) => (
                 <button key={r} className="stopchip" onClick={() => window.oficina?.stop?.(r)} title={`Detener a ${memberOf(r).name}`}>
                   ⏹ {memberOf(r).name}
+                  {elapsed[r] ? ` · ${elapsed[r]}` : ''}
                 </button>
               ))}
           </div>

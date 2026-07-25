@@ -663,7 +663,7 @@ function Turn({ position, yaw, children }) {
 const YAW_CAMERA = Math.PI / 4
 const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talking' ? YAW_CAMERA : yawScreen)
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, onTourDone, onPickMember }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -915,7 +915,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
           const bubble =
             st === 'working'
-              ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'trabajando…'}`
+              ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'trabajando…'}${elapsed[m.id] ? ` · ${elapsed[m.id]}` : ''}`
               : st === 'listening'
                 ? '👂 escuchando…'
                 : st === 'talking'
@@ -980,7 +980,10 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       {/* globo del principal: solo mientras tiene una conversación activa */}
       {status && devState !== 'idle' && devState !== 'delivering' && (
         <Html position={[CHAIR_POS[0], 1.06, CHAIR_POS[2]]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
-          <div className="bubble3d busy">{status}</div>
+          <div className="bubble3d busy">
+            {status}
+            {main && elapsed[main.id] ? ` · ${elapsed[main.id]}` : ''}
+          </div>
         </Html>
       )}
 
