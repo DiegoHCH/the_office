@@ -457,7 +457,9 @@ export default function App() {
 
   const projects = cfg?.projectsByProfile?.[profile] || []
   const running = Object.keys(roleStates)
-  const busy = running.length > 0
+  // 'delivering' es la caminata de entrega (cosmética): la respuesta ya llegó,
+  // así que no bloquea la UI — historial, config y selectores siguen usables.
+  const busy = running.some((r) => roleStates[r] !== 'delivering')
   const setRS = (role, st) =>
     setRoleStates((s) => {
       const copy = { ...s }
@@ -639,6 +641,23 @@ export default function App() {
   useEffect(() => {
     logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
+
+  // Watchdog: una entrega normal (caminar, entregar, volver) toma <20s. Si la
+  // escena 3D se atasca por cualquier razón y onTourDone nunca llega, el rol
+  // no puede quedarse en 'delivering' indefinidamente — a los 30s se libera.
+  useEffect(() => {
+    const delivering = running.filter((r) => roleStates[r] === 'delivering')
+    if (!delivering.length) return
+    const t = setTimeout(() => {
+      delivering.forEach((r) => setRS(r, 'idle'))
+      setDeliverTargets((d) => {
+        const copy = { ...d }
+        delivering.forEach((r) => delete copy[r])
+        return copy
+      })
+    }, 30_000)
+    return () => clearTimeout(t)
+  }, [roleStates])
 
   // Despachador de handoffs: cuando el destinatario está libre, le llega el
   // trabajo del compañero (su sesión arranca con el resultado como contexto).
