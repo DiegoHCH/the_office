@@ -492,6 +492,7 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [convTokens, setConvTokens] = useState({ in: 0, out: 0, cache: 0 }) // tokens de la conversación
   const [agentTodos, setAgentTodos] = useState({}) // rol → checklist (TodoWrite) mientras trabaja
+  const [standupIds, setStandupIds] = useState([]) // participantes del standup (se reúnen en la escena)
   // buscar dentro de la conversación (⌘F)
   const [findOpen, setFindOpen] = useState(false)
   const [findQuery, setFindQuery] = useState('')
@@ -897,6 +898,11 @@ export default function App() {
   useEffect(() => {
     if (atBottomRef.current) logRef.current?.scrollTo({ top: logRef.current.scrollHeight })
   }, [messages])
+
+  // El standup termina cuando todos sus participantes vuelven a estar libres.
+  useEffect(() => {
+    if (standupIds.length && standupIds.every((id) => !roleStates[id])) setStandupIds([])
+  }, [roleStates, standupIds])
 
   // Watchdog: una entrega normal (caminar, entregar, volver) toma <20s. Si la
   // escena 3D se atasca por cualquier razón y onTourDone nunca llega, el rol
@@ -1452,6 +1458,7 @@ export default function App() {
       }
       if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
       setMessages((ms) => [...ms, { role: 'system', text: `📋 Standup diario — reporta el squad (${free.map((m) => m.name).join(', ')})` }])
+      setStandupIds(free.map((m) => m.id)) // en la escena: todos a la reunión
       popSound()
       // cada uno retoma su última sesión en este proyecto y reporta (en paralelo)
       free.forEach((m, i) => {
@@ -1724,6 +1731,7 @@ export default function App() {
           theme={effectiveTheme}
           tool={tool}
           todos={agentTodos}
+          standup={standupIds}
           elapsed={elapsed}
           queued={queuedCounts}
           deliverTargets={deliverTargets}

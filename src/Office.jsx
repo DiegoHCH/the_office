@@ -682,7 +682,7 @@ function TodoCard({ items }) {
   )
 }
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, onTourDone, onPickMember }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -804,6 +804,19 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
     return () => clearInterval(iv)
   }, [squad, roleStates])
 
+  // ── Standup visual: los participantes se reúnen en círculo en el centro ──
+  const MEET_CENTER = [0, 0.15]
+  const meetTour = (id, chair) => {
+    const group = squad.filter((m) => standup.includes(m.id))
+    const k = Math.max(group.findIndex((m) => m.id === id), 0)
+    const ang = (k / Math.max(group.length, 1)) * Math.PI * 2
+    const to = [MEET_CENTER[0] + 0.85 * Math.sin(ang), MEET_CENTER[1] + 0.85 * Math.cos(ang)]
+    // pauseMs larguísimo: se quedan de pie hasta que su reporte termina (el
+    // cambio de estado les quita el tour y vuelven solos a su silla)
+    return { via: routeVia(standNear(chair), to), to, face: MEET_CENTER, pose: 'Idle', pauseMs: 600000 }
+  }
+  const inStandup = (id, st) => standup.includes(id) && (st === 'listening' || st === 'working' || st === 'talking')
+
   // Construye el tour de ENTREGA (con desvío por el centro si hace falta).
   const deliverTour = (chair, id, fbTo, fbFace) => {
     const tc = deliverTargets[id] ? chairFor(deliverTargets[id]) : null
@@ -815,11 +828,13 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   // secuencia la silla: gira antes de pararse y a la pantalla al sentarse).
   const mainTour = !main
     ? null
-    : devState === 'delivering'
-      ? deliverTour(CHAIR_POS, main.id, [-0.6, -0.6])
-      : devState === 'idle'
-        ? ambient[main.id]?.tour || null
-        : null
+    : inStandup(main.id, devState)
+      ? meetTour(main.id, CHAIR_POS)
+      : devState === 'delivering'
+        ? deliverTour(CHAIR_POS, main.id, [-0.6, -0.6])
+        : devState === 'idle'
+          ? ambient[main.id]?.tour || null
+          : null
 
   // ¿hay movimiento en curso? (agentes activos o paseos de la vida ambiental)
   // Oculta, la escena solo sigue pintando para que eso termine limpio.
@@ -989,8 +1004,9 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           const st = (m && roleStates[m.id]) || 'idle'
           const amb = m ? ambient[m.id] : null
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
-          const bubble =
-            st === 'working'
+          const bubble = inStandup(m.id, st)
+            ? `📋 ${m.emoji} en el standup`
+            : st === 'working'
               ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'Trabajando…'}${elapsed[m.id] ? ` · ${elapsed[m.id]}` : ''}`
               : st === 'listening'
                 ? '👂 Escuchando…'
@@ -1000,14 +1016,16 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                     ? `${m.emoji} ¡listo!`
                     : amb?.text || null
           const busyBubble = st !== 'idle'
-          // tour activo del ocupante (entrega/paseo/visita), una sola vez
+          // tour activo del ocupante (standup/entrega/paseo/visita), una sola vez
           const slotTour = !m
             ? null
-            : st === 'delivering'
-              ? deliverTour(s.chair, m.id, s.deliver, [CHAIR_POS[0], CHAIR_POS[2]])
-              : st === 'idle'
-                ? amb?.tour || null
-                : null
+            : inStandup(m.id, st)
+              ? meetTour(m.id, s.chair)
+              : st === 'delivering'
+                ? deliverTour(s.chair, m.id, s.deliver, [CHAIR_POS[0], CHAIR_POS[2]])
+                : st === 'idle'
+                  ? amb?.tour || null
+                  : null
           return (
             <group key={i}>
               <LDesk position={s.desk} rotation={s.deskRot} />
