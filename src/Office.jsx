@@ -632,9 +632,10 @@ const WANDER_SPOTS = [
 ]
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)]
 
-// Con frameloop='demand' (app sin foco) nada avanza solo: este ticker pide
-// frames a ~12fps mientras haya movimiento que mostrar, para que una caminata
-// no se congele a mitad (parecía que la app se había bloqueado).
+// Con frameloop='demand' (ventana oculta) nada avanza solo: este ticker pide
+// frames mientras haya movimiento, para que los tours en curso terminen limpio
+// y no queden caminatas a medias al volver a mostrarse la ventana. (Chromium
+// además limita los intervals de ventanas ocultas a ~1/s: costo mínimo.)
 function DemandTicker({ fps = 12 }) {
   const invalidate = useThree((s) => s.invalidate)
   useEffect(() => {
@@ -667,21 +668,17 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
 
-  // Sin foco, el render continuo pasa a 'demand' para no gastar GPU/batería
-  // con la app detrás de otras ventanas. Pero congelar una caminata a medias
-  // parece un cuelgue: mientras haya movimiento (tours, entregas, alguien
-  // trabajando) un ticker pide frames a ~12fps; solo con todos sentados y
-  // quietos la escena se congela de verdad. Con foco vuelve a 60fps.
-  const [focused, setFocused] = useState(() => document.hasFocus())
+  // Ahorro de GPU/batería por VISIBILIDAD, no por foco: con varias pantallas
+  // la ventana puede verse perfectamente sin tener el foco, y ahí debe seguir
+  // a 60fps. document.visibilityState pasa a 'hidden' solo cuando la ventana
+  // está minimizada o completamente tapada — recién entonces el render pasa a
+  // 'demand', con un ticker que deja terminar los tours en curso (para que
+  // nada quede a mitad de caminata ni salte el watchdog de entregas).
+  const [visible, setVisible] = useState(() => document.visibilityState !== 'hidden')
   useEffect(() => {
-    const on = () => setFocused(true)
-    const off = () => setFocused(false)
-    window.addEventListener('focus', on)
-    window.addEventListener('blur', off)
-    return () => {
-      window.removeEventListener('focus', on)
-      window.removeEventListener('blur', off)
-    }
+    const onVis = () => setVisible(document.visibilityState !== 'hidden')
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
   }, [])
 
   // silla de un miembro (para entregas dirigidas y visitas)
@@ -722,8 +719,8 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
   useEffect(() => {
     const iv = setInterval(() => {
-      // escena congelada sin foco: no programar frases/paseos que no se verían
-      if (!document.hasFocus()) return
+      // ventana oculta (minimizada/tapada): no programar frases/paseos nuevos
+      if (document.visibilityState === 'hidden') return
       squad.forEach((m, idx) => {
         if (!m || roleStates[m.id] || ambientRef.current[m.id]) return
         if (Math.random() > 0.4) return // ratos de calma
@@ -805,13 +802,13 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         ? ambient[main.id]?.tour || null
         : null
 
-  // ¿hay algo moviéndose que valga la pena seguir pintando sin foco?
-  // (agentes activos en cualquier estado, o paseos/visitas de la vida ambiental)
+  // ¿hay movimiento en curso? (agentes activos o paseos de la vida ambiental)
+  // Oculta, la escena solo sigue pintando para que eso termine limpio.
   const anyMotion = Object.keys(roleStates).length > 0 || Object.values(ambient).some((a) => a && a.tour)
 
   return (
-    <Canvas shadows dpr={[1, 2]} frameloop={focused ? 'always' : 'demand'} style={{ width: '100%', height: '100%' }}>
-      {!focused && anyMotion && <DemandTicker />}
+    <Canvas shadows dpr={[1, 2]} frameloop={visible ? 'always' : 'demand'} style={{ width: '100%', height: '100%' }}>
+      {!visible && anyMotion && <DemandTicker />}
       <color attach="background" args={[T.bg]} />
 
       <OrthographicCamera makeDefault position={[11, 9.5, 11]} zoom={80} near={0.1} far={100} />
