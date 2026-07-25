@@ -160,8 +160,10 @@ xattr -cr "/Applications/La Oficina.app"
 
 - ✅ **v1.0** — squad de hasta 6, crear/eliminar roles, Revisor PR y Publicador, documentos locales, adjuntos, cola de mensajes, sala ampliada, temas, monitor, standup, instalador DMG
 - ✅ **v1.1** — onboarding (solo principal + nombres reales + splash), barra con contexto unificado y proyectos externos, panel Agentes (switch, drag & drop, restaurar, editar), errores con reintentar, cronómetro, cola cancelable, copiar, búsqueda de historial, click al personaje, render por visibilidad, ventana persistente, aviso de versión, permisos a la vista, preferencias por perfil, estilo Material 3
-- ✅ **v1.2** *(en main)* — aviso de edición sin git, nombres únicos, filtro del chat por agente, exportar conversación a Markdown, resaltado de sintaxis, tema automático 🌗, badge ⏳ de cola en la escena, integración con el Dock, broadcast `@todos`, cámara persistente con reset por doble click
+- ✅ **v1.2** — aviso de edición sin git, nombres únicos, filtro del chat por agente, exportar conversación a Markdown, resaltado de sintaxis, tema automático 🌗, badge ⏳ de cola en la escena, integración con el Dock, broadcast `@todos`, cámara persistente con reset por doble click
+- ✅ **v1.3** *(en main)* — tokens por tarea 🪙 y acumulado en el monitor, checklist del agente en vivo 📝, plantillas de prompts con `/`, buscar en la conversación (⌘F), vista de diff 🔀, Tray en la barra de menús 🏢, atajo global ⌥Espacio, cola persistente, standup visual en el centro de la sala
 - ⏭️ soporte **Windows** (portar Keychain, `vm_stat`, rutas y binario)
+- ⏸ auto-update completo (requiere Apple Developer ID; hoy la notificación descarga el DMG directo)
 - 💡 firma/notarización Apple · steering (limitado por el modo headless)
 
 ## ⚠️ Notas
