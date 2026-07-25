@@ -806,13 +806,60 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   // Oculta, la escena solo sigue pintando para que eso termine limpio.
   const anyMotion = Object.keys(roleStates).length > 0 || Object.values(ambient).some((a) => a && a.tour)
 
+  // ── Cámara persistente: zoom/ángulo se guardan al soltar el control y se
+  // restauran al arrancar; doble-click en la escena vuelve al encuadre default.
+  const controlsRef = useRef()
+  const CAM_DEFAULT = { pos: [11, 9.5, 11], zoom: 80, target: [0, 0.35, 0] }
+  const saveCamera = () => {
+    const ctl = controlsRef.current
+    if (!ctl) return
+    try {
+      localStorage.setItem(
+        'oficina-camera',
+        JSON.stringify({ pos: ctl.object.position.toArray(), zoom: ctl.object.zoom, target: ctl.target.toArray() })
+      )
+    } catch {}
+  }
+  const applyCamera = (c) => {
+    const ctl = controlsRef.current
+    if (!ctl || !c) return
+    ctl.object.position.set(...c.pos)
+    ctl.object.zoom = c.zoom
+    ctl.object.updateProjectionMatrix()
+    ctl.target.set(...c.target)
+    ctl.update()
+  }
+  useEffect(() => {
+    let saved = null
+    try {
+      saved = JSON.parse(localStorage.getItem('oficina-camera'))
+    } catch {}
+    if (!saved) return
+    // los controles montan dentro del Canvas (async): reintenta hasta verlos
+    let tries = 0
+    const t = setInterval(() => {
+      if (controlsRef.current) {
+        applyCamera(saved)
+        clearInterval(t)
+      } else if (++tries > 20) clearInterval(t)
+    }, 100)
+    return () => clearInterval(t)
+  }, [])
+  const resetCamera = () => {
+    applyCamera(CAM_DEFAULT)
+    try {
+      localStorage.removeItem('oficina-camera')
+    } catch {}
+  }
+
   return (
+    <div style={{ width: '100%', height: '100%' }} onDoubleClick={resetCamera} title="Doble click: restablecer cámara">
     <Canvas shadows dpr={[1, 2]} frameloop={visible ? 'always' : 'demand'} style={{ width: '100%', height: '100%' }}>
       {!visible && anyMotion && <DemandTicker />}
       <color attach="background" args={[T.bg]} />
 
       <OrthographicCamera makeDefault position={[11, 9.5, 11]} zoom={80} near={0.1} far={100} />
-      <OrbitControls target={[0, 0.35, 0]} enablePan={false} minZoom={45} maxZoom={280} />
+      <OrbitControls ref={controlsRef} target={[0, 0.35, 0]} enablePan={false} minZoom={45} maxZoom={280} onEnd={saveCamera} />
 
       <ambientLight intensity={T.ambient} />
       <hemisphereLight args={T.hemi} />
@@ -999,5 +1046,6 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
       <ContactShadows position={[0, 0.004, 0]} opacity={0.4} scale={9} blur={2.5} far={3} />
     </Canvas>
+    </div>
   )
 }
