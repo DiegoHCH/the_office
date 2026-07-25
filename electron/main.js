@@ -261,10 +261,31 @@ function closeSplash() {
   splash = null
 }
 
+// Bounds de la ventana persistidos: la app reabre donde y como la dejaste.
+const boundsFile = () => path.join(app.getPath('userData'), 'window-bounds.json')
+function savedBounds() {
+  try {
+    const b = JSON.parse(fs.readFileSync(boundsFile(), 'utf8'))
+    if (!(b.width >= 820 && b.height >= 640)) return null
+    // válidos solo si siguen (mayormente) dentro de alguna pantalla conectada
+    const { screen } = require('electron')
+    const visible = screen.getAllDisplays().some((d) => {
+      const a = d.workArea
+      return b.x < a.x + a.width - 60 && b.x + b.width > a.x + 60 && b.y >= a.y - 10 && b.y < a.y + a.height - 60
+    })
+    return visible ? b : null
+  } catch {
+    return null
+  }
+}
+
 function createWindow() {
+  const b = savedBounds()
   win = new BrowserWindow({
-    width: 1100,
-    height: 820,
+    width: b?.width ?? 1100,
+    height: b?.height ?? 820,
+    x: b?.x,
+    y: b?.y,
     minWidth: 820,
     minHeight: 640,
     backgroundColor: '#0e1417',
@@ -276,6 +297,21 @@ function createWindow() {
       nodeIntegration: false,
     },
   })
+
+  // guardar bounds al mover/redimensionar (debounced)
+  let boundsTimer = null
+  const persistBounds = () => {
+    clearTimeout(boundsTimer)
+    boundsTimer = setTimeout(() => {
+      try {
+        if (win && !win.isDestroyed() && !win.isFullScreen()) {
+          fs.writeFileSync(boundsFile(), JSON.stringify(win.getBounds()))
+        }
+      } catch {}
+    }, 500)
+  }
+  win.on('resize', persistBounds)
+  win.on('move', persistBounds)
 
   win.once('ready-to-show', () => {
     win.show()
