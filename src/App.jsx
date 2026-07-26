@@ -719,6 +719,14 @@ export default function App() {
   useEffect(() => {
     window.oficina?.artifacts?.getDir?.().then(setArtsDir)
     window.oficina?.getVersion?.().then((v) => setAppVersion(v || ''))
+    // nota pendiente de un import (skills fuera del catálogo que no se migran solas)
+    try {
+      const note = localStorage.getItem('oficina-import-note')
+      if (note) {
+        localStorage.removeItem('oficina-import-note')
+        setTimeout(() => showToast(`⚠️ ${note}`, 9000), 1500)
+      }
+    } catch {}
   }, [])
 
   const refreshArtifacts = async () => setArtsList((await window.oficina?.artifacts?.list?.()) || [])
@@ -1344,6 +1352,7 @@ export default function App() {
       if (!res?.canceled) showToast(`⚠️ ${res?.error || 'No se pudo importar'}`, 6000)
       return
     }
+    // extras de localStorage: tema, modelo, permiso, sonido, pizarra, plantillas…
     for (const [k, v] of Object.entries(res.extras || {})) {
       if (k.startsWith('oficina-')) {
         try {
@@ -1351,11 +1360,28 @@ export default function App() {
         } catch {}
       }
     }
-    await loadSquad(profile)
-    try {
-      setSnippets(JSON.parse(localStorage.getItem(`oficina-snippets-${profile}`)) || [])
-    } catch {}
-    showToast('📥 Configuración importada — squad, personas y plantillas aplicados')
+    // reinstalar las skills del catálogo en cada perfil (clon en caché: rápido)
+    const missing = []
+    for (const [prof, ids] of Object.entries(res.skills || {})) {
+      for (const id of ids) {
+        const cat = SKILL_CATALOG.find((s) => s.id === id)
+        if (!cat) {
+          missing.push(id)
+          continue
+        }
+        showToast(`🧩 Instalando ${cat.name} (${prof})…`, 10000)
+        await window.oficina?.skills?.install(prof, cat.id, cat.repo)
+      }
+    }
+    if (missing.length) {
+      try {
+        localStorage.setItem('oficina-import-note', `Skills fuera del catálogo que no se migraron solas: ${[...new Set(missing)].join(', ')}`)
+      } catch {}
+    }
+    // recarga completa: tema, modelo, squad de ambos perfiles, plantillas y
+    // preferencias se releen desde cero — importar de verdad importa TODO
+    showToast('📥 Configuración importada — recargando la oficina…')
+    setTimeout(() => window.location.reload(), 900)
   }
 
   // ── Panel ⚙️ Configuración (preferencias + acceso a Agentes) ─────────────

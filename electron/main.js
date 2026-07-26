@@ -1366,6 +1366,9 @@ ipcMain.handle('config:export', async (_e, extras) => {
   })
   if (res.canceled || !res.filePath) return { ok: false, canceled: true }
   const data = { app: 'la-oficina', version: app.getVersion(), profiles: {}, extras: extras || null }
+  try {
+    data.artifactsDir = fs.readFileSync(artifactsDirFile(), 'utf8').trim() || null
+  } catch {}
   for (const prof of CONFIG_PROFILES) {
     const entry = {}
     try {
@@ -1381,7 +1384,22 @@ ipcMain.handle('config:export', async (_e, extras) => {
         entry.personas[f.replace(/\.md$/, '')] = fs.readFileSync(path.join(dir, f), 'utf8')
       }
     } catch {}
-    if (entry.squad || entry.projects?.length || Object.keys(entry.personas).length) data.profiles[prof] = entry
+    // skills instaladas (solo los ids: el import reinstala las del catálogo)
+    try {
+      const sdir = skillsDirFor(prof)
+      entry.skills = fs
+        .readdirSync(sdir, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && fs.existsSync(path.join(sdir, d.name, 'SKILL.md')))
+        .map((d) => d.name)
+    } catch {}
+    // servidores MCP del perfil (objeto completo del .claude.json)
+    try {
+      const cdir = PROFILE_DIRS[prof] ? PROFILE_DIRS[prof]() : path.join(app.getPath('home'), '.claude')
+      const cj = JSON.parse(fs.readFileSync(path.join(cdir, '.claude.json'), 'utf8'))
+      if (cj.mcpServers && Object.keys(cj.mcpServers).length) entry.mcp = cj.mcpServers
+    } catch {}
+    if (entry.squad || entry.projects?.length || Object.keys(entry.personas).length || entry.skills?.length || entry.mcp)
+      data.profiles[prof] = entry
   }
   try {
     fs.writeFileSync(res.filePath, JSON.stringify(data, null, 2))
@@ -1413,6 +1431,8 @@ ipcMain.handle('config:import', async () => {
   })
   if (ans.response !== 0) return { ok: false, canceled: true }
   try {
+    if (data.artifactsDir && fs.existsSync(data.artifactsDir)) fs.writeFileSync(artifactsDirFile(), data.artifactsDir)
+    const skillsToInstall = {} // profile → [ids] para que el renderer reinstale las del catálogo
     for (const [prof, entry] of Object.entries(data.profiles)) {
       if (!CONFIG_PROFILES.includes(prof)) continue
       if (entry.squad) fs.writeFileSync(squadFile(prof), JSON.stringify(entry.squad, null, 2))
@@ -1423,8 +1443,24 @@ ipcMain.handle('config:import', async () => {
         fs.mkdirSync(path.dirname(file), { recursive: true })
         fs.writeFileSync(file, String(md))
       }
+      // servidores MCP: merge directo al .claude.json del perfil (los ya
+      // existentes con el mismo nombre se conservan como están)
+      if (entry.mcp && typeof entry.mcp === 'object') {
+        try {
+          const cdir = PROFILE_DIRS[prof] ? PROFILE_DIRS[prof]() : path.join(app.getPath('home'), '.claude')
+          const cfile = path.join(cdir, '.claude.json')
+          let cj = {}
+          try {
+            cj = JSON.parse(fs.readFileSync(cfile, 'utf8'))
+          } catch {}
+          cj.mcpServers = { ...entry.mcp, ...(cj.mcpServers || {}) }
+          fs.mkdirSync(cdir, { recursive: true })
+          fs.writeFileSync(cfile, JSON.stringify(cj, null, 2))
+        } catch {}
+      }
+      if (entry.skills?.length) skillsToInstall[prof] = entry.skills
     }
-    return { ok: true, extras: data.extras || null }
+    return { ok: true, extras: data.extras || null, skills: skillsToInstall }
   } catch (err) {
     return { ok: false, error: err.message }
   }
