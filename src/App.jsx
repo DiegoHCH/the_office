@@ -1373,9 +1373,13 @@ export default function App() {
         await window.oficina?.skills?.install(prof, cat.id, cat.repo)
       }
     }
-    if (missing.length) {
+    const notes = []
+    if (missing.length) notes.push(`Skills fuera del catálogo que no se migraron solas: ${[...new Set(missing)].join(', ')}`)
+    if (res.mcpSkipped?.length)
+      notes.push(`Servidores MCP con credenciales que debes reconectar a mano: ${res.mcpSkipped.join(', ')}`)
+    if (notes.length) {
       try {
-        localStorage.setItem('oficina-import-note', `Skills fuera del catálogo que no se migraron solas: ${[...new Set(missing)].join(', ')}`)
+        localStorage.setItem('oficina-import-note', notes.join(' · '))
       } catch {}
     }
     // recarga completa: tema, modelo, squad de ambos perfiles, plantillas y

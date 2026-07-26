@@ -1392,11 +1392,20 @@ ipcMain.handle('config:export', async (_e, extras) => {
         .filter((d) => d.isDirectory() && fs.existsSync(path.join(sdir, d.name, 'SKILL.md')))
         .map((d) => d.name)
     } catch {}
-    // servidores MCP del perfil (objeto completo del .claude.json)
+    // servidores MCP del perfil (del .claude.json) — SIN los que llevan
+    // credenciales (headers/env): un respaldo no debe contener tokens
     try {
       const cdir = PROFILE_DIRS[prof] ? PROFILE_DIRS[prof]() : path.join(app.getPath('home'), '.claude')
       const cj = JSON.parse(fs.readFileSync(path.join(cdir, '.claude.json'), 'utf8'))
-      if (cj.mcpServers && Object.keys(cj.mcpServers).length) entry.mcp = cj.mcpServers
+      const safe = {}
+      const skipped = []
+      for (const [name, s] of Object.entries(cj.mcpServers || {})) {
+        const hasSecrets = Object.keys(s?.headers || {}).length > 0 || Object.keys(s?.env || {}).length > 0
+        if (hasSecrets) skipped.push(name)
+        else safe[name] = s
+      }
+      if (Object.keys(safe).length) entry.mcp = safe
+      if (skipped.length) entry.mcpSkipped = skipped
     } catch {}
     if (entry.squad || entry.projects?.length || Object.keys(entry.personas).length || entry.skills?.length || entry.mcp)
       data.profiles[prof] = entry
@@ -1433,6 +1442,7 @@ ipcMain.handle('config:import', async () => {
   try {
     if (data.artifactsDir && fs.existsSync(data.artifactsDir)) fs.writeFileSync(artifactsDirFile(), data.artifactsDir)
     const skillsToInstall = {} // profile → [ids] para que el renderer reinstale las del catálogo
+    const mcpSkipped = [] // servers con credenciales que el export excluyó (reconectar a mano)
     for (const [prof, entry] of Object.entries(data.profiles)) {
       if (!CONFIG_PROFILES.includes(prof)) continue
       if (entry.squad) fs.writeFileSync(squadFile(prof), JSON.stringify(entry.squad, null, 2))
@@ -1459,8 +1469,9 @@ ipcMain.handle('config:import', async () => {
         } catch {}
       }
       if (entry.skills?.length) skillsToInstall[prof] = entry.skills
+      if (entry.mcpSkipped?.length) mcpSkipped.push(...entry.mcpSkipped)
     }
-    return { ok: true, extras: data.extras || null, skills: skillsToInstall }
+    return { ok: true, extras: data.extras || null, skills: skillsToInstall, mcpSkipped: [...new Set(mcpSkipped)] }
   } catch (err) {
     return { ok: false, error: err.message }
   }
