@@ -1,8 +1,9 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { MathUtils, Shape, ExtrudeGeometry, DoubleSide, TextureLoader, RepeatWrapping } from 'three'
+import { MathUtils, Shape, ExtrudeGeometry, DoubleSide, TextureLoader, RepeatWrapping, ACESFilmicToneMapping } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
+import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
 import Pet from './scene/Pet.jsx'
@@ -760,7 +761,7 @@ function HelperGhost({ chair }) {
   )
 }
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', onTourDone, onPickMember }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', quality = 'normal', onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -966,7 +967,17 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
   return (
     <div style={{ width: '100%', height: '100%' }} onDoubleClick={resetCamera} title="Doble click: restablecer cámara">
-    <Canvas shadows dpr={[1, 2]} frameloop={visible ? 'always' : 'demand'} style={{ width: '100%', height: '100%' }}>
+    <Canvas
+      shadows={quality === 'ligera' ? true : 'soft'}
+      dpr={[1, quality === 'ligera' ? 1.5 : 2]}
+      frameloop={visible ? 'always' : 'demand'}
+      gl={{ antialias: true, stencil: false }}
+      onCreated={({ gl }) => {
+        gl.toneMapping = ACESFilmicToneMapping // look de película
+        gl.toneMappingExposure = 1.15
+      }}
+      style={{ width: '100%', height: '100%' }}
+    >
       {!visible && anyMotion && <DemandTicker />}
       <color attach="background" args={[T.bg]} />
 
@@ -1195,7 +1206,19 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         </Html>
       )}
 
+      
+
       <ContactShadows position={[0, 0.004, 0]} opacity={0.4} scale={9} blur={2.5} far={3} />
+
+      {/* Acabado de cámara (glow-up #111): bloom en lámparas y pantallas,
+          tilt-shift para el efecto maqueta, viñeta y antialiasing. En calidad
+          «ligera» se apaga entero; oculta la ventana tampoco se compone. */}
+      {quality !== 'ligera' && visible && (
+        <EffectComposer multisampling={0} enableNormalPass={false} depthBuffer={false} stencilBuffer={false}>
+          <Bloom intensity={quality === 'cine' ? 0.75 : 0.45} luminanceThreshold={0.7} luminanceSmoothing={0.5} mipmapBlur radius={0.72} />
+          <Vignette offset={0.3} darkness={0.4} />
+        </EffectComposer>
+      )}
     </Canvas>
     </div>
   )

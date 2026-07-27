@@ -261,10 +261,17 @@ export default function App() {
     if (!themeLoaded.current) return
     localStorage.setItem(`oficina-write-${profile}`, writeMode ? '1' : '0')
   }, [writeMode, profile])
-  // mascota 🦊 por perfil
+  // calidad gráfica (glow-up #111) y mascota 🦊, por perfil
+  const [quality, setQuality] = useState('normal')
+  const saveQuality = (v) => {
+    setQuality(v)
+    localStorage.setItem(`oficina-quality-${profile}`, v)
+    showToast(v === 'cine' ? '🎬 Calidad Cine — profundidad de campo y bloom' : v === 'ligera' ? '🔋 Calidad Ligera — sin efectos' : '✨ Calidad Normal')
+  }
   const [pet, setPet] = useState('')
   useEffect(() => {
     setPet(localStorage.getItem(`oficina-pet-${profile}`) || '')
+    setQuality(localStorage.getItem(`oficina-quality-${profile}`) || 'normal')
   }, [profile])
   const savePet = (v) => {
     setPet(v)
@@ -1923,6 +1930,7 @@ export default function App() {
           standup={standupIds}
           subagents={Object.keys(agentTool).filter((r) => agentTool[r] === 'Task')}
           pet={pet}
+          quality={quality}
           elapsed={elapsed}
           queued={queuedCounts}
           deliverTargets={deliverTargets}
@@ -2035,6 +2043,14 @@ export default function App() {
                     {modelLabelOf(id)}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Calidad:</span>
+              <select className="sel pref-sel" value={quality} onChange={(e) => saveQuality(e.target.value)}>
+                <option value="cine">🎬 Cine — todos los efectos</option>
+                <option value="normal">✨ Normal (recomendado)</option>
+                <option value="ligera">🔋 Ligera — ahorra batería</option>
               </select>
             </div>
             <div className="pref-row">
