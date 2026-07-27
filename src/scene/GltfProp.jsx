@@ -25,8 +25,9 @@ export default function GltfProp({ url, position = [0, 0, 0], rotation = [0, 0, 
     const hsl = {}
     clone.traverse((o) => {
       if (!o.isMesh || !o.material) return
-      const mats = Array.isArray(o.material) ? o.material : [o.material]
-      o.material = mats.map((m) => {
+      const wasArray = Array.isArray(o.material)
+      const mats = wasArray ? o.material : [o.material]
+      const out = mats.map((m) => {
         if (!m.color) return m
         m.color.getHSL(hsl)
         const isGreen = hsl.h > 0.16 && hsl.h < 0.46 && hsl.s > 0.12
@@ -37,9 +38,12 @@ export default function GltfProp({ url, position = [0, 0, 0], rotation = [0, 0, 
         c.color.getHSL(own)
         const tint = {}
         new Color(foliage).getHSL(tint)
-        c.color.setHSL(tint.h, tint.s, Math.min(0.92, own.l * 0.5 + tint.l * 0.7))
+        c.color.setHSL(tint.h, tint.s, Math.min(0.85, own.l * 0.55 + tint.l * 0.55))
         return c
       })
+      // OJO: asignar un array a una malla SIN grupos hace que three no la
+      // dibuje (las hojas desaparecían) — hay que devolver la misma forma.
+      o.material = wasArray ? out : out[0]
     })
   }, [clone, foliage])
 
