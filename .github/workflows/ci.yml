@@ -64,3 +64,20 @@ jobs:
           gh release upload "$GITHUB_REF_NAME" release/*.dmg --clobber ||
             gh release create "$GITHUB_REF_NAME" release/*.dmg \
               --title "La Oficina $GITHUB_REF_NAME" --generate-notes
+      # Re-pushear un tag degrada su release a borrador, y publicar uno viejo lo
+      # marca «latest» (GitHub ordena por fecha, no por versión). Como el aviso
+      # de versión nueva de la app consulta /releases/latest, un descuido aquí
+      # deja el release invisible o le ofrece al usuario BAJAR de versión.
+      - name: Publicar el release y marcarlo como latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+      - name: Verificar lo que verá el checker de la app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          LATEST=$(gh release view --json tagName --jq .tagName)
+          ASSETS=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets | length')
+          echo "latest=$LATEST · assets de $GITHUB_REF_NAME=$ASSETS"
+          [ "$LATEST" = "$GITHUB_REF_NAME" ] || { echo "::error::latest es $LATEST, no $GITHUB_REF_NAME"; exit 1; }
+          [ "$ASSETS" -ge 1 ] || { echo "::error::el release no tiene DMG"; exit 1; }
