@@ -21,6 +21,8 @@ import { AvatarThumb, AttThumb } from './components/thumbs.jsx'
 import {
   IconAgents, IconBook, IconSkills, IconMcp, IconStats, IconDiag, IconTour,
   IconTerminal, IconExport, IconImport, IconTune, IconChevron,
+  IconWork, IconPrivate, IconPerson, IconFolder, IconPin, IconAdd,
+  IconClose, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
 } from './components/icons.jsx'
 
 const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
@@ -1956,7 +1958,7 @@ export default function App() {
             disabled={busy}
             title="Perfil y proyecto"
           >
-            {profile === 'work' ? '💼' : profile === 'private' ? '🔒' : '🧑'} {profile}
+            <span className="ctx-ico">{profile === 'work' ? <IconWork size={16} /> : profile === 'private' ? <IconPrivate size={16} /> : <IconPerson size={16} />}</span> {profile}
             <span className="ctx-sep">/</span>
             <span className="ctx-proj">
               {(projects.find((x) => x.path === project)?.name || project.split('/').pop() || '…').replace(/^(🗂|📌) /, '')}
@@ -1976,7 +1978,10 @@ export default function App() {
                         className={p === profile ? 'ctx-tab on' : 'ctx-tab'}
                         onClick={() => changeProfile(p)}
                       >
-                        {p === 'work' ? '💼 work' : p === 'private' ? '🔒 private' : `🧑 ${p}`}
+                        <span className="ctx-ico">
+                          {p === 'work' ? <IconWork size={15} /> : p === 'private' ? <IconPrivate size={15} /> : <IconPerson size={15} />}
+                        </span>
+                        {p}
                       </button>
                     ))}
                   </div>
@@ -1992,7 +1997,8 @@ export default function App() {
                       setCtxOpen(false)
                     }}
                   >
-                    {p.name}
+                    <span className="ctx-ico">{p.name.startsWith('📌') ? <IconPin size={15} /> : <IconFolder size={15} />}</span>
+                    {p.name.replace(/^(🗂|📌)\s*/, '')}
                   </button>
                 ))}
                 <button
@@ -2003,7 +2009,8 @@ export default function App() {
                     setCtxOpen(false)
                   }}
                 >
-                  ➕ Agregar proyecto…
+                  <span className="ctx-ico"><IconAdd size={15} /></span>
+                  Agregar proyecto…
                 </button>
               </div>
             </>
@@ -2081,7 +2088,7 @@ export default function App() {
           <div className="drawer">
             <div className="drawer-head">
               <b>⚙️ Configuración</b>
-              <button onClick={() => setPrefsOpen(false)}>✕</button>
+              <button onClick={() => setPrefsOpen(false)}><IconClose size={16} /></button>
             </div>
 
             {/* navegación: filas de menú (ícono · label · chevron) */}
@@ -2179,7 +2186,7 @@ export default function App() {
           <div className="drawer over">
             <div className="drawer-head">
               <b>Diagnóstico</b>
-              <button onClick={() => setDiagOpen(false)} title="Volver a Configuración">✕</button>
+              <button onClick={() => setDiagOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
             </div>
             <div className="diag-actions">
               <button
@@ -2206,7 +2213,7 @@ export default function App() {
               >
                 ⬇ Exportar
               </button>
-              <button type="button" className="skill-manual" onClick={openDiag}>🔄 Refrescar</button>
+              <button type="button" className="skill-manual" onClick={openDiag}><IconRefresh size={13} /> Refrescar</button>
             </div>
             {diagRows.length === 0 && <div className="hist-empty">Sin eventos aún — se registran init, tools, entregas y errores</div>}
             {diagRows.map((r, i) => (
@@ -2224,7 +2231,7 @@ export default function App() {
           <div className="drawer over">
             <div className="drawer-head">
               <b>Preferencias</b>
-              <button onClick={() => setPrefsPanelOpen(false)} title="Volver a Configuración">✕</button>
+              <button onClick={() => setPrefsPanelOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
             </div>
             <div className="menu-group">
             <div className="pref-row">
@@ -2357,7 +2364,7 @@ export default function App() {
           <div className="drawer over">
             <div className="drawer-head">
               <b>Estadísticas de la oficina</b>
-              <button onClick={() => setStatsOpen(false)} title="Volver a Configuración">✕</button>
+              <button onClick={() => setStatsOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
             </div>
             {(() => {
               const days = [...Array(14)].map((_, i) => {
@@ -2469,8 +2476,8 @@ export default function App() {
         {mcpOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>🌐 Servidores MCP · {profile === 'work' ? '💼 work' : '🔒 private'}</b>
-              <button onClick={() => setMcpOpen(false)} title="Volver a Configuración">✕</button>
+              <b>Servidores MCP · {profile}</b>
+              <button onClick={() => setMcpOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
             </div>
             <div className="skills-note">
               Conectan herramientas externas a tus agentes (navegador, documentación, diseño). Se guardan en el perfil y los
@@ -2501,7 +2508,7 @@ export default function App() {
                         {mcpBusy === s.id ? (
                           <span className="skill-busy">⏳</span>
                         ) : inst ? (
-                          <button title="Quitar del perfil" onClick={() => removeMcp(s.id)}>🗑</button>
+                          <button title="Quitar del perfil" onClick={() => removeMcp(s.id)}><IconTrash size={14} /></button>
                         ) : s.manual ? (
                           <button
                             className="skill-manual"
@@ -2539,7 +2546,7 @@ export default function App() {
                         {mcpBusy === x.name ? (
                           <span className="skill-busy">⏳</span>
                         ) : (
-                          <button title="Quitar del perfil" onClick={() => removeMcp(x.name)}>🗑</button>
+                          <button title="Quitar del perfil" onClick={() => removeMcp(x.name)}><IconTrash size={14} /></button>
                         )}
                       </div>
                     </div>
@@ -2611,8 +2618,8 @@ export default function App() {
         {skillsOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>🧩 Skills · {profile === 'work' ? '💼 work' : '🔒 private'}</b>
-              <button onClick={() => setSkillsOpen(false)} title="Volver a Configuración">✕</button>
+              <b>Skills · {profile}</b>
+              <button onClick={() => setSkillsOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
             </div>
             <div className="skills-note">
               Se instalan en el perfil ({profile === 'work' ? '~/.claude-work' : '~/.claude-private'}) y los agentes las usan
@@ -2621,7 +2628,7 @@ export default function App() {
             {installedSkills?.length > 0 && (
               <div className="diag-actions">
                 <button type="button" className="skill-manual" onClick={updateAllSkills} disabled={skillsUpdating}>
-                  {skillsUpdating ? '⏳ Actualizando…' : '🔄 Actualizar todo'}
+                  {skillsUpdating ? 'Actualizando…' : 'Actualizar todo'}
                 </button>
               </div>
             )}
@@ -2651,8 +2658,8 @@ export default function App() {
                           <span className="skill-busy">⏳</span>
                         ) : inst ? (
                           <>
-                            <button title="Actualizar a la última versión" onClick={() => installSkill(s)}>🔄</button>
-                            <button title="Quitar del perfil" onClick={() => removeSkill(s.id)}>🗑</button>
+                            <button title="Actualizar a la última versión" onClick={() => installSkill(s)}><IconRefresh size={14} /></button>
+                            <button title="Quitar del perfil" onClick={() => removeSkill(s.id)}><IconTrash size={14} /></button>
                           </>
                         ) : (
                           <button className="skill-install" onClick={() => installSkill(s)}>Instalar</button>
@@ -2675,7 +2682,7 @@ export default function App() {
                         {skillBusy === x.id ? (
                           <span className="skill-busy">⏳</span>
                         ) : (
-                          <button title="Quitar del perfil" onClick={() => removeSkill(x.id)}>🗑</button>
+                          <button title="Quitar del perfil" onClick={() => removeSkill(x.id)}><IconTrash size={14} /></button>
                         )}
                       </div>
                     </div>
@@ -2771,7 +2778,7 @@ export default function App() {
                     {pluginData.marketplaces.map((m) => (
                       <div key={m.name} className="hist-item skill-item">
                         <div className="skill-info">
-                          <div className="hist-title">📦 {m.name}</div>
+                          <div className="hist-title">{m.name}</div>
                           <div className="hist-meta">{m.repo}</div>
                         </div>
                         <div className="art-actions">
@@ -2779,7 +2786,7 @@ export default function App() {
                             <span className="skill-busy">⏳</span>
                           ) : (
                             m.name !== 'claude-plugins-official' && (
-                              <button title="Quitar fuente" onClick={() => removeMkt(m.name)}>🗑</button>
+                              <button title="Quitar fuente" onClick={() => removeMkt(m.name)}><IconTrash size={14} /></button>
                             )
                           )}
                         </div>
@@ -2797,7 +2804,7 @@ export default function App() {
                           {pluginBusy === p.id ? (
                             <span className="skill-busy">⏳</span>
                           ) : (
-                            <button title="Desinstalar" onClick={() => uninstallPlugin(p.id)}>🗑</button>
+                            <button title="Desinstalar" onClick={() => uninstallPlugin(p.id)}><IconTrash size={14} /></button>
                           )}
                         </div>
                       </div>
@@ -2820,8 +2827,8 @@ export default function App() {
                               <div className="hist-title">{p.name}</div>
                               <div className="hist-meta">{p.desc}</div>
                               <div className="skill-tags">
-                                <span className="skill-tag">📦 {p.marketplace}</span>
-                                {p.installs > 0 && <span className="skill-tag">⬇ {fmtTokens(p.installs)}</span>}
+                                <span className="skill-tag">{p.marketplace}</span>
+                                {p.installs > 0 && <span className="skill-tag">{fmtTokens(p.installs)} instalaciones</span>}
                               </div>
                             </div>
                             <div className="art-actions">
@@ -2846,7 +2853,7 @@ export default function App() {
           <div className="drawer over">
             <div className="drawer-head">
               <b>Agentes</b>
-              <button onClick={closeAgents} title="Volver a Configuración">✕</button>
+              <button onClick={closeAgents} title="Volver a Configuración"><IconClose size={16} /></button>
             </div>
             <div className="preset-row">
               {SQUAD_PRESETS.map((p) => (
@@ -2909,7 +2916,7 @@ export default function App() {
                         onClick={() => startEditRole(r)}
                         title="Editar foco, keywords, emoji y color"
                       >
-                        ✏️
+                        <IconEdit size={14} />
                       </button>
                     )}
                     {canDelete(r) && (
@@ -2936,7 +2943,7 @@ export default function App() {
                     className={avatarPicker === r.id ? 'squad-avatar-btn open' : 'squad-avatar-btn'}
                     onClick={() => setAvatarPicker((p) => (p === r.id ? null : r.id))}
                   >
-                    🧍 {avatarLabel(effectiveAvatar(r))}
+                    <IconPerson3D size={13} /> {avatarLabel(effectiveAvatar(r))}
                   </button>
                   <button
                     type="button"
@@ -2944,7 +2951,7 @@ export default function App() {
                     onClick={() => window.oficina?.openPersona?.(profile, r.id, r.name)}
                     title="Editar la personalidad de este personaje (.md)"
                   >
-                    ✏️ Personalidad
+                    <IconEdit size={13} /> Personalidad
                   </button>
                   <select
                     className="squad-avatar-btn squad-model"
@@ -3064,8 +3071,8 @@ export default function App() {
             return (
               <div className="drawer right">
                 <div className="drawer-head">
-                  <b>🧍 Personaje de {r.name}</b>
-                  <button onClick={() => setAvatarPicker(null)}>✕</button>
+                  <b>Personaje de {r.name}</b>
+                  <button onClick={() => setAvatarPicker(null)}><IconClose size={16} /></button>
                 </div>
                 <div className="avatar-grid">
                   {AVATARS.map((a) => {
@@ -3094,8 +3101,8 @@ export default function App() {
         {diffView && (
           <div className="drawer diff-drawer">
             <div className="drawer-head">
-              <b>🔀 Cambios en {project?.split('/').pop() || 'el proyecto'}</b>
-              <button onClick={() => setDiffView(null)}>✕</button>
+              <b>Cambios en {project?.split('/').pop() || 'el proyecto'}</b>
+              <button onClick={() => setDiffView(null)}><IconClose size={16} /></button>
             </div>
             {diffView.loading && <div className="hist-empty">Leyendo el diff…</div>}
             {diffView.error && <div className="hist-empty">⚠️ {diffView.error}</div>}
@@ -3120,8 +3127,8 @@ export default function App() {
         {artsOpen && (
           <div className="drawer">
             <div className="drawer-head">
-              <b>📄 Documentos</b>
-              <button onClick={() => setArtsOpen(false)}>✕</button>
+              <b>Documentos</b>
+              <button onClick={() => setArtsOpen(false)}><IconClose size={16} /></button>
             </div>
             {artsList.length === 0 && <div className="hist-empty">Aún no hay documentos · pídele uno a un agente</div>}
             {artsList.map((a) => (
@@ -3144,7 +3151,7 @@ export default function App() {
                   >
                     💬
                   </button>
-                  <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title="Revelar en Finder">📂</button>
+                  <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title="Revelar en Finder"><IconReveal size={14} /></button>
                   <button
                     onClick={async () => {
                       const r = await window.oficina?.artifacts?.zip?.(a.path)
@@ -3152,7 +3159,7 @@ export default function App() {
                     }}
                     title="Exportar como .zip (con imágenes) para compartir"
                   >
-                    📦
+                    <IconZip size={14} />
                   </button>
                 </div>
               </div>
@@ -3164,7 +3171,7 @@ export default function App() {
           <div className="drawer">
             <div className="drawer-head">
               <b>Historial</b>
-              <button onClick={() => setHistOpen(false)}>✕</button>
+              <button onClick={() => setHistOpen(false)}><IconClose size={16} /></button>
             </div>
             {histList.length > 0 && (
               <input
@@ -3201,7 +3208,7 @@ export default function App() {
                 )}
                 {histContent[h.id] && <div className="hist-meta hist-excerpt">🔎 {histContent[h.id]}</div>}
                 <div className="hist-meta">
-                  {h.profile === 'work' ? '💼' : '🔒'} {h.project?.split('/').pop()} · {h.count} msgs ·{' '}
+                  <span className="ctx-ico">{h.profile === 'work' ? <IconWork size={12} /> : <IconPrivate size={12} />}</span>{h.project?.split('/').pop()} · {h.count} msgs ·{' '}
                   {h.updatedAt
                     ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                     : ''}
@@ -3215,7 +3222,7 @@ export default function App() {
                     setRenaming({ id: h.id, val: h.title || '' })
                   }}
                 >
-                  ✏️
+                  <IconEdit size={14} />
                 </button>
                 <button
                   className="hist-export hist-pin"
@@ -3226,10 +3233,10 @@ export default function App() {
                   📌
                 </button>
                 <button className="hist-export" title="Exportar a Markdown" aria-label="Exportar conversación a Markdown" onClick={(e) => exportConvo(e, h.id)}>
-                  ⬇
+                  <IconDownload size={14} />
                 </button>
                 <button className="hist-del" title="Borrar" aria-label="Borrar conversación" onClick={(e) => deleteConvo(e, h.id)}>
-                  🗑
+                  <IconTrash size={14} />
                 </button>
               </div>
             ))}
@@ -3284,13 +3291,13 @@ export default function App() {
                 <span className="find-count">{findQuery.trim() ? (findHits.length ? `${findIdx + 1}/${findHits.length}` : '0') : ''}</span>
                 <button type="button" onClick={() => gotoHit(findIdx - 1)} title="Anterior (⇧Enter)">↑</button>
                 <button type="button" onClick={() => gotoHit(findIdx + 1)} title="Siguiente (Enter)">↓</button>
-                <button type="button" onClick={() => setFindOpen(false)} title="Cerrar (Esc)">✕</button>
+                <button type="button" onClick={() => setFindOpen(false)} title="Cerrar (Esc)"><IconClose size={16} /></button>
               </div>
             )}
             {chatFilter && (
               <div className="chat-filter">
                 Viendo solo a {memberOf(chatFilter).emoji} {memberOf(chatFilter).name}
-                <button type="button" onClick={() => setChatFilter(null)}>✕ ver todo</button>
+                <button type="button" onClick={() => setChatFilter(null)}><IconClose size={12} /> ver todo</button>
               </div>
             )}
             {(chatFilter ? messages.filter((m) => m.who === chatFilter || m.to === chatFilter) : messages).map((m) => {
@@ -3391,7 +3398,7 @@ export default function App() {
                       }
                     }}
                   >
-                    ✏️
+                    <IconEdit size={14} />
                   </button>
                 )}
                 {m.artifact && (
@@ -3460,13 +3467,13 @@ export default function App() {
           {attachments.map((a, i) => (
             <span key={a.path} className="attachchip">
               <AttThumb att={a} onZoom={setLightbox} />
-              <button type="button" onClick={() => setAttachments((arr) => arr.filter((_, j) => j !== i))}>✕</button>
+              <button type="button" onClick={() => setAttachments((arr) => arr.filter((_, j) => j !== i))}><IconClose size={16} /></button>
             </span>
           ))}
           {refs.map((r, i) => (
             <span key={r.path} className="attachchip">
               {r.isDir ? '📁' : '📄'} {r.name}
-              <button type="button" onClick={() => setRefs((arr) => arr.filter((_, j) => j !== i))}>✕</button>
+              <button type="button" onClick={() => setRefs((arr) => arr.filter((_, j) => j !== i))}><IconClose size={16} /></button>
             </span>
           ))}
         </div>

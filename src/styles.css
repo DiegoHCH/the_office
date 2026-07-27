@@ -983,3 +983,8 @@ select.squad-model {
 /* iconos del menú: heredan el color del item y se resaltan al hover */
 .menu-item:hover .mi-icon { color: #2dd4bf; }
 .menu-item:hover .mi-chev { color: #93a6a1; }
+/* iconos del selector de contexto (perfiles y carpetas) */
+.ctx-ico { display: inline-flex; align-items: center; vertical-align: -3px; margin-right: 6px; color: #7fd8c8; }
+.ctx-item { display: flex; align-items: center; }
+.ctx-item.on .ctx-ico, .ctx-tab.on .ctx-ico { color: #2dd4bf; }
+.ctx-add .ctx-ico { color: #2dd4bf; }
