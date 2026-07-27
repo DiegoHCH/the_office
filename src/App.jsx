@@ -69,6 +69,37 @@ export default function App() {
   const editedRef = useRef({})
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
+  // citar selección (#97): al soltar el mouse con texto seleccionado dentro de
+  // una respuesta, aparece un botón flotante que lo lleva al composer
+  const [quote, setQuote] = useState(null) // {text, x, y}
+  const onChatMouseUp = () => {
+    const sel = window.getSelection?.()
+    const text = sel?.toString().trim()
+    if (!text || text.length < 2) return setQuote(null)
+    // solo dentro de mensajes del asistente
+    let node = sel.anchorNode
+    while (node && node !== document.body) {
+      if (node.nodeType === 1 && node.classList?.contains('msg')) break
+      node = node.parentNode
+    }
+    if (!node?.classList?.contains?.('assistant')) return setQuote(null)
+    const r = sel.getRangeAt(0).getBoundingClientRect()
+    setQuote({ text: text.slice(0, 1200), x: r.left + r.width / 2, y: r.top - 10 })
+  }
+  const useQuote = () => {
+    const q = quote.text
+      .split('\n')
+      .map((l) => `> ${l}`)
+      .join('\n')
+    setInput((v) => `${q}\n\n${v}`)
+    setQuote(null)
+    window.getSelection?.()?.removeAllRanges()
+    const el = inputRef.current
+    if (el) {
+      el.focus()
+      requestAnimationFrame(() => autoGrow(el))
+    }
+  }
   // intro cinemática (#112): edificio → puertas → destello → la oficina.
   // Se salta con Esc, con el botón, o si el sistema pide menos movimiento.
   const [introOpen, setIntroOpen] = useState(() => {
@@ -3058,7 +3089,7 @@ export default function App() {
         )}
 
         {messages.length > 0 && (
-          <div className="chat" ref={logRef} onScroll={onLogScroll}>
+          <div className="chat" ref={logRef} onScroll={onLogScroll} onMouseUp={onChatMouseUp}>
             {findOpen && (
               <div className="find-bar">
                 <input
@@ -3239,6 +3270,11 @@ export default function App() {
         />
       )}
       {introFade && <div className="intro-veil" />}
+      {quote && (
+        <button type="button" className="quote-btn" style={{ left: quote.x, top: quote.y }} onClick={useQuote}>
+          💬 Citar
+        </button>
+      )}
       {tourOpen && <Tour onDone={endTour} />}
 
       {(attachments.length > 0 || refs.length > 0) && (

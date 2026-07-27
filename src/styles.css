@@ -943,3 +943,14 @@ select.squad-model {
   from { opacity: 1; }
   to { opacity: 0; }
 }
+
+/* botón flotante para citar una selección de la respuesta (#97) */
+.quote-btn {
+  position: fixed; z-index: 9; transform: translate(-50%, -100%);
+  background: #121a1f; color: #7fd8c8; border: 1px solid #2dd4bf;
+  border-radius: 999px; padding: 6px 14px; font-size: 12px; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(4, 10, 13, 0.5); font-family: inherit;
+  animation: quotePop 0.14s ease-out;
+}
+.quote-btn:hover { background: #16222a; }
+@keyframes quotePop { from { opacity: 0; transform: translate(-50%, -90%); } }
