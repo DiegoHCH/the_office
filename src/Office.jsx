@@ -16,6 +16,7 @@ export const THEMES = {
     floor: '#e6c6a4', wallBack: '#c08a72', wallLeft: '#e8e2d8', base: '#8a6a52',
     desk: '#cf9b7e', matColor: '#3c6b82', bg: '#b9ccd3',
     ambient: 0.9, hemi: ['#dbe8ec', '#4a3b2f', 0.7], dir: 2.1,
+    foliage: null, // verde natural del modelo
   },
   noche: {
     label: '🌙 Noche',
@@ -23,18 +24,21 @@ export const THEMES = {
     desk: '#6b4a3a', matColor: '#1f4650', bg: '#080d14',
     ambient: 0.4, hemi: ['#3b5566', '#1a1410', 0.45], dir: 0.9,
     lampsOn: true, // las lámparas de piso se encienden
+    foliage: '#2f6b4a', // follaje apagado por la poca luz
   },
   playa: {
     label: '🏖 Playa',
     floor: '#f2dcbe', wallBack: '#e0b8a2', wallLeft: '#9fd0dc', base: '#b08a68',
     desk: '#c98a5a', matColor: '#d96a4f', bg: '#cfe9f0',
     ambient: 1.05, hemi: ['#eaf6fa', '#8a6a45', 0.8], dir: 2.4,
+    foliage: '#7cc45a', // verde tropical claro
   },
   sakura: {
     label: '🌸 Sakura',
     floor: '#e8cfc6', wallBack: '#c0909a', wallLeft: '#e6d2da', base: '#8a6270',
     desk: '#c9909a', matColor: '#8a5a6e', bg: '#ecd6dc',
     ambient: 0.95, hemi: ['#f5e4ea', '#5a3b45', 0.7], dir: 2.0,
+    foliage: '#f2a3c0', petals: true, // ¡cerezos en flor y pétalos cayendo! 🌸
   },
 }
 // paleta activa (Office la fija en cada render según el tema elegido)
@@ -174,6 +178,48 @@ function FlutterFrame({ position, rotation = [0, 0, 0] }) {
           })
         )}
       </group>
+    </group>
+  )
+}
+
+// Pétalos de cerezo cayendo (tema Sakura): plantitas rosadas no bastan — esto
+// es lo que vende la estación. Instanciado simple, sin costo apreciable.
+function Petals({ count = 46 }) {
+  const ref = useRef()
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: count }, () => ({
+        x: (Math.random() - 0.5) * ROOM * 0.95,
+        z: (Math.random() - 0.5) * ROOM * 0.95,
+        y: Math.random() * 2.2,
+        spin: 0.4 + Math.random() * 1.4,
+        fall: 0.12 + Math.random() * 0.18,
+        sway: 0.15 + Math.random() * 0.35,
+        phase: Math.random() * Math.PI * 2,
+      })),
+    [count]
+  )
+  useFrame((state, dt) => {
+    const g = ref.current
+    if (!g) return
+    const t = state.clock.elapsedTime
+    g.children.forEach((p, i) => {
+      const s = seeds[i]
+      p.position.y -= s.fall * dt
+      if (p.position.y < 0.02) p.position.y = 2.3
+      p.position.x = s.x + Math.sin(t * 0.6 + s.phase) * s.sway
+      p.rotation.z = t * s.spin
+      p.rotation.x = Math.sin(t * 0.8 + s.phase) * 0.6
+    })
+  })
+  return (
+    <group ref={ref}>
+      {seeds.map((s, i) => (
+        <mesh key={i} position={[s.x, s.y, s.z]} scale={[0.035, 0.022, 1]}>
+          <circleGeometry args={[1, 5]} />
+          <meshStandardMaterial color={i % 3 ? '#f8c2d8' : '#fbe0ea'} side={DoubleSide} roughness={0.9} transparent opacity={0.92} />
+        </mesh>
+      ))}
     </group>
   )
 }
@@ -423,7 +469,7 @@ function FloorPlant({ position, height = 0.55, rotation = 0 }) {
         <cylinderGeometry args={[0.13, 0.1, 0.22, 20]} />
         {mat('#f0ece4')}
       </mesh>
-      <GltfProp url="/models/props/Monstera.glb" position={[0, 0.2, 0]} fitHeight={height} />
+      <GltfProp url="/models/props/Monstera.glb" position={[0, 0.2, 0]} fitHeight={height} foliage={T.foliage} />
     </group>
   )
 }
@@ -442,7 +488,7 @@ function PottedTree({ position, height = 1.15 }) {
         <cylinderGeometry args={[0.035, 0.05, 0.45, 10]} />
         {mat('#7a5c3e')}
       </mesh>
-      <GltfProp url="/models/props/Fern.glb" position={[0, 0.62, 0]} fitHeight={height * 0.55} />
+      <GltfProp url="/models/props/Fern.glb" position={[0, 0.62, 0]} fitHeight={height * 0.55} foliage={T.foliage} />
     </group>
   )
 }
@@ -1019,6 +1065,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
       <Room />
       <Window />
+      {T.petals && <Petals />}
       <Shelf />
 
       {/* estación principal (dev): L en la esquina trasera-izquierda */}
@@ -1064,7 +1111,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         {/* teclado+mouse del principal (dentro de Suspense: carga modelos) */}
         <KbMouse monitor={MONITOR_POS} chair={CHAIR_POS} />
         {PROPS.map((p, i) => (
-          <GltfProp key={i} {...p} />
+          <GltfProp key={i} {...p} foliage={p.url.includes('/props/') ? T.foliage : null} />
         ))}
 
         {main && (

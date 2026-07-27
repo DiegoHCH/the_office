@@ -1,6 +1,6 @@
 import { useMemo, useLayoutEffect } from 'react'
 import { useGLTF } from '@react-three/drei'
-import { Box3 } from 'three'
+import { Box3, Color } from 'three'
 
 /**
  * Carga un modelo glTF/GLB y lo coloca en la escena.
@@ -13,9 +13,35 @@ import { Box3 } from 'three'
  *   <GltfProp url="/models/desk.glb" position={[0,0,0]} rotation={[0,Math.PI/2,0]} scale={1.5} />
  *   <GltfProp url="/models/props/Monstera.glb" position={[0,0,0]} fitHeight={0.55} />
  */
-export default function GltfProp({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = 1, fitHeight = null }) {
+export default function GltfProp({ url, position = [0, 0, 0], rotation = [0, 0, 0], scale = 1, fitHeight = null, foliage = null }) {
   const { scene } = useGLTF(url)
   const clone = useMemo(() => scene.clone(true), [scene])
+
+  // Tinte de follaje por tema (#111): solo los materiales verdosos cambian de
+  // color — troncos, macetas y tierra se quedan como están. Así el mismo
+  // modelo de planta sirve para el cerezo de Sakura o la palmera de Playa.
+  useLayoutEffect(() => {
+    if (!foliage) return
+    const hsl = {}
+    clone.traverse((o) => {
+      if (!o.isMesh || !o.material) return
+      const mats = Array.isArray(o.material) ? o.material : [o.material]
+      o.material = mats.map((m) => {
+        if (!m.color) return m
+        m.color.getHSL(hsl)
+        const isGreen = hsl.h > 0.16 && hsl.h < 0.46 && hsl.s > 0.12
+        if (!isGreen) return m
+        const c = m.clone()
+        // conserva la variación de luz original del modelo (hojas claras/oscuras)
+        const own = {}
+        c.color.getHSL(own)
+        const tint = {}
+        new Color(foliage).getHSL(tint)
+        c.color.setHSL(tint.h, tint.s, Math.min(0.92, own.l * 0.5 + tint.l * 0.7))
+        return c
+      })
+    })
+  }, [clone, foliage])
 
   const { s, yOff } = useMemo(() => {
     if (!fitHeight) return { s: scale, yOff: 0 }
