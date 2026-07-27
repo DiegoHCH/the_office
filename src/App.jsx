@@ -371,6 +371,10 @@ const MCP_CATALOG = [
   { id: 'context7', name: 'Context7', desc: 'Documentación al día de librerías y frameworks, directo al contexto del agente', roles: ['dev'], cmd: ['npx', '-y', '@upstash/context7-mcp'] },
   { id: 'figma', name: 'Figma', desc: 'Lee tus diseños de Figma — ⚠️ en plan gratis solo 6 usos/mes; para uso real pide seat Dev/Full de pago (y autenticarse una vez con /mcp)', roles: ['design'], url: 'https://mcp.figma.com/mcp' },
   { id: 'nano-banana', name: 'Nano Banana 🍌', desc: 'Genera y edita imágenes con Gemini — 500 imágenes/día GRATIS con tu API key de Google AI Studio (se pide al conectar, sin tarjeta)', roles: ['design'], cmd: ['npx', '-y', '@mindstone/mcp-server-nano-banana'], needsEnv: 'GEMINI_API_KEY' },
+  // recomendaciones manuales: solo aparecen en el listado con su guía — el
+  // usuario los configura por su cuenta (instaladores propios, registries…)
+  { id: 'engram', name: 'Engram 🧠', desc: 'Memoria de largo plazo compartida del squad: lo aprendido queda buscable entre sesiones y proyectos (MIT; local gratis, hosted con tier gratis). Se instala con su propio setup', roles: ['dev', 'research', 'qa'], manual: true, link: 'https://engram.tools' },
+  { id: 'shadcn', name: 'shadcn Registry', desc: 'El agente busca e instala componentes UI de registries (shadcn/ui, Cult UI free…) directo en proyectos React/Tailwind — gratis; los registries premium quedan fuera', roles: ['design', 'dev'], manual: true, link: 'https://ui.shadcn.com/docs/registry/mcp' },
 ]
 
 // Cómo se muestra cada herramienta de Claude en pantalla.
@@ -2236,6 +2240,14 @@ export default function App() {
                           <span className="skill-busy">⏳</span>
                         ) : inst ? (
                           <button title="Quitar del perfil" onClick={() => removeMcp(s.id)}>🗑</button>
+                        ) : s.manual ? (
+                          <button
+                            className="skill-manual"
+                            title="Se configura por fuera de la app — abre la guía oficial"
+                            onClick={() => window.open(s.link)}
+                          >
+                            Cómo conectarlo ↗
+                          </button>
                         ) : s.needsEnv ? (
                           <button
                             className="skill-install"

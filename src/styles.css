@@ -412,6 +412,12 @@ body {
   padding: 5px 14px; font-size: 11.5px; font-weight: 600; cursor: pointer;
 }
 .skill-install:hover { filter: brightness(1.08); }
+/* recomendación manual: no conecta nada, abre la guía oficial */
+.skill-manual {
+  background: none; border: 1px solid #45585f; border-radius: 999px; color: #93a6a1;
+  padding: 5px 12px; font-size: 11px; cursor: pointer; white-space: nowrap;
+}
+.skill-manual:hover { color: #7fd8c8; border-color: #7fd8c8; }
 .skill-busy { font-size: 13px; }
 .mcp-warn { color: #f5a524; font-size: 10.5px; font-weight: 600; margin-left: 4px; }
 .skill-scan { display: flex; gap: 8px; padding: 4px 8px 8px; }
