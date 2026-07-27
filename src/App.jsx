@@ -1359,8 +1359,26 @@ export default function App() {
   const snipQuery = input.startsWith('/') && !input.includes('\n') ? input.slice(1) : null
   const snipOpen = snipQuery !== null && !BUILTIN_CMDS.some((c) => input.startsWith(c))
   const snipMatches = snipOpen ? snippets.filter((s) => norm(s.name).includes(norm(snipQuery))) : []
+  const [snipVars, setSnipVars] = useState(null) // {text, vars, vals} — plantilla con {{variables}}
   const pickSnippet = (s) => {
+    // ¿la plantilla trae {{variables}}? pedir los valores antes de insertar
+    const vars = [...new Set([...s.text.matchAll(/\{\{\s*([^{}]+?)\s*\}\}/g)].map((m) => m[1]))]
+    if (vars.length) {
+      setSnipVars({ text: s.text, vars, vals: {} })
+      return
+    }
     setInput(s.text)
+    const el = inputRef.current
+    if (el) {
+      el.focus()
+      requestAnimationFrame(() => autoGrow(el))
+    }
+  }
+  const insertSnipVars = () => {
+    let out = snipVars.text
+    for (const v of snipVars.vars) out = out.split(`{{${v}}}`).join(snipVars.vals[v] || '').replace(new RegExp(`\\{\\{\\s*${escRe(v)}\\s*\\}\\}`, 'g'), snipVars.vals[v] || '')
+    setSnipVars(null)
+    setInput(out)
     const el = inputRef.current
     if (el) {
       el.focus()
@@ -3112,6 +3130,30 @@ export default function App() {
         </div>
       )}
 
+      {/* plantilla con {{variables}}: pedir los valores antes de insertar */}
+      {snipVars && (
+        <div className="snip-pop">
+          <div className="skills-note">La plantilla tiene variables — llénalas:</div>
+          <div className="snip-form">
+            {snipVars.vars.map((v, j) => (
+              <input
+                key={v}
+                placeholder={v}
+                autoFocus={j === 0}
+                value={snipVars.vals[v] || ''}
+                onChange={(e) => setSnipVars({ ...snipVars, vals: { ...snipVars.vals, [v]: e.target.value } })}
+                onKeyDown={(e) => e.key === 'Enter' && insertSnipVars()}
+              />
+            ))}
+            <div className="snip-form-row">
+              <button type="button" onClick={() => setSnipVars(null)}>Cancelar</button>
+              <button type="button" className="snip-save" onClick={insertSnipVars}>
+                Insertar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* @nombres: escribir @ lista los agentes activos (y @todos) */}
       {atQuery !== null && atOptions.length > 0 && (
         <div className="snip-pop">
@@ -3124,7 +3166,7 @@ export default function App() {
         </div>
       )}
       {/* plantillas: escribir / en el composer las lista y filtra por nombre */}
-      {snipOpen && (
+      {snipOpen && !snipVars && (
         <div className="snip-pop">
           {snipMatches.map((s) => (
             <div key={s.id} className="snip-item" onClick={() => pickSnippet(s)} title={s.text}>
@@ -3155,7 +3197,7 @@ export default function App() {
                 autoFocus
               />
               <textarea
-                placeholder="Texto de la plantilla…"
+                placeholder={'Texto de la plantilla… (admite {{variables}}: «revisa el PR {{numero}} de {{repo}}»)'}
                 rows={3}
                 value={snipForm.text}
                 onChange={(e) => setSnipForm({ ...snipForm, text: e.target.value })}
@@ -3226,7 +3268,7 @@ export default function App() {
               return
             }
             // con el popover de plantillas abierto, Enter/Tab toma la primera
-            if (snipOpen && snipMatches.length > 0 && !snipForm && (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey))) {
+            if (snipOpen && !snipVars && snipMatches.length > 0 && !snipForm && (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey))) {
               e.preventDefault()
               pickSnippet(snipMatches[0])
               return
