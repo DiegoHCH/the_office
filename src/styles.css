@@ -186,6 +186,20 @@ body {
 .find-bar button:hover { background: #16222a; color: #7fd8c8; }
 .msg.find-hit { outline: 1px solid rgba(45, 212, 191, 0.35); }
 .msg.find-current { outline: 2px solid #2dd4bf; }
+/* estadísticas 📈: barras de tokens por día */
+.stats-bars {
+  display: flex; align-items: flex-end; gap: 8px; height: 130px;
+  padding: 8px 12px 4px; margin-bottom: 6px;
+}
+.stats-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
+.stats-bar {
+  width: 100%; max-width: 34px; border-radius: 6px 6px 2px 2px;
+  background: linear-gradient(180deg, #2dd4bf, rgba(45, 212, 191, 0.35));
+  min-height: 2px;
+}
+.stats-val { font-size: 9px; color: #7fd8c8; font-family: ui-monospace, Menlo, monospace; }
+.stats-day { font-size: 9.5px; color: #93a6a1; text-transform: capitalize; }
+
 /* miniaturas de imágenes adjuntas + visor */
 .att-thumb {
   height: 72px; max-width: 160px; object-fit: cover; border-radius: 10px;

@@ -588,6 +588,8 @@ export default function App() {
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
   const [skillsOpen, setSkillsOpen] = useState(false) // panel 🧩 Skills (catálogo por perfil)
   const [mcpOpen, setMcpOpen] = useState(false) // panel 🌐 MCP (servidores por perfil)
+  const [statsOpen, setStatsOpen] = useState(false) // panel 📈 Estadísticas
+  const [statsData, setStatsData] = useState({})
   const [installedSkills, setInstalledSkills] = useState(null) // null = leyendo
   const [skillBusy, setSkillBusy] = useState(null) // id de la skill en proceso
   const [prefsOpen, setPrefsOpen] = useState(false) // panel ⚙️ Configuración
@@ -763,6 +765,7 @@ export default function App() {
     setCtxOpen(false)
     setSkillsOpen(false)
     setMcpOpen(false)
+    setStatsOpen(false)
   }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
@@ -928,6 +931,7 @@ export default function App() {
         // chip transitorio anunciando la respuesta final (con duración si fue larga)
         const doneName = squadRef.current.find((m) => m.id === who)?.name || who
         const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
+        recordStat(who, usage, dur) // acumulado diario para 📈 Estadísticas
         setDoneChip(
           `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
         )
@@ -1090,6 +1094,10 @@ export default function App() {
           setMcpOpen(false)
           return
         }
+        if (statsOpen) {
+          setStatsOpen(false)
+          return
+        }
         if (agentsOpen) closeAgents()
         else closePanels()
         return
@@ -1123,7 +1131,7 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen/lightbox: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox])
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -1887,6 +1895,34 @@ export default function App() {
     showToast(`⏳ Retomando ${jobs.length} mensaje${jobs.length > 1 ? 's' : ''} de la cola`)
   }, [pendingRestore])
 
+  // ── Estadísticas: acumulado diario por agente (tareas, tokens, tiempo) ───
+  const recordStat = (who, usage, ms) => {
+    try {
+      const all = JSON.parse(localStorage.getItem('oficina-stats')) || {}
+      const day = new Date().toISOString().slice(0, 10)
+      const d = (all[day] ||= { tasks: 0, tokens: 0, ms: 0, agents: {} })
+      const a = (d.agents[who] ||= { tasks: 0, tokens: 0, ms: 0 })
+      const tok = usage ? usageTotal(usage) : 0
+      d.tasks += 1
+      d.tokens += tok
+      d.ms += ms
+      a.tasks += 1
+      a.tokens += tok
+      a.ms += ms
+      const days = Object.keys(all).sort()
+      while (days.length > 60) delete all[days.shift()] // 60 días de historia
+      localStorage.setItem('oficina-stats', JSON.stringify(all))
+    } catch {}
+  }
+  const openStats = () => {
+    try {
+      setStatsData(JSON.parse(localStorage.getItem('oficina-stats')) || {})
+    } catch {
+      setStatsData({})
+    }
+    setStatsOpen(true)
+  }
+
   // Aviso de cuota alta: si la sesión de 5h va >90%, un toast al despachar
   // (máx. uno cada 10 min para no ser cansón).
   const quotaWarnAtRef = useRef(0)
@@ -2157,6 +2193,12 @@ export default function App() {
                 <span className="mi-hint">herramientas externas</span>
                 <span className="mi-chev">›</span>
               </button>
+              <button type="button" className="menu-item" onClick={openStats}>
+                <span className="mi-icon">📈</span>
+                <span className="mi-label">Estadísticas</span>
+                <span className="mi-hint">tareas · tokens · tiempos</span>
+                <span className="mi-chev">›</span>
+              </button>
               <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.()}>
                 <span className="mi-icon">📖</span>
                 <span className="mi-label">Guía de uso</span>
@@ -2266,6 +2308,66 @@ export default function App() {
             </div>
 
             <div className="menu-foot">La Oficina{appVersion ? ` · v${appVersion}` : ''}</div>
+          </div>
+        )}
+
+        {statsOpen && (
+          <div className="drawer over">
+            <div className="drawer-head">
+              <b>📈 Estadísticas de la oficina</b>
+              <button onClick={() => setStatsOpen(false)} title="Volver a Configuración">✕</button>
+            </div>
+            {(() => {
+              const days = [...Array(7)].map((_, i) => {
+                const d = new Date(Date.now() - (6 - i) * 86400000)
+                const key = d.toISOString().slice(0, 10)
+                return { key, label: d.toLocaleDateString('es', { weekday: 'short' }), ...(statsData[key] || { tasks: 0, tokens: 0, ms: 0, agents: {} }) }
+              })
+              const maxTok = Math.max(...days.map((d) => d.tokens), 1)
+              // agregado de los 7 días por agente
+              const agents = {}
+              for (const d of days) {
+                for (const [id, a] of Object.entries(d.agents || {})) {
+                  const t = (agents[id] ||= { tasks: 0, tokens: 0, ms: 0 })
+                  t.tasks += a.tasks
+                  t.tokens += a.tokens
+                  t.ms += a.ms
+                }
+              }
+              const rows = Object.entries(agents).sort((a, b) => b[1].tasks - a[1].tasks)
+              const total = days.reduce((s, d) => s + d.tasks, 0)
+              if (!total) return <div className="hist-empty">Aún no hay datos — se acumulan con cada tarea terminada</div>
+              return (
+                <>
+                  <div className="menu-sec">🪙 Tokens · últimos 7 días</div>
+                  <div className="stats-bars">
+                    {days.map((d) => (
+                      <div key={d.key} className="stats-col" title={`${d.key} · ${d.tasks} tareas · ${fmtTokens(d.tokens)} tokens`}>
+                        <span className="stats-val">{d.tokens ? fmtTokens(d.tokens) : ''}</span>
+                        <div className="stats-bar" style={{ height: `${Math.max((d.tokens / maxTok) * 100, 2)}%` }} />
+                        <span className="stats-day">{d.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="menu-sec">Por agente · 7 días</div>
+                  {rows.map(([id, a]) => (
+                    <div key={id} className="hist-item skill-item">
+                      <div className="skill-info">
+                        <div className="hist-title">
+                          {memberOf(id).emoji} {memberOf(id).name}
+                        </div>
+                        <div className="hist-meta">
+                          {a.tasks} tarea{a.tasks !== 1 ? 's' : ''} · 🪙 {fmtTokens(a.tokens)} · ⏱ {fmtElapsed(a.ms / Math.max(a.tasks, 1))} promedio
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div className="skills-note">
+                    Total 7 días: {total} tareas · 🪙 {fmtTokens(days.reduce((s, d) => s + d.tokens, 0))}. Se guardan 60 días.
+                  </div>
+                </>
+              )
+            })()}
           </div>
         )}
 
