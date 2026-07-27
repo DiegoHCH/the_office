@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
 import { PerspectiveCamera, RoundedBox, ContactShadows } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
-import { DoubleSide, MathUtils, TextureLoader, RepeatWrapping, ACESFilmicToneMapping, CanvasTexture } from 'three'
+import { DoubleSide, BackSide, MathUtils, TextureLoader, RepeatWrapping, ACESFilmicToneMapping, CanvasTexture } from 'three'
 import GltfProp from './GltfProp.jsx'
 
 // ── Intro cinemática (#112) ──────────────────────────────────────────────────
@@ -362,20 +362,27 @@ function Building({ doorOpen, tex }) {
         <meshStandardMaterial color={WOOD_TRIM} roughness={0.7} />
       </RB>
 
-      {/* ENTRADA: pórtico de madera + puertas de vidrio con luz cálida detrás */}
-      <RB args={[1.45, 1.55, 0.28]} r={0.05} position={[-0.55, 0.78, 1.16]} castShadow>
-        <meshStandardMaterial color={WOOD_TRIM} roughness={0.7} />
-      </RB>
-      {/* zaguán: hueco oscuro hacia adentro para que al cruzar la puerta la
-          cámara entre en negro (antes era un plano claro pegado a la fachada) */}
-      <mesh position={[-0.55, 0.68, 0.35]}>
-        <boxGeometry args={[1.05, 1.3, 1.7]} />
-        <meshStandardMaterial color="#0b0f12" roughness={1} side={DoubleSide} />
+      {/* ENTRADA: el pórtico es un MARCO (dintel + jambas), no un bloque macizo
+          — antes no había vano y al abrir las puertas se veía la propia fachada */}
+      {[
+        [[-1.175, 0.78, 1.16], [0.2, 1.56, 0.3]], // jamba izquierda
+        [[0.075, 0.78, 1.16], [0.2, 1.56, 0.3]], // jamba derecha
+        [[-0.55, 1.44, 1.16], [1.45, 0.24, 0.3]], // dintel
+      ].map(([pos, size], i) => (
+        <RB key={i} args={size} r={0.04} position={pos} castShadow>
+          <meshStandardMaterial color={WOOD_TRIM} roughness={0.7} />
+        </RB>
+      ))}
+      {/* túnel negro hacia adentro: se ve por el vano al abrir y envuelve a la
+          cámara cuando cruza (BackSide = se ve su interior) */}
+      <mesh position={[-0.55, 0.62, 0.1]}>
+        <boxGeometry args={[1.06, 1.28, 2.2]} />
+        <meshStandardMaterial color="#05070a" roughness={1} side={BackSide} />
       </mesh>
-      {/* una lengua de luz cálida en el piso del zaguán (se ve al abrir) */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.55, 0.045, 0.95]}>
-        <planeGeometry args={[0.9, 0.9]} />
-        <meshStandardMaterial color="#3a2a1c" emissive="#c98a4a" emissiveIntensity={0.5} />
+      {/* tenue luz cálida lamiendo el piso del zaguán */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.55, 0.03, 0.85]}>
+        <planeGeometry args={[0.95, 0.7]} />
+        <meshStandardMaterial color="#2a1f16" emissive="#b87a3e" emissiveIntensity={0.45} />
       </mesh>
       <group position={[-0.55, 0.64, 1.33]}>
         {[
@@ -389,7 +396,7 @@ function Building({ doorOpen, tex }) {
             </mesh>
             <mesh position={[x < 0 ? 0.15 : -0.15, 0.06, 0.032]}>
               <planeGeometry args={[0.21, 0.95]} />
-              <meshStandardMaterial color="#ffe9cc" emissive="#ffcf95" emissiveIntensity={0.9} side={DoubleSide} />
+              <meshStandardMaterial color="#20303c" emissive="#3a2a18" emissiveIntensity={0.35} side={DoubleSide} />
             </mesh>
           </group>
         ))}
