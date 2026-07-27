@@ -1,0 +1,62 @@
+# CI de La Oficina:
+# - checks: en cada push/PR — sintaxis de main/preload, build del renderer y
+#   smoke test de Electron (el harness que habría atrapado la pantalla negra
+#   de la v1.3.0: arranca la app y busca errores de runtime en la consola).
+# - release: al pushear un tag v* — construye el DMG y lo sube al release.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Sintaxis del main process
+        run: node --check electron/main.js && node --check electron/preload.js
+      - name: Build del renderer
+        run: npx vite build
+      - name: Smoke test del renderer
+        run: |
+          ELECTRON_ENABLE_LOGGING=1 npx electron . > electron-log.txt 2>&1 &
+          EPID=$!
+          sleep 20
+          kill $EPID 2>/dev/null || true
+          if grep -qiE "uncaught|TypeError|ReferenceError" electron-log.txt; then
+            echo "::error::Errores de runtime en el renderer"
+            cat electron-log.txt
+            exit 1
+          fi
+          echo "Renderer sin errores ✓"
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: checks
+    runs-on: macos-14
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Construir DMG
+        run: npm run dist:mac
+      - name: Subir DMG al release del tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "$GITHUB_REF_NAME" release/*.dmg --clobber ||
+            gh release create "$GITHUB_REF_NAME" release/*.dmg \
+              --title "La Oficina $GITHUB_REF_NAME" --generate-notes
