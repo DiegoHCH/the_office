@@ -196,6 +196,76 @@ function StreetTree({ position, scale = 1 }) {
   )
 }
 
+// Paisaje de fondo: cúpula de cielo con degradado del atardecer, sol bajo y
+// tres cadenas de montañas en capas (más pálidas cuanto más lejos) — así el
+// horizonte no es un color plano detrás de la ciudad.
+function Sky() {
+  const tex = useMemo(() => {
+    const c = document.createElement('canvas')
+    c.width = 8
+    c.height = 256
+    const ctx = c.getContext('2d')
+    const g = ctx.createLinearGradient(0, 0, 0, 256)
+    g.addColorStop(0.0, '#2c4a7a') // cenit azul
+    g.addColorStop(0.42, '#7f8fb0')
+    g.addColorStop(0.66, '#e0a97a') // banda cálida del atardecer
+    g.addColorStop(0.85, '#f3c98d')
+    g.addColorStop(1.0, '#f7dcb4') // horizonte claro
+    ctx.fillStyle = g
+    ctx.fillRect(0, 0, 8, 256)
+    const t = new CanvasTexture(c)
+    t.needsUpdate = true
+    return t
+  }, [])
+  return (
+    <mesh scale={[-1, 1, 1]}>
+      <sphereGeometry args={[120, 24, 16]} />
+      <meshBasicMaterial map={tex} side={BackSide} depthWrite={false} fog={false} />
+    </mesh>
+  )
+}
+
+// Cadena de montañas: perfil dentado a partir de triángulos, en una tira
+function Ridge({ z, height, color, count = 22, spread = 190, opacity = 1 }) {
+  const peaks = useMemo(() => {
+    let seed = z * 977 + 13
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+    return Array.from({ length: count }, (_, i) => ({
+      x: -spread / 2 + (spread / (count - 1)) * i + (rnd() - 0.5) * 4,
+      h: height * (0.55 + rnd() * 0.75),
+      w: height * (1.1 + rnd() * 0.9),
+    }))
+  }, [z, height, count, spread])
+  return (
+    <group position={[0, -0.3, z]}>
+      {peaks.map((p, i) => (
+        <mesh key={i} position={[p.x, p.h / 2, 0]}>
+          <coneGeometry args={[p.w, p.h, 4]} />
+          <meshBasicMaterial color={color} transparent={opacity < 1} opacity={opacity} fog={false} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function Horizon() {
+  return (
+    <group>
+      <Sky />
+      {/* sol bajo, justo sobre las cumbres */}
+      <mesh position={[-38, 16, -95]}>
+        <circleGeometry args={[7, 32]} />
+        <meshBasicMaterial color="#ffe9c0" fog={false} />
+      </mesh>
+      <Ridge z={-105} height={26} color="#8f9db8" opacity={0.75} count={16} spread={230} />
+      <Ridge z={-88} height={19} color="#7b86a3" opacity={0.85} count={20} spread={210} />
+      <Ridge z={-72} height={13} color="#5f6b86" count={24} spread={195} />
+      {/* la misma cadena detrás de la cámara para que el giro no muestre vacío */}
+      <Ridge z={78} height={15} color="#6b7793" opacity={0.9} count={20} spread={200} />
+    </group>
+  )
+}
+
 function City() {
   // Manzanas en cuadrícula: las avenidas cruzan en x=0 y z=0 (semiancho 1.9),
   // así que cada bloque vive dentro de un cuadrante y NUNCA pisa la calzada.
@@ -515,6 +585,7 @@ function Scene({ doorOpen }) {
   const tex = useFacadeTextures()
   return (
     <>
+      <Horizon />
       <City />
       <Building doorOpen={doorOpen} tex={tex} />
     </>
