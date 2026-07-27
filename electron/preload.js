@@ -98,6 +98,8 @@ contextBridge.exposeInMainWorld('oficina', {
     remove: (id) => ipcRenderer.invoke('history:delete', id),
     export: (id) => ipcRenderer.invoke('history:export', id),
     pin: (id, pinned) => ipcRenderer.invoke('history:pin', { id, pinned }),
+    rename: (id, title) => ipcRenderer.invoke('history:rename', { id, title }),
+    search: (q) => ipcRenderer.invoke('history:search', q),
   },
   // Suscripción a eventos del stream: init | text | tool | done | error.
   onEvent: (cb) => {

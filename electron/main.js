@@ -777,9 +777,15 @@ ipcMain.handle('history:save', (_e, convo) => {
   try {
     fs.mkdirSync(HIST_DIR, { recursive: true })
     const p = path.join(HIST_DIR, `${convo.id}.json`)
-    // el autosave del renderer no conoce el pin: preservarlo del archivo
+    // el autosave del renderer no conoce el pin ni el título renombrado:
+    // preservarlos del archivo existente
     try {
-      convo.pinned = convo.pinned ?? !!JSON.parse(fs.readFileSync(p, 'utf8')).pinned
+      const prev = JSON.parse(fs.readFileSync(p, 'utf8'))
+      convo.pinned = convo.pinned ?? !!prev.pinned
+      if (prev.titleCustom) {
+        convo.title = prev.title
+        convo.titleCustom = true
+      }
     } catch {}
     fs.writeFileSync(p, JSON.stringify(convo, null, 2))
     return { ok: true }
@@ -822,6 +828,43 @@ ipcMain.handle('history:get', (_e, id) => {
   } catch {
     return null
   }
+})
+
+// Renombra una conversación (el título queda fijo, el autosave no lo pisa).
+ipcMain.handle('history:rename', (_e, { id, title }) => {
+  try {
+    const p = path.join(HIST_DIR, `${id}.json`)
+    const c = JSON.parse(fs.readFileSync(p, 'utf8'))
+    c.title = String(title || '').trim().slice(0, 80) || c.title
+    c.titleCustom = true
+    fs.writeFileSync(p, JSON.stringify(c, null, 2))
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// Busca DENTRO del texto de los mensajes: {id: extracto} de las que matchean.
+ipcMain.handle('history:search', (_e, q) => {
+  const needle = String(q || '').toLowerCase()
+  if (needle.length < 3) return {}
+  const out = {}
+  try {
+    for (const f of fs.readdirSync(HIST_DIR).filter((x) => x.endsWith('.json'))) {
+      try {
+        const c = JSON.parse(fs.readFileSync(path.join(HIST_DIR, f), 'utf8'))
+        for (const m of c.messages || []) {
+          const t = String(m.text || '')
+          const i = t.toLowerCase().indexOf(needle)
+          if (i >= 0) {
+            out[c.id] = `…${t.slice(Math.max(0, i - 30), i + 60).replace(/\s+/g, ' ')}…`
+            break
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  return out
 })
 
 // Fija/desfija una conversación (las fijadas no se purgan y van arriba).

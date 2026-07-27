@@ -1224,11 +1224,35 @@ export default function App() {
     closePanels()
     setHistOpen(next)
   }
-  // filtro por título o proyecto, insensible a mayúsculas y tildes; 📌 arriba
+  // búsqueda por CONTENIDO (texto de los mensajes) — {id: extracto}, debounced
+  const [histContent, setHistContent] = useState({})
+  useEffect(() => {
+    if (!histOpen) return
+    const q = histQuery.trim()
+    if (q.length < 3) {
+      setHistContent({})
+      return
+    }
+    const t = setTimeout(async () => setHistContent((await window.oficina?.history?.search(q)) || {}), 300)
+    return () => clearTimeout(t)
+  }, [histQuery, histOpen])
+
+  // filtro por título/proyecto o por contenido; 📌 arriba
   const histFiltered = (histQuery.trim()
-    ? histList.filter((h) => norm(`${h.title || ''} ${h.project || ''}`).includes(norm(histQuery)))
+    ? histList.filter((h) => norm(`${h.title || ''} ${h.project || ''}`).includes(norm(histQuery)) || histContent[h.id])
     : histList
   ).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+
+  // renombrar inline
+  const [renaming, setRenaming] = useState(null) // {id, val} | null
+  const commitRename = async () => {
+    if (!renaming) return
+    const { id, val } = renaming
+    setRenaming(null)
+    if (!val.trim()) return
+    await window.oficina?.history?.rename(id, val)
+    setHistList((await window.oficina?.history?.list()) || [])
+  }
 
   const togglePin = async (e, h) => {
     e.stopPropagation()
@@ -2782,17 +2806,43 @@ export default function App() {
               <div className="hist-empty">{histList.length ? 'Sin resultados para esa búsqueda' : 'Sin conversaciones guardadas'}</div>
             )}
             {histFiltered.map((h) => (
-              <div key={h.id} className="hist-item" onClick={() => loadConvo(h.id)}>
-                <div className="hist-title">
-                  {h.pinned && '📌 '}
-                  {h.title}
-                </div>
+              <div key={h.id} className="hist-item" onClick={() => renaming?.id !== h.id && loadConvo(h.id)}>
+                {renaming?.id === h.id ? (
+                  <input
+                    className="hist-rename"
+                    value={renaming.val}
+                    autoFocus
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setRenaming({ id: h.id, val: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitRename()
+                      if (e.key === 'Escape') setRenaming(null)
+                    }}
+                    onBlur={commitRename}
+                  />
+                ) : (
+                  <div className="hist-title">
+                    {h.pinned && '📌 '}
+                    {h.title}
+                  </div>
+                )}
+                {histContent[h.id] && <div className="hist-meta hist-excerpt">🔎 {histContent[h.id]}</div>}
                 <div className="hist-meta">
                   {h.profile === 'work' ? '💼' : '🔒'} {h.project?.split('/').pop()} · {h.count} msgs ·{' '}
                   {h.updatedAt
                     ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                     : ''}
                 </div>
+                <button
+                  className="hist-export hist-ren"
+                  title="Renombrar"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setRenaming({ id: h.id, val: h.title || '' })
+                  }}
+                >
+                  ✏️
+                </button>
                 <button
                   className="hist-export hist-pin"
                   title={h.pinned ? 'Desfijar' : 'Fijar (no se purga)'}

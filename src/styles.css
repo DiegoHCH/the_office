@@ -469,6 +469,13 @@ body {
 .hist-item:has(.hist-export) { padding-right: 54px; }
 .hist-item:has(.hist-pin) { padding-right: 76px; }
 .hist-pin { right: 50px !important; }
+.hist-item:has(.hist-ren) { padding-right: 98px; }
+.hist-ren { right: 72px !important; }
+.hist-rename {
+  width: 100%; background: #22303a; border: 1.5px solid #2dd4bf; color: #f2f8f6;
+  border-radius: 8px; padding: 3px 8px; font-size: 13px; outline: none;
+}
+.hist-excerpt { color: #7fd8c8; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .art-item { display: flex; align-items: center; justify-content: space-between; padding-right: 8px; }
 /* catálogo de skills por perfil */
 .skills-note { font-size: 11.5px; color: #93a6a1; padding: 2px 12px 10px; line-height: 1.5; }
