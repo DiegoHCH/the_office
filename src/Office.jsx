@@ -3,7 +3,7 @@ import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
 import { MathUtils, Shape, ExtrudeGeometry, DoubleSide, TextureLoader, RepeatWrapping, ACESFilmicToneMapping } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
+import { EffectComposer, Bloom, Vignette, DepthOfField } from '@react-three/postprocessing'
 import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
 import Pet from './scene/Pet.jsx'
@@ -1215,8 +1215,10 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           tilt-shift para el efecto maqueta, viñeta y antialiasing. En calidad
           «ligera» se apaga entero; oculta la ventana tampoco se compone. */}
       {quality !== 'ligera' && visible && (
-        <EffectComposer multisampling={0} enableNormalPass={false} depthBuffer={false} stencilBuffer={false}>
+        <EffectComposer multisampling={0} enableNormalPass={false}>
           <Bloom intensity={quality === 'cine' ? 0.75 : 0.45} luminanceThreshold={0.82} luminanceSmoothing={0.5} mipmapBlur radius={0.72} />
+          {/* tilt-shift: efecto maqueta, solo en calidad Cine */}
+          {quality === 'cine' && <DepthOfField focusDistance={0.015} focalLength={0.05} bokehScale={2.6} height={480} />}
           <Vignette offset={0.3} darkness={0.4} />
         </EffectComposer>
       )}
