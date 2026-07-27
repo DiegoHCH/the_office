@@ -289,7 +289,19 @@ const SQUAD_BOARD_NOTE =
   'MEMORIA COMPARTIDA DEL SQUAD: el equipo comparte un archivo `SQUAD.md` en la raíz del proyecto (cwd) como pizarra común. ' +
   'Si es relevante para tu tarea, LÉELO al empezar (con Read) para ver en qué anda el resto. ' +
   'Cuando tomes una decisión importante, termines algo notable o dejes algo pendiente, AÑADE una línea breve al final de `SQUAD.md` firmando con tu nombre y la fecha (crea el archivo si no existe). ' +
+  'Si el proyecto es un repo git y `SQUAD.md` no está en el `.gitignore` de la raíz, agrégalo (la pizarra es memoria local: no debe colarse en los commits). ' +
   'No lo uses para tareas triviales ni lo llenes de ruido.'
+
+// La pizarra es memoria local: en repos git se mantiene fuera de los commits.
+function ensureSquadIgnored(dir) {
+  try {
+    if (!fs.existsSync(path.join(dir, '.git'))) return
+    const gi = path.join(dir, '.gitignore')
+    const cur = fs.existsSync(gi) ? fs.readFileSync(gi, 'utf8') : ''
+    if (cur.split('\n').some((l) => l.trim() === 'SQUAD.md')) return
+    fs.writeFileSync(gi, (cur && !cur.endsWith('\n') ? `${cur}\n` : cur) + 'SQUAD.md\n')
+  } catch {}
+}
 
 // Perfiles = mismos alias que en zsh: claude-work / claude-private.
 const PROFILE_DIRS = {
@@ -1588,6 +1600,7 @@ ipcMain.handle('board:open', (_e, cwd) => {
     if (!fs.existsSync(file)) {
       fs.writeFileSync(file, '# 🧠 Pizarra del squad\n\nMemoria común del equipo. Cada quien anota aquí lo importante.\n')
     }
+    ensureSquadIgnored(dir) // memoria local: fuera de los commits
     // -t abre en el editor de texto por defecto (fiable para .md); fallback a open normal
     execFile('open', ['-t', file], (err) => {
       if (err) execFile('open', [file], () => {})
