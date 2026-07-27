@@ -52,7 +52,9 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Construir DMG
-        run: npm run dist:mac
+        # --publish never: electron-builder intenta auto-publicar al ver el tag;
+        # de subir el asset se encarga el paso siguiente con gh
+        run: npm run dist:mac -- --publish never
       - name: Subir DMG al release del tag
         env:
           GH_TOKEN: ${{ github.token }}
