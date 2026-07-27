@@ -8,7 +8,7 @@ import {
   fmtReset, autoGrow, fmtElapsed, fmtTokens, usageTotal, usageTitle, norm, escRe, extractOptions,
   MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, modelLabelOf,
 } from './lib/helpers.js'
-import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel } from './data/roles.js'
+import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS } from './data/catalogs.js'
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -162,6 +162,7 @@ export default function App() {
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
   const [skillsOpen, setSkillsOpen] = useState(false) // panel 🧩 Skills (catálogo por perfil)
   const [mcpOpen, setMcpOpen] = useState(false) // panel 🌐 MCP (servidores por perfil)
+  const [hasClaudeMd, setHasClaudeMd] = useState(false)
   const [statsOpen, setStatsOpen] = useState(false) // panel 📈 Estadísticas
   const [statsData, setStatsData] = useState({})
   const [diagOpen, setDiagOpen] = useState(false) // panel 🔧 Diagnóstico
@@ -346,6 +347,10 @@ export default function App() {
     }, 8000) // sin estorbar el arranque
     return () => clearTimeout(t)
   }, [])
+
+  useEffect(() => {
+    if (project) window.oficina?.hasClaudeMd?.(project).then(setHasClaudeMd)
+  }, [project])
 
   useEffect(() => {
     window.oficina?.artifacts?.getDir?.().then(setArtsDir)
@@ -1298,6 +1303,17 @@ export default function App() {
   }
   const deleteRole = (id) => setDraft((d) => d.filter((r) => !(r.id === id && canDelete(r))))
 
+  // Presets (#107): activan un conjunto de roles respetando nombres y avatares
+  const applyPreset = (preset) => {
+    setDraft((d) => {
+      const activos = new Set(preset.roles)
+      const conEstado = d.map((r) => ({ ...r, enabled: activos.has(r.id) }))
+      // el orden importa: el 1º activo es el principal → los del preset primero
+      return conEstado.sort((a, b) => preset.roles.indexOf(a.id) - preset.roles.indexOf(b.id))
+    })
+    showToast(`${preset.label} — revisa y guarda para aplicar`)
+  }
+
   // Built-ins borrables que faltan en el draft = fueron eliminados (tombstones).
   // Restaurarlos aquí y guardar hace que saveSquad ya no escriba sus tombstones.
   const DELETABLE_BUILTINS = ['design', 'qa', 'docs']
@@ -2067,6 +2083,20 @@ export default function App() {
                 <span className="mi-hint">{squad.length} activos</span>
                 <span className="mi-chev">›</span>
               </button>
+              <button
+                type="button"
+                className="menu-item"
+                onClick={async () => {
+                  const r = await window.oficina?.openClaudeMd?.(project)
+                  showToast(r?.ok ? '📘 CLAUDE.md abierto — lo leen todos los agentes' : '⚠️ No pude abrirlo')
+                  setHasClaudeMd(true)
+                }}
+              >
+                <span className="mi-icon">📘</span>
+                <span className="mi-label">CLAUDE.md del proyecto</span>
+                <span className="mi-hint">{hasClaudeMd ? 'existe' : 'crear'}</span>
+                <span className="mi-chev">›</span>
+              </button>
               <button type="button" className="menu-item" onClick={openSkills}>
                 <span className="mi-icon">🧩</span>
                 <span className="mi-label">Skills</span>
@@ -2744,6 +2774,13 @@ export default function App() {
             <div className="drawer-head">
               <b>👥 Agentes</b>
               <button onClick={closeAgents} title="Volver a Configuración">✕</button>
+            </div>
+            <div className="preset-row">
+              {SQUAD_PRESETS.map((p) => (
+                <button key={p.id} type="button" className="preset-chip" onClick={() => applyPreset(p)} title={`Activa: ${p.roles.join(', ')}`}>
+                  {p.label}
+                </button>
+              ))}
             </div>
             {draft.map((r) => (
               <div

@@ -1711,6 +1711,38 @@ ipcMain.handle('image:save', (_e, { name, data }) => {
 })
 
 // Abre la pizarra compartida SQUAD.md del proyecto (la crea si no existe).
+// CLAUDE.md del proyecto (#108): las instrucciones que los agentes YA leen,
+// editables sin salir de la app. Se crea con un esqueleto si no existe.
+ipcMain.handle('claudemd:open', (_e, cwd) => {
+  const dir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
+  const file = path.join(dir, 'CLAUDE.md')
+  try {
+    if (!fs.existsSync(file)) {
+      fs.writeFileSync(
+        file,
+        `# Instrucciones del proyecto\n\n` +
+          `Lo que escribas aquí lo leen TODOS los agentes al trabajar en este repo.\n\n` +
+          `## Convenciones\n- …\n\n## Comandos útiles\n- Build: \`…\`\n- Tests: \`…\`\n\n## Ojo con\n- …\n`
+      )
+    }
+    execFile('open', ['-t', file], (err) => {
+      if (err) execFile('open', [file], () => {})
+    })
+    return { ok: true, path: file }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// ¿el proyecto tiene CLAUDE.md? (para el indicador del menú)
+ipcMain.handle('claudemd:has', (_e, cwd) => {
+  try {
+    return fs.existsSync(path.join(cwd, 'CLAUDE.md'))
+  } catch {
+    return false
+  }
+})
+
 ipcMain.handle('board:open', (_e, cwd) => {
   const dir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
   const file = path.join(dir, 'SQUAD.md')

@@ -112,3 +112,12 @@ export const prettyArtifact = (f = '') => {
 }
 export const avatarLabel = (f) =>
   f.replace('.gltf', '').replace(/_/g, ' ').replace('Female', '♀').replace('Male', '♂')
+
+// Presets de squad (#107): activan un conjunto de roles de un clic, sin tocar
+// los nombres ni los personajes que ya tenga cada uno.
+export const SQUAD_PRESETS = [
+  { id: 'web', label: '🌐 Equipo web', roles: ['dev', 'design', 'qa', 'pr'] },
+  { id: 'mobile', label: '📱 Equipo mobile', roles: ['dev', 'design', 'qa'] },
+  { id: 'research', label: '🔎 Equipo research', roles: ['research', 'docs', 'dev'] },
+  { id: 'solo', label: '🙋 Solo yo y el principal', roles: ['dev'] },
+]

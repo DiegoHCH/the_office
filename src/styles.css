@@ -954,3 +954,11 @@ select.squad-model {
 }
 .quote-btn:hover { background: #16222a; }
 @keyframes quotePop { from { opacity: 0; transform: translate(-50%, -90%); } }
+
+/* presets de squad (#107) */
+.preset-row { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 4px 10px; }
+.preset-chip {
+  background: none; border: 1px solid #3b4d55; border-radius: 999px; color: #93a6a1;
+  padding: 5px 12px; font-size: 11px; cursor: pointer; font-family: inherit; white-space: nowrap;
+}
+.preset-chip:hover { color: #7fd8c8; border-color: #7fd8c8; background: rgba(45, 212, 191, 0.07); }

@@ -54,6 +54,9 @@ contextBridge.exposeInMainWorld('oficina', {
   // Pizarra compartida: activar/desactivar y abrir SQUAD.md del proyecto.
   setBoard: (v) => ipcRenderer.invoke('prefs:board', v),
   openBoard: (cwd) => ipcRenderer.invoke('board:open', cwd),
+  // CLAUDE.md del proyecto: abrir/crear y saber si existe.
+  openClaudeMd: (cwd) => ipcRenderer.invoke('claudemd:open', cwd),
+  hasClaudeMd: (cwd) => ipcRenderer.invoke('claudemd:has', cwd),
   // Abre/crea el .md de personalidad de un personaje (por perfil).
   openPersona: (profile, role, name) => ipcRenderer.invoke('persona:open', { profile, role, name }),
   // Skills de Claude Code por perfil (catálogo instalable).
