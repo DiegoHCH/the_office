@@ -13,6 +13,7 @@ import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS } from '
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
 import Tour from './components/Tour.jsx'
+import Intro from './scene/Intro.jsx'
 import { AvatarThumb, AttThumb } from './components/thumbs.jsx'
 
 const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
@@ -68,6 +69,19 @@ export default function App() {
   const editedRef = useRef({})
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
+  // intro cinemática (#112): edificio → puertas → destello → la oficina.
+  // Se salta con Esc, con el botón, o si el sistema pide menos movimiento.
+  const [introOpen, setIntroOpen] = useState(() => {
+    if (localStorage.getItem('oficina-intro') === '0') return false
+    return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+  })
+  const [introOn, setIntroOn] = useState(() => localStorage.getItem('oficina-intro') !== '0')
+  const saveIntro = (v) => {
+    setIntroOn(v)
+    localStorage.setItem('oficina-intro', v ? '1' : '0')
+    showToast(v ? '🎬 La intro se verá al abrir la app' : 'Intro desactivada')
+  }
+
   // tour de bienvenida: una vez en el primer arranque, repetible desde Config
   const [tourOpen, setTourOpen] = useState(false)
   useEffect(() => {
@@ -2046,6 +2060,13 @@ export default function App() {
               </select>
             </div>
             <div className="pref-row">
+              <span className="pref-label">Intro:</span>
+              <select className="sel pref-sel" value={introOn ? '1' : '0'} onChange={(e) => saveIntro(e.target.value === '1')}>
+                <option value="1">🎬 Mostrar al abrir la app</option>
+                <option value="0">Sin intro</option>
+              </select>
+            </div>
+            <div className="pref-row">
               <span className="pref-label">Calidad:</span>
               <select className="sel pref-sel" value={quality} onChange={(e) => saveQuality(e.target.value)}>
                 <option value="cine">🎬 Cine — todos los efectos</option>
@@ -3207,6 +3228,7 @@ export default function App() {
         </div>
       )}
 
+      {introOpen && <Intro onDone={() => setIntroOpen(false)} />}
       {tourOpen && <Tour onDone={endTour} />}
 
       {(attachments.length > 0 || refs.length > 0) && (

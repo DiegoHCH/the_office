@@ -919,3 +919,17 @@ select.squad-model {
 .composer button:disabled {
   background: #2a3a40; color: #63807a; box-shadow: none; cursor: not-allowed;
 }
+
+/* intro cinemática (#112): cubre la app hasta que termina */
+.intro { position: fixed; inset: 0; z-index: 20; background: #b9ccd3; }
+.intro-flash {
+  position: absolute; inset: 0; background: #ffffff; pointer-events: none;
+  transition: opacity 0.12s linear;
+}
+.intro-skip {
+  position: absolute; right: 20px; bottom: 20px; z-index: 21;
+  background: rgba(14, 20, 23, 0.55); color: #e9f1ee; border: 1px solid rgba(233, 241, 238, 0.35);
+  border-radius: 999px; padding: 8px 18px; font-size: 12.5px; cursor: pointer;
+  backdrop-filter: blur(6px); font-family: inherit;
+}
+.intro-skip:hover { background: rgba(14, 20, 23, 0.78); }
