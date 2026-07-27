@@ -60,6 +60,8 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 
 ### La app
 - **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs, proyectos y **➕ Agregar proyecto…** para carpetas fuera de la raíz del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
+- **🌗 Tema claro u oscuro** — Auto sigue al sistema, o lo fijas en Preferencias; toda la interfaz, no solo la escena.
+- **🧠 Razonamiento a la vista** — cada respuesta puede desplegar lo que el agente pensó antes de contestar.
 - **🌐 Español o inglés** — toda la interfaz sale de un diccionario y arranca en el idioma del sistema; se cambia en ⚙️ Preferencias. Cambia también la Guía de uso y **los agentes responden en el idioma elegido**.
 - **🎨 Estilo Material 3 con iconos Material Symbols** — botones pill, switches M3, superficies con elevación, scrollbars propias.
 - **🗂 Pestañas de conversación** — hasta 4 hilos abiertos a la vez, cada uno con sus mensajes, sesiones y colas; al cerrar una, el hilo queda en el historial.
@@ -189,6 +191,7 @@ xattr -cr "/Applications/La Oficina.app"
 - ✅ **v1.5** — imágenes con Nano Banana 🍌 (MCP + env vars), Engram y shadcn como recomendaciones, @autocompletar, miniaturas de adjuntos + visor, sub-agentes visibles 👻, estadísticas 📈, standup programado, deep links `la-oficina://`, tour de bienvenida 🎓, consola de diagnóstico 🔧, SQUAD.md al .gitignore
 - ✅ **v1.6** — usar Documentos como contexto 💬, renombrar y buscar por contenido en el historial, mascota de oficina 🦊, auto-retry en errores transitorios, standup → Slack 📤, plantillas con {{variables}}, CI en GitHub Actions (checks + smoke test + DMG automático) y refactor de App.jsx en módulos
 - ✅ **v1.7** — glow-up gráfico «loft» (ladrillo, madera, luz cálida, bloom/ACES/tilt-shift, estaciones 🌸🍂❄️), intro cinemática 🎬 sobre la ciudad, **interfaz en español o inglés** 🌐, pestañas de conversación, modo director 🎬, rediseño del menú con iconos Material, seis mascotas, citar selección, presets de squad, CLAUDE.md desde la app, respaldo automático, skills en lote, code-splitting, tests de ruteo y Electron 43 con asar
+- ✅ **v1.8** — **tema claro** 🌗 para toda la interfaz, **razonamiento del agente** visible, modelo y permiso **por proyecto**, botón de adjuntar 📎, pestañas renombrables y reordenables, borrar documentos 🗑, medidor de contexto, ruteo por nombre esté donde esté, ESLint en el CI y la guía en inglés generada del español
 - ⏭️ **Épica v2.0** — compañero móvil **Android en Flutter**: servidor WS embebido + QR en el desktop, app con chat/estado/notificaciones, acceso remoto vía Tailscale
 - ⏭️ soporte **Windows** (portar Keychain, `vm_stat`, rutas y binario)
 - ⏸ auto-update completo (requiere Apple Developer ID; hoy la notificación descarga el DMG directo)

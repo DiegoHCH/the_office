@@ -343,5 +343,22 @@
   "descarga directo a ~/Descargas y abre el instalador": "downloads it straight to ~/Downloads and opens the installer",
   "— solo arrastras a Aplicaciones.": " — you just drag it to Applications.",
   "Si el Mac se suspendió a media tarea (batería, tapa cerrada), al despertar la app te avisa: cancela con ⏹ y usa 🔁 Reintentar.": "If the Mac slept mid-task (battery, lid closed), the app warns you on wake: cancel with ⏹ and use 🔁 Retry.",
-  "La Oficina · corre Claude Code con tu suscripción · hecha con Electron + React Three Fiber": "La Oficina · runs Claude Code on your subscription · built with Electron + React Three Fiber"
+  "La Oficina · corre Claude Code con tu suscripción · hecha con Electron + React Three Fiber": "La Oficina · runs Claude Code on your subscription · built with Electron + React Three Fiber",
+  "hasta 4 hilos abiertos a la vez sobre el chat. Cada pestaña guarda sus mensajes, sus sesiones de Claude y sus colas, así que cambiar de una a otra no pierde nada; la ✕ cierra y el hilo queda en el historial. Doble click renombra una pestaña y se reordenan arrastrando. No se puede cambiar de pestaña con el squad trabajando.": " up to 4 threads open at once above the chat. Each tab keeps its own messages, Claude sessions and queues, so switching loses nothing; ✕ closes it and the thread goes to the history. Double-click renames a tab and you reorder them by dragging. You cannot switch tabs while the squad is working.",
+  "🧠 Razonamiento:": "🧠 Reasoning:",
+  "bajo el nombre del agente puedes desplegar lo que pensó antes de contestar — útil cuando una respuesta sale rara y quieres ver por dónde fue.": " under the agent's name you can unfold what it thought before answering — handy when a response comes out odd and you want to see how it got there.",
+  "el botón": " the ",
+  "del composer abre el selector, y también puedes pegar (": " button in the composer opens the file picker, and you can still paste (",
+  ") o arrastrar imágenes, archivos y carpetas al chat (las carpetas, arrastrándolas).": ") or drag images, files and folders into the chat (folders, by dragging them).",
+  "— el mismo ✏️/🔒 del chip del composer. Se recuerda": " — the same ✏️/🔒 as the composer chip. Remembered ",
+  "por proyecto": "per project",
+  ": un repo de cliente puede quedarse en solo lectura mientras el propio sigue en edición.": ": a client repo can stay read-only while your own keeps editing.",
+  "🌗 Apariencia": "🌗 Appearance",
+  "— tema claro u oscuro para la interfaz; Auto sigue al del sistema. Es aparte del tema de la escena 3D.": " — light or dark theme for the interface; Auto follows the system. Separate from the 3D scene theme.",
+  "y el agente genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder, exportar como .zip,": " and the agent generates a self-contained HTML (with images) that opens inside the app. In the 📄 panel: open, reveal in Finder, export as .zip, ",
+  "🗑 borrar": "🗑 delete",
+  "(va a la papelera, se puede recuperar) y": " (it goes to the trash, so it can be recovered) and ",
+  "el": " the ",
+  "% de contexto": "% of context",
+  "que lleva ocupado la conversación —cuando se llena, Claude resume y el agente recuerda menos— y tu % de suscripción: sesión de 5h y semana con sus tiempos de reset). Si vas por encima del 90% de la sesión, la app te avisa al despachar una tarea. Fuera de la ventana, el": " the conversation is using —when it fills up, Claude summarizes and the agent remembers less— and your subscription %: 5h session and week with their reset times). If you go above 90% of the session, the app warns you when dispatching a task. Outside the window, the "
 }
