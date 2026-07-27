@@ -176,6 +176,7 @@ xattr -cr "/Applications/La Oficina.app"
 - ✅ **v1.2** — aviso de edición sin git, nombres únicos, filtro del chat por agente, exportar conversación a Markdown, resaltado de sintaxis, tema automático 🌗, badge ⏳ de cola en la escena, integración con el Dock, broadcast `@todos`, cámara persistente con reset por doble click
 - ✅ **v1.3** — tokens por tarea 🪙 y acumulado en el monitor, checklist del agente en vivo 📝, plantillas de prompts con `/`, buscar en la conversación (⌘F), vista de diff 🔀, Tray en la barra de menús 🏢, atajo global ⌥Espacio, cola persistente, standup visual en el centro de la sala
 - ✅ **v1.4** — 🧩 skills por perfil (catálogo oficial + cualquier repo + crear propias), 🔌 plugins (marketplaces), 🌐 servidores MCP, 🧠 modelo por agente, editar y reenviar mensajes, 📌 fijar conversaciones, aviso de cuota alta, 💾 exportar/importar configuración, powerSaveBlocker
+- ✅ **v1.5** *(en main)* — imágenes con Nano Banana 🍌 (MCP + env vars), Engram y shadcn como recomendaciones, @autocompletar, miniaturas de adjuntos + visor, sub-agentes visibles 👻, estadísticas 📈, standup programado, deep links `la-oficina://`, tour de bienvenida 🎓, consola de diagnóstico 🔧, SQUAD.md al .gitignore
 - ⏭️ **Épica v2.0** — compañero móvil **Android en Flutter**: servidor WS embebido + QR en el desktop, app con chat/estado/notificaciones, acceso remoto vía Tailscale
 - ⏭️ soporte **Windows** (portar Keychain, `vm_stat`, rutas y binario)
 - ⏸ auto-update completo (requiere Apple Developer ID; hoy la notificación descarga el DMG directo)
