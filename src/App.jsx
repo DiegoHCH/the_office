@@ -370,6 +370,7 @@ const MCP_CATALOG = [
   { id: 'chrome-devtools', name: 'Chrome DevTools', desc: 'Consola, red y rendimiento de Chrome — depurar el front como un humano', roles: ['dev', 'qa'], cmd: ['npx', 'chrome-devtools-mcp@latest'] },
   { id: 'context7', name: 'Context7', desc: 'Documentación al día de librerías y frameworks, directo al contexto del agente', roles: ['dev'], cmd: ['npx', '-y', '@upstash/context7-mcp'] },
   { id: 'figma', name: 'Figma', desc: 'Lee tus diseños de Figma — ⚠️ en plan gratis solo 6 usos/mes; para uso real pide seat Dev/Full de pago (y autenticarse una vez con /mcp)', roles: ['design'], url: 'https://mcp.figma.com/mcp' },
+  { id: 'nano-banana', name: 'Nano Banana 🍌', desc: 'Genera y edita imágenes con Gemini — 500 imágenes/día GRATIS con tu API key de Google AI Studio (se pide al conectar, sin tarjeta)', roles: ['design'], cmd: ['npx', '-y', '@mindstone/mcp-server-nano-banana'], needsEnv: 'GEMINI_API_KEY' },
 ]
 
 // Cómo se muestra cada herramienta de Claude en pantalla.
@@ -1312,7 +1313,11 @@ export default function App() {
   }
   const addMcp = async (entry) => {
     setMcpBusy(entry.id || entry.name)
-    const res = await window.oficina?.mcp?.add(profile, entry.id || entry.name, entry.url ? { url: entry.url } : { cmd: entry.cmd })
+    const res = await window.oficina?.mcp?.add(
+      profile,
+      entry.id || entry.name,
+      entry.url ? { url: entry.url } : { cmd: entry.cmd, env: entry.env || [] }
+    )
     setMcpBusy(null)
     if (res?.ok) showToast(`🌐 ${entry.name} conectado — tus agentes ya lo pueden usar`)
     else showToast(`⚠️ ${res?.error?.slice(0, 160) || 'No se pudo agregar'}`, 6000)
@@ -1329,7 +1334,16 @@ export default function App() {
     const name = mcpForm.name.trim().toLowerCase().replace(/\s+/g, '-')
     const target = mcpForm.target.trim()
     if (!name || !target) return
-    const entry = /^https?:\/\//.test(target) ? { name, id: name, url: target } : { name, id: name, cmd: target.split(/\s+/) }
+    const env = (mcpForm.envs || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)
+    const bad = env.find((l) => !/^[A-Za-z_][A-Za-z0-9_]*=.+$/.test(l))
+    if (bad) {
+      showToast(`⚠️ Variable inválida: «${bad}» — formato CLAVE=valor`)
+      return
+    }
+    const entry = /^https?:\/\//.test(target) ? { name, id: name, url: target } : { name, id: name, cmd: target.split(/\s+/), env }
     setMcpForm(null)
     await addMcp(entry)
   }
@@ -2222,6 +2236,14 @@ export default function App() {
                           <span className="skill-busy">⏳</span>
                         ) : inst ? (
                           <button title="Quitar del perfil" onClick={() => removeMcp(s.id)}>🗑</button>
+                        ) : s.needsEnv ? (
+                          <button
+                            className="skill-install"
+                            title={`Necesita tu ${s.needsEnv} — se pide en el formulario`}
+                            onClick={() => setMcpForm({ name: s.id, target: s.cmd.join(' '), envs: `${s.needsEnv}=` })}
+                          >
+                            Conectar…
+                          </button>
                         ) : (
                           <button className="skill-install" onClick={() => addMcp(s)}>Conectar</button>
                         )}
@@ -2283,7 +2305,12 @@ export default function App() {
                       placeholder="Comando (npx paquete…) o URL https://…"
                       value={mcpForm.target}
                       onChange={(e) => setMcpForm({ ...mcpForm, target: e.target.value })}
-                      onKeyDown={(e) => e.key === 'Enter' && addMcpCustom()}
+                    />
+                    <textarea
+                      placeholder={'Variables de entorno (opcional, una por línea)\nGEMINI_API_KEY=tu-key'}
+                      rows={2}
+                      value={mcpForm.envs || ''}
+                      onChange={(e) => setMcpForm({ ...mcpForm, envs: e.target.value })}
                     />
                     <div className="snip-form-row">
                       <button type="button" onClick={() => setMcpForm(null)}>Cancelar</button>

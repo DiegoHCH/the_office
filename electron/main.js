@@ -1510,12 +1510,18 @@ ipcMain.handle('mcp:account', async (_e, profile) => {
   }
 })
 
-ipcMain.handle('mcp:add', async (_e, { profile, name, url, cmd }) => {
+ipcMain.handle('mcp:add', async (_e, { profile, name, url, cmd, env }) => {
   if (!/^[\w.-]{1,40}$/.test(name || '')) return { ok: false, error: 'Nombre inválido' }
   const args = ['mcp', 'add', '-s', 'user']
   if (url) args.push('--transport', 'http', name, url)
-  else if (Array.isArray(cmd) && cmd.length) args.push(name, '--', ...cmd)
-  else return { ok: false, error: 'Falta el comando o la URL' }
+  else if (Array.isArray(cmd) && cmd.length) {
+    args.push(name)
+    // variables de entorno del server (API keys): -e KEY=valor
+    for (const kv of Array.isArray(env) ? env : []) {
+      if (/^[A-Za-z_][A-Za-z0-9_]*=.+$/.test(kv)) args.push('-e', kv)
+    }
+    args.push('--', ...cmd)
+  } else return { ok: false, error: 'Falta el comando o la URL' }
   try {
     await execFileP(CLAUDE_BIN, args, { env: claudeEnvFor(profile), timeout: 60000 })
     return { ok: true }

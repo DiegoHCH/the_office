@@ -80,7 +80,7 @@ contextBridge.exposeInMainWorld('oficina', {
   mcp: {
     list: (profile) => ipcRenderer.invoke('mcp:list', profile),
     account: (profile) => ipcRenderer.invoke('mcp:account', profile),
-    add: (profile, name, opts) => ipcRenderer.invoke('mcp:add', { profile, name, ...opts }),
+    add: (profile, name, opts) => ipcRenderer.invoke('mcp:add', { profile, name, ...opts }), // opts: {url} | {cmd, env?}
     remove: (profile, name) => ipcRenderer.invoke('mcp:remove', { profile, name }),
   },
   // Configuración del squad (roster por perfil: nombres y activos).
