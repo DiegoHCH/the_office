@@ -63,7 +63,7 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **📊 Monitores** — dos burbujas: Sistema (CPU/RAM reales) y Claude (modelo en uso, 🪙 tokens de la conversación + % de sesión y semana, con **aviso al pasar del 90%**). El modelo se **sincroniza con el `/model` de tu terminal**.
 - **🖥 Integración macOS** — badge del **Dock** y **Tray 🏢** en la barra de menús con el nº de agentes trabajando, atajo global **⌥Espacio** (trae la app con el composer listo desde cualquier parte), y **powerSaveBlocker**: el Mac no se duerme mientras el squad trabaja.
 - **🖥 Splash screen**, la ventana **recuerda tamaño y posición**, la cámara 3D **recuerda su encuadre** (doble click lo restablece), **aviso de versión nueva** que **descarga el DMG directo** y abre el instalador, y la escena **ahorra batería** cuando la ventana está tapada (multi-monitor friendly: visible = 60fps).
-- **🎭 Vida ambiental** — frases por rol, música, paseos y visitas con detección de obstáculos; temas Clásico, Noche, Playa, Sakura y **🌗 Auto** (Noche al atardecer).
+- **🎭 Vida ambiental** — frases por rol, música, paseos y visitas con detección de obstáculos; temas Clásico, Noche, Playa, **🌸 Sakura** (pétalos), **🍂 Otoño** (hojas secas), **❄️ Invierno** (nieve) y **🌗 Auto**.
 - **🧠 Pizarra SQUAD.md** — memoria común del squad en la raíz del proyecto.
 - **⏳ Cola persistente** — los mensajes encolados sobreviven un cierre de la app: al volver pregunta si los retoma.
 - **💾 Exportar/importar configuración** — squad, personalidades y plantillas en un JSON para respaldar o migrar.
