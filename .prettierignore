@@ -1,0 +1,6 @@
+dist
+release
+node_modules
+public/models
+public/textures
+package-lock.json

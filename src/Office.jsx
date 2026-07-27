@@ -60,9 +60,6 @@ let T = THEMES.clasico
 const METAL = '#b9c2c7'
 const DARK = '#22282c'
 const WHITE = '#eef2f4'
-const POT = '#ece6db'
-const GREEN1 = '#3a8f5f'
-const GREEN2 = '#49a56d'
 
 const DESK_H = 0.38
 const TOP = DESK_H + 0.025
@@ -95,8 +92,8 @@ function useRoomTextures() {
     '/textures/wood-rough.jpg',
   ])
   return useMemo(() => {
-    const tile = (t, x, y) => {
-      const c = t.clone()
+    const tile = (tex, x, y) => {
+      const c = tex.clone()
       c.wrapS = c.wrapT = RepeatWrapping
       c.repeat.set(x, y)
       c.needsUpdate = true
@@ -249,15 +246,15 @@ function Falling({ kind = 'petalos' }) {
   useFrame((state, dt) => {
     const g = ref.current
     if (!g) return
-    const t = state.clock.elapsedTime
+    const time = state.clock.elapsedTime
     g.children.forEach((p, i) => {
       const s = seeds[i]
       p.position.y -= s.fall * dt
       if (p.position.y < 0.02) p.position.y = 2.3
-      p.position.x = s.x + Math.sin(t * 0.6 + s.phase) * s.sway
-      p.position.z = s.z + Math.cos(t * 0.45 + s.phase) * s.sway * 0.6
-      p.rotation.z = t * s.spin
-      p.rotation.x = Math.sin(t * 0.8 + s.phase) * (kind === 'nieve' ? 0.15 : 0.7)
+      p.position.x = s.x + Math.sin(time * 0.6 + s.phase) * s.sway
+      p.position.z = s.z + Math.cos(time * 0.45 + s.phase) * s.sway * 0.6
+      p.rotation.z = time * s.spin
+      p.rotation.x = Math.sin(time * 0.8 + s.phase) * (kind === 'nieve' ? 0.15 : 0.7)
     })
   })
   return (
@@ -306,7 +303,7 @@ function TrackSpot({ position, on = false }) {
 }
 
 // Lámpara de piso: decorativa siempre; en el tema Noche emite luz cálida real.
-function FloorLamp({ position, on = false, dim = false }) {
+function FloorLamp({ position, on = false }) {
   // siempre encendidas: en temas claros la luz es tenue (se nota el brillo del
   // bombillo sin lavar la escena), de noche alumbran de verdad
   return (
@@ -602,7 +599,6 @@ function KbMouse({ monitor, chair }) {
 // La L del escritorio (origen = esquina interior, brazos ~1.58) cubre x[-3.18,-1.6] z[-3.18,-1.6].
 const CHAIR_POS = [-2.3, 0, -2.4]
 const MONITOR_POS = [-2.3, 0, -3.22]
-const YAW_FRONT = Math.PI / 4
 const YAW_DESK = Math.atan2(MONITOR_POS[0] - CHAIR_POS[0], MONITOR_POS[2] - CHAIR_POS[2])
 
 // ── Puestos de trabajo (geometría fija). Quién los ocupa viene del squad ⚙️ ──
@@ -816,16 +812,16 @@ const yawFor = (state, yawScreen) => (state === 'listening' || state === 'talkin
 // Checklist del agente (TodoWrite) junto al personaje mientras trabaja.
 const todoIcon = (s) => (s === 'completed' ? '✅' : s === 'in_progress' ? '▶️' : '⬜')
 function TodoCard({ items }) {
-  const done = items.filter((t) => t.status === 'completed').length
+  const done = items.filter((it) => it.status === 'completed').length
   // la actual + vecinas: la lista completa no cabe junto al personaje
-  const cur = Math.max(items.findIndex((t) => t.status !== 'completed'), 0)
+  const cur = Math.max(items.findIndex((it) => it.status !== 'completed'), 0)
   const shown = items.slice(Math.max(0, Math.min(cur - 1, items.length - 3)), Math.max(0, Math.min(cur - 1, items.length - 3)) + 3)
   return (
     <div className="todo-card">
       <div className="todo-head">📝 {done}/{items.length}</div>
-      {shown.map((t, i) => (
-        <div key={i} className={`todo-row ${t.status}`}>
-          {todoIcon(t.status)} {t.text.length > 30 ? t.text.slice(0, 28) + '…' : t.text}
+      {shown.map((it, i) => (
+        <div key={i} className={`todo-row ${it.status}`}>
+          {todoIcon(it.status)} {it.text.length > 30 ? it.text.slice(0, 28) + '…' : it.text}
         </div>
       ))}
     </div>
@@ -934,7 +930,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
     const iv = setInterval(() => {
       // ventana oculta (minimizada/tapada): no programar frases/paseos nuevos
       if (document.visibilityState === 'hidden') return
-      squad.forEach((m, idx) => {
+      squad.forEach((m) => {
         if (!m || roleStates[m.id] || ambientRef.current[m.id]) return
         if (Math.random() > 0.4) return // ratos de calma
         const roll = Math.random()
@@ -1076,13 +1072,13 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
     if (!saved) return
     // los controles montan dentro del Canvas (async): reintenta hasta verlos
     let tries = 0
-    const t = setInterval(() => {
+    const iv = setInterval(() => {
       if (controlsRef.current) {
         applyCamera(saved)
-        clearInterval(t)
-      } else if (++tries > 20) clearInterval(t)
+        clearInterval(iv)
+      } else if (++tries > 20) clearInterval(iv)
     }, 100)
-    return () => clearInterval(t)
+    return () => clearInterval(iv)
   }, [])
   const resetCamera = () => {
     applyCamera(CAM_DEFAULT)

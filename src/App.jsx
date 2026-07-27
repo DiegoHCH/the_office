@@ -24,7 +24,7 @@ import {
   IconTerminal, IconExport, IconImport, IconTune, IconChevron,
   IconWork, IconPrivate, IconPerson, IconFolder, IconPin, IconAdd,
   IconClose, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
-  IconCheck, IconWarn, IconSpinner, IconPlug, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
+  IconCheck, IconWarn, IconSpinner, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
   IconCopy, IconRetry, IconShare, IconDiff, IconChat, IconBoard, IconBell, IconBellOff, IconRestore, IconCoin, IconClock,
 } from './components/icons.jsx'
 
@@ -104,13 +104,13 @@ export default function App() {
   useEffect(() => {
     if (introOpen) return // la intro manda; el tour espera su turno
     if (localStorage.getItem('oficina-tour-done')) return
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setTourOpen(true)
       try {
         localStorage.setItem('oficina-tour-done', '1')
       } catch {}
     }, 1200)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [introOpen])
   const endTour = () => {
     try {
@@ -142,7 +142,7 @@ export default function App() {
   const [, setThemeTick] = useState(0)
   useEffect(() => {
     if (theme !== 'auto') return
-    const iv = setInterval(() => setThemeTick((t) => t + 1), 60_000)
+    const iv = setInterval(() => setThemeTick((n) => n + 1), 60_000)
     return () => clearInterval(iv)
   }, [theme])
   const hourNow = new Date().getHours()
@@ -276,15 +276,15 @@ export default function App() {
   const [, setClockTick] = useState(0)
   useEffect(() => {
     if (!running.length) return
-    const iv = setInterval(() => setClockTick((t) => t + 1), 1000)
+    const iv = setInterval(() => setClockTick((n) => n + 1), 1000)
     return () => clearInterval(iv)
   }, [running.length])
 
   // role → "2m 15s"; solo a partir del minuto (antes sería ruido)
   const elapsed = {}
   for (const r of running) {
-    const t = startedAtRef.current[r] ? Date.now() - startedAtRef.current[r] : 0
-    if (t >= 60_000) elapsed[r] = fmtElapsed(t)
+    const ms = startedAtRef.current[r] ? Date.now() - startedAtRef.current[r] : 0
+    if (ms >= 60_000) elapsed[r] = fmtElapsed(ms)
   }
 
   useEffect(() => {
@@ -351,14 +351,14 @@ export default function App() {
 
   // respaldo automático semanal de la configuración (#101), silencioso
   useEffect(() => {
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       const extras = {}
       for (const k of Object.keys(localStorage)) {
         if (k.startsWith('oficina-') && k !== 'oficina-pending-queue' && k !== 'oficina-camera') extras[k] = localStorage.getItem(k)
       }
       window.oficina?.config?.autoBackup?.(extras)
     }, 8000) // sin estorbar el arranque
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {
@@ -505,10 +505,10 @@ export default function App() {
         if (e.sessionId) sessionsRef.current[who] = e.sessionId
         if (isP) setStatus(t('status.thinking'))
       } else if (e.kind === 'todos') {
-        setAgentTodos((t) => ({ ...t, [who]: e.todos }))
+        setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name, detail: e.detail || null })
-        setAgentTool((t) => ({ ...t, [who]: e.name }))
+        setAgentTool((prev) => ({ ...prev, [who]: e.name }))
         // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
         if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name)) editedRef.current[who] = true
         // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
@@ -519,10 +519,10 @@ export default function App() {
         setRS(who, 'working')
         if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
       } else if (e.kind === 'text') {
-        setTool((t) => (t?.role === who ? null : t))
-        setAgentTool((t) => {
-          if (!t[who]) return t
-          const copy = { ...t }
+        setTool((cur) => (cur?.role === who ? null : cur))
+        setAgentTool((prev) => {
+          if (!prev[who]) return prev
+          const copy = { ...prev }
           delete copy[who]
           return copy
         })
@@ -552,10 +552,10 @@ export default function App() {
         })
         // acumulado de tokens de la conversación (para el monitor de claude)
         if (usage)
-          setConvTokens((t) => ({
-            in: t.in + (usage.input_tokens || 0),
-            out: t.out + (usage.output_tokens || 0),
-            cache: t.cache + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+          setConvTokens((tok) => ({
+            in: tok.in + (usage.input_tokens || 0),
+            out: tok.out + (usage.output_tokens || 0),
+            cache: tok.cache + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
           }))
         // si generó un artifact este turno, adjuntar su enlace al mensaje del agente
         if (pendingArtifactRef.current[who]) {
@@ -576,16 +576,16 @@ export default function App() {
         setRS(who, isP && !entry ? 'idle' : 'delivering')
         // si entrega a un compañero, camina hacia ÉL (no hacia el principal)
         if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
-        setTool((t) => (t?.role === who ? null : t))
-        setAgentTool((t) => {
-          if (!t[who]) return t
-          const copy = { ...t }
+        setTool((cur) => (cur?.role === who ? null : cur))
+        setAgentTool((prev) => {
+          if (!prev[who]) return prev
+          const copy = { ...prev }
           delete copy[who]
           return copy
         })
-        setAgentTodos((t) => {
-          if (!t[who]) return t
-          const copy = { ...t }
+        setAgentTodos((prev) => {
+          if (!prev[who]) return prev
+          const copy = { ...prev }
           delete copy[who]
           return copy
         })
@@ -613,16 +613,16 @@ export default function App() {
         })
         handoffsRef.current = handoffsRef.current.filter((h) => !(h.from === who && h.result == null))
         setRS(who, 'idle')
-        setTool((t) => (t?.role === who ? null : t))
-        setAgentTool((t) => {
-          if (!t[who]) return t
-          const copy = { ...t }
+        setTool((cur) => (cur?.role === who ? null : cur))
+        setAgentTool((prev) => {
+          if (!prev[who]) return prev
+          const copy = { ...prev }
           delete copy[who]
           return copy
         })
-        setAgentTodos((t) => {
-          if (!t[who]) return t
-          const copy = { ...t }
+        setAgentTodos((prev) => {
+          if (!prev[who]) return prev
+          const copy = { ...prev }
           delete copy[who]
           return copy
         })
@@ -643,14 +643,14 @@ export default function App() {
         if (transient && failedJob && !retriedRef.current.has(failedJob.id)) {
           retriedRef.current.add(failedJob.id)
           setRS(who, 'idle')
-          setTool((t) => (t?.role === who ? null : t))
-          setAgentTool((t) => {
-            const copy = { ...t }
+          setTool((cur) => (cur?.role === who ? null : cur))
+          setAgentTool((prev) => {
+            const copy = { ...prev }
             delete copy[who]
             return copy
           })
-          setAgentTodos((t) => {
-            const copy = { ...t }
+          setAgentTodos((prev) => {
+            const copy = { ...prev }
             delete copy[who]
             return copy
           })
@@ -666,16 +666,16 @@ export default function App() {
         const text = e.detail ? `⚠️ ${e.message}\n\n\`\`\`\n${e.detail}\n\`\`\`` : `⚠️ ${e.message}`
         setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
         setRS(who, 'idle')
-        setTool((t) => (t?.role === who ? null : t))
-        setAgentTool((t) => {
-          if (!t[who]) return t
-          const copy = { ...t }
+        setTool((cur) => (cur?.role === who ? null : cur))
+        setAgentTool((prev) => {
+          if (!prev[who]) return prev
+          const copy = { ...prev }
           delete copy[who]
           return copy
         })
-        setAgentTodos((t) => {
-          if (!t[who]) return t
-          const copy = { ...t }
+        setAgentTodos((prev) => {
+          if (!prev[who]) return prev
+          const copy = { ...prev }
           delete copy[who]
           return copy
         })
@@ -718,7 +718,7 @@ export default function App() {
   useEffect(() => {
     const delivering = running.filter((r) => roleStates[r] === 'delivering')
     if (!delivering.length) return
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       delivering.forEach((r) => setRS(r, 'idle'))
       setDeliverTargets((d) => {
         const copy = { ...d }
@@ -726,7 +726,7 @@ export default function App() {
         return copy
       })
     }, 30_000)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [roleStates])
 
   // Despachador de handoffs: cuando el destinatario está libre, le llega el
@@ -1477,8 +1477,8 @@ export default function App() {
       setHistContent({})
       return
     }
-    const t = setTimeout(async () => setHistContent((await window.oficina?.history?.search(q)) || {}), 300)
-    return () => clearTimeout(t)
+    const timer = setTimeout(async () => setHistContent((await window.oficina?.history?.search(q)) || {}), 300)
+    return () => clearTimeout(timer)
   }, [histQuery, histOpen])
 
   // filtro por título/proyecto o por contenido; 📌 arriba
@@ -1746,10 +1746,10 @@ export default function App() {
         }
       }
     }
-    const t = setTimeout(() => check(true), 4000)
+    const timer = setTimeout(() => check(true), 4000)
     const iv = setInterval(() => check(false), 30000)
     return () => {
-      clearTimeout(t)
+      clearTimeout(timer)
       clearInterval(iv)
     }
   }, [])
@@ -2189,7 +2189,11 @@ export default function App() {
                 }}
               >
                 <span className="mi-icon"><IconBook /></span>
-                <span className="mi-label">{t('menu.claudeMd')}</span>
+                {/* el ✓ distingue «abrir el que ya existe» de «crear uno nuevo» */}
+                <span className="mi-label">
+                  {t('menu.claudeMd')}
+                  {hasClaudeMd && <IconCheck size={13} />}
+                </span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openSkills}>

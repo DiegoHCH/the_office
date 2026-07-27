@@ -23,6 +23,11 @@ jobs:
       - run: npm ci
       - name: Sintaxis del main process
         run: node --check electron/main.js && node --check electron/preload.js
+      # Encontró de entrada un crash real: Vector3 sin importar en Office.jsx,
+      # que tumbaba la escena con el modo director encendido (#126). El smoke
+      # test no lo veía porque arranca con esa preferencia apagada.
+      - name: Lint
+        run: npm run lint
       - name: Tests del núcleo (ruteo y helpers)
         run: npm test
       - name: Build del renderer
