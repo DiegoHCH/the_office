@@ -186,6 +186,29 @@ body {
 .find-bar button:hover { background: #16222a; color: #7fd8c8; }
 .msg.find-hit { outline: 1px solid rgba(45, 212, 191, 0.35); }
 .msg.find-current { outline: 2px solid #2dd4bf; }
+/* tour de bienvenida: spotlight + tarjeta paso a paso */
+.tour { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
+.tour-spot {
+  position: absolute; border-radius: 16px; border: 2px solid #2dd4bf;
+  box-shadow: 0 0 0 9999px rgba(4, 10, 13, 0.66);
+  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.tour-card {
+  position: absolute; width: 320px; pointer-events: auto;
+  background: #121a1f; border: 1px solid #28353a; border-radius: 20px;
+  padding: 14px 16px; box-shadow: 0 16px 48px rgba(4, 10, 13, 0.6);
+}
+.tour-step { font-size: 10px; color: #7fd8c8; font-family: ui-monospace, Menlo, monospace; margin-bottom: 4px; }
+.tour-card b { color: #e9f1ee; font-size: 14px; }
+.tour-card p { color: #b8c6c1; font-size: 12.5px; line-height: 1.55; margin: 6px 0 12px; }
+.tour-actions { display: flex; justify-content: space-between; }
+.tour-actions button {
+  background: none; border: none; color: #93a6a1; cursor: pointer; font-size: 12.5px;
+  padding: 6px 14px; border-radius: 999px;
+}
+.tour-actions .tour-next { background: #2dd4bf; color: #04201c; font-weight: 600; }
+.tour-actions .tour-next:hover { filter: brightness(1.08); }
+
 /* estadísticas 📈: barras de tokens por día */
 .stats-bars {
   display: flex; align-items: flex-end; gap: 8px; height: 130px;

@@ -295,6 +295,62 @@ const prettyArtifact = (f = '') => {
 const avatarLabel = (f) =>
   f.replace('.gltf', '').replace(/_/g, ' ').replace('Female', '♀').replace('Male', '♂')
 
+// Tour de bienvenida: spotlight sobre la UI real, paso a paso.
+const TOUR_STEPS = [
+  { sel: '.ctxbtn', title: 'Tu contexto', text: 'Perfil y proyecto activos. Aquí cambias entre work/private, eliges el repo donde trabaja el squad y agregas carpetas externas.' },
+  { sel: '.hud', title: 'La barra', text: 'Documentos que genera el squad, historial de conversaciones (⌘Y), conversación nueva (⌘K) y Configuración (⌘,) — ahí viven Agentes, Skills y MCP.' },
+  { sel: '.sysmon-stack', title: 'Monitores', text: 'CPU y RAM reales del Mac, y tu cuota de Claude: modelo en uso, tokens de la conversación y % de la sesión de 5h y la semana.' },
+  { sel: 'canvas', title: 'La oficina', text: 'Cada personaje es una sesión real de Claude Code. Click en uno para dirigirle el mensaje; arrastra para rotar la cámara y doble click la restablece.' },
+  { sel: '.perm-chip', title: 'Permisos a la vista', text: 'Ámbar = edición (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git). Gris = solo lectura. Un click lo alterna.' },
+  { sel: '.composer textarea', title: 'El composer', text: 'Enter envía · Shift+Enter salto de línea · / abre tus plantillas · @ lista los agentes (@todos = a todos los libres) · ⌘F busca en la conversación.' },
+]
+function Tour({ onDone }) {
+  const [i, setI] = useState(0)
+  const [rect, setRect] = useState(null)
+  useEffect(() => {
+    const measure = () => {
+      const el = document.querySelector(TOUR_STEPS[i].sel)
+      setRect(el ? el.getBoundingClientRect() : null)
+    }
+    measure()
+    window.addEventListener('resize', measure)
+    return () => window.removeEventListener('resize', measure)
+  }, [i])
+  const s = TOUR_STEPS[i]
+  const pad = 8
+  const cardW = 320
+  const below = rect ? rect.bottom < window.innerHeight - 230 : true
+  const cardStyle = rect
+    ? {
+        left: Math.min(Math.max(rect.left, 12), window.innerWidth - cardW - 12),
+        ...(below ? { top: rect.bottom + 14 } : { bottom: window.innerHeight - rect.top + 14 }),
+      }
+    : { left: '50%', top: '40%', transform: 'translateX(-50%)' }
+  return (
+    <div className="tour">
+      {rect && (
+        <div
+          className="tour-spot"
+          style={{ left: rect.left - pad, top: rect.top - pad, width: rect.width + pad * 2, height: rect.height + pad * 2 }}
+        />
+      )}
+      <div className="tour-card" style={cardStyle}>
+        <div className="tour-step">
+          {i + 1} / {TOUR_STEPS.length}
+        </div>
+        <b>{s.title}</b>
+        <p>{s.text}</p>
+        <div className="tour-actions">
+          <button type="button" onClick={onDone}>Saltar</button>
+          <button type="button" className="tour-next" onClick={() => (i < TOUR_STEPS.length - 1 ? setI(i + 1) : onDone())}>
+            {i < TOUR_STEPS.length - 1 ? 'Siguiente →' : '¡Listo! 🎉'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Miniatura de una imagen adjunta (data URL vía IPC); click → lightbox.
 function AttThumb({ att, onZoom }) {
   const [src, setSrc] = useState(null)
@@ -555,6 +611,20 @@ export default function App() {
   const editedRef = useRef({})
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
+  // tour de bienvenida: una vez en el primer arranque, repetible desde Config
+  const [tourOpen, setTourOpen] = useState(false)
+  useEffect(() => {
+    if (!localStorage.getItem('oficina-tour-done')) {
+      const t = setTimeout(() => setTourOpen(true), 2500) // tras el splash y el primer render
+      return () => clearTimeout(t)
+    }
+  }, [])
+  const endTour = () => {
+    try {
+      localStorage.setItem('oficina-tour-done', '1')
+    } catch {}
+    setTourOpen(false)
+  }
   const [status, setStatus] = useState('Esperándote')
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
@@ -2286,6 +2356,18 @@ export default function App() {
               <button
                 type="button"
                 className="menu-item"
+                onClick={() => {
+                  closePanels()
+                  setTourOpen(true)
+                }}
+              >
+                <span className="mi-icon">🎓</span>
+                <span className="mi-label">Tour de bienvenida</span>
+                <span className="mi-chev">›</span>
+              </button>
+              <button
+                type="button"
+                className="menu-item"
                 onClick={async () => {
                   const res = await window.oficina?.openTerminal?.(project)
                   showToast(res?.ok ? `🖥 Abriendo ${res.app}…` : '⚠️ No pude abrir la terminal')
@@ -3371,6 +3453,8 @@ export default function App() {
           <img src={lightbox} alt="" />
         </div>
       )}
+
+      {tourOpen && <Tour onDone={endTour} />}
 
       {(attachments.length > 0 || refs.length > 0) && (
         <div className="attachbar">
