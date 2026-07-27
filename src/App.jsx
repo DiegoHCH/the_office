@@ -1766,10 +1766,22 @@ export default function App() {
     })
   }
 
+  // Aviso de colisión (#99): dos agentes editando el MISMO repo pueden
+  // pisarse (git add -A cruzados, el mismo archivo a la vez). No se bloquea
+  // —a veces es lo que quieres—, pero se advierte una vez por tarea.
+  const warnCollision = (target) => {
+    if (!writeMode || !project) return
+    const otros = running.filter((r) => r !== target && roleStates[r] && roleStates[r] !== 'delivering')
+    if (!otros.length) return
+    const quien = otros.map((r) => memberOf(r).name).join(', ')
+    showToast(`⚠️ ${quien} ya está editando ${project.split('/').pop()} — cuidado con pisarse`, 6000)
+  }
+
   // sitúa un job: si el agente está libre y sin cola → va; si no → encola
   const routeJob = (job) => {
     atBottomRef.current = true // enviar algo re-engancha el auto-scroll
     checkQuota()
+    warnCollision(job.target)
     const busyOrQueued = !!roleStates[job.target] || (queuesRef.current[job.target]?.length > 0)
     if (busyOrQueued) enqueueJob(job)
     else dispatchJob(job)
