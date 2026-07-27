@@ -1666,6 +1666,22 @@ export default function App() {
     setSnippets(list)
     localStorage.setItem(`oficina-snippets-${profile}`, JSON.stringify(list))
   }
+  // ── Autocompletar @nombres: escribir @ lista los agentes (y @todos) ──────
+  const AT_RE = /(^|\s)@([\p{L}\p{N}_-]*)$/u
+  const atMatch = AT_RE.exec(input)
+  const atQuery = atMatch ? atMatch[2] : null
+  const atOptions =
+    atQuery !== null
+      ? [
+          { name: 'todos', emoji: '📢', label: 'el mismo mensaje a todos los agentes libres' },
+          ...squad.map((m) => ({ name: m.name, emoji: m.emoji, label: m.label })),
+        ].filter((o) => norm(o.name).startsWith(norm(atQuery)))
+      : []
+  const pickAt = (o) => {
+    setInput(input.replace(AT_RE, (_, pre) => `${pre}@${o.name} `))
+    inputRef.current?.focus()
+  }
+
   const BUILTIN_CMDS = ['/model', '/clear', '/nueva', '/squad', '/standup']
   const snipQuery = input.startsWith('/') && !input.includes('\n') ? input.slice(1) : null
   const snipOpen = snipQuery !== null && !BUILTIN_CMDS.some((c) => input.startsWith(c))
@@ -3122,6 +3138,17 @@ export default function App() {
         </div>
       )}
 
+      {/* @nombres: escribir @ lista los agentes activos (y @todos) */}
+      {atQuery !== null && atOptions.length > 0 && (
+        <div className="snip-pop">
+          {atOptions.map((o) => (
+            <div key={o.name} className="snip-item" onClick={() => pickAt(o)}>
+              <b>{o.emoji} @{o.name}</b>
+              <span className="snip-preview">{o.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {/* plantillas: escribir / en el composer las lista y filtra por nombre */}
       {snipOpen && (
         <div className="snip-pop">
@@ -3218,6 +3245,12 @@ export default function App() {
             autoGrow(e.target)
           }}
           onKeyDown={(e) => {
+            // con el popover de @nombres abierto, Enter/Tab toma el primero
+            if (atQuery !== null && atOptions.length > 0 && (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey))) {
+              e.preventDefault()
+              pickAt(atOptions[0])
+              return
+            }
             // con el popover de plantillas abierto, Enter/Tab toma la primera
             if (snipOpen && snipMatches.length > 0 && !snipForm && (e.key === 'Tab' || (e.key === 'Enter' && !e.shiftKey))) {
               e.preventDefault()
