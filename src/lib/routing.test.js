@@ -49,8 +49,21 @@ describe('routeMessage', () => {
     expect(routeMessage('revisa el codigo', SQUAD, P)).toBe('dev')
   })
 
-  it('un nombre a mitad de frase NO rutea (solo al inicio o con @)', () => {
+  it('saluda y luego nombra: es interpelación directa', () => {
+    // el caso que fallaba: iba al principal en vez de a Nami
+    expect(routeMessage('Hola Nami, cuál es tu cargo en la oficina?', SQUAD, P)).toBe('research')
+    expect(routeMessage('oye Zoro, corre los tests', SQUAD, P)).toBe('qa')
+    expect(routeMessage('buenas tardes Sanji: mira esto', SQUAD, P)).toBe('design')
+  })
+
+  it('el nombre al final tras coma también interpela', () => {
+    expect(routeMessage('revisa el login, Zoro', SQUAD, P)).toBe('qa')
+    expect(routeMessage('¿puedes con esto, Nami?', SQUAD, P)).toBe('research')
+  })
+
+  it('un nombre mencionado de pasada NO rutea', () => {
     expect(routeMessage('esto lo vio Zoro ayer', SQUAD, P)).toBe('dev')
+    expect(routeMessage('el bug que reportó Nami sigue vivo', SQUAD, P)).toBe('dev')
   })
 
   it('nombres que son prefijo de una palabra no matchean', () => {
