@@ -1994,7 +1994,7 @@ export default function App() {
         </div>
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
-          <button type="button" className="iconbtn" onClick={toggleArts} title="Documentos creados por el squad">
+          <button type="button" className="iconbtn" aria-label="Documentos" onClick={toggleArts} title="Documentos creados por el squad">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -2002,20 +2002,20 @@ export default function App() {
           </button>
           {/* Historial y Configuración se pueden abrir mientras el squad trabaja:
               sus controles internos ya se deshabilitan solos cuando aplica */}
-          <button type="button" className="iconbtn" onClick={toggleHist} title="Historial (⌘Y)">
+          <button type="button" className="iconbtn" aria-label="Historial" onClick={toggleHist} title="Historial (⌘Y)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </button>
-          <button type="button" className="primarybtn" onClick={newChat} disabled={busy} title="Conversación nueva (⌘K)">
+          <button type="button" className="primarybtn" aria-label="Conversación nueva" onClick={newChat} disabled={busy} title="Conversación nueva (⌘K)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
             <span>Nueva</span>
           </button>
-          <button type="button" className="iconbtn gearspin" onClick={openPrefs} title="Configuración (⌘,)">
+          <button type="button" className="iconbtn gearspin" aria-label="Configuración" onClick={openPrefs} title="Configuración (⌘,)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -3127,6 +3127,7 @@ export default function App() {
                 <button
                   className="hist-export hist-ren"
                   title="Renombrar"
+                  aria-label="Renombrar conversación"
                   onClick={(e) => {
                     e.stopPropagation()
                     setRenaming({ id: h.id, val: h.title || '' })
@@ -3142,10 +3143,10 @@ export default function App() {
                 >
                   📌
                 </button>
-                <button className="hist-export" title="Exportar a Markdown" onClick={(e) => exportConvo(e, h.id)}>
+                <button className="hist-export" title="Exportar a Markdown" aria-label="Exportar conversación a Markdown" onClick={(e) => exportConvo(e, h.id)}>
                   ⬇
                 </button>
-                <button className="hist-del" title="Borrar" onClick={(e) => deleteConvo(e, h.id)}>
+                <button className="hist-del" title="Borrar" aria-label="Borrar conversación" onClick={(e) => deleteConvo(e, h.id)}>
                   🗑
                 </button>
               </div>
@@ -3284,6 +3285,7 @@ export default function App() {
                     type="button"
                     className="msg-copy"
                     title="Copiar respuesta completa"
+                    aria-label="Copiar respuesta completa"
                     onClick={() => {
                       navigator.clipboard.writeText(m.text)
                       showToast('Respuesta copiada 📋')
@@ -3297,6 +3299,7 @@ export default function App() {
                     type="button"
                     className="msg-copy msg-edit"
                     title="Editar y reenviar"
+                    aria-label="Editar y reenviar este mensaje"
                     onClick={() => {
                       setInput(m.text)
                       const el = inputRef.current

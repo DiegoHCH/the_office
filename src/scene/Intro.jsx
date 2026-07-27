@@ -678,7 +678,7 @@ export default function Intro({ onDone, bg = '#e8b98a' }) {
         </EffectComposer>
       </Canvas>
       <div className="intro-flash" style={{ opacity: opened ? flash : 1 }} />
-      <button type="button" className="intro-skip" onClick={finish}>
+      <button type="button" className="intro-skip" aria-label="Saltar la intro" onClick={finish}>
         Saltar intro
       </button>
     </div>

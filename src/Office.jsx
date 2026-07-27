@@ -863,6 +863,10 @@ function HelperGhost({ chair }) {
 }
 
 export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', quality = 'normal', onTourDone, onPickMember }) {
+  // Accesibilidad (#104): con «reducir movimiento» activo en el sistema, la
+  // escena se queda quieta — nada de paseos, visitas, mascota ni partículas.
+  // El trabajo real (entregas, estados) sigue viéndose.
+  const reduceMotion = useMemo(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false, [])
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -917,6 +921,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   }, [roleStates])
 
   useEffect(() => {
+    if (reduceMotion) return // sin vida ambiental si el sistema pide quietud
     const iv = setInterval(() => {
       // ventana oculta (minimizada/tapada): no programar frases/paseos nuevos
       if (document.visibilityState === 'hidden') return
@@ -982,7 +987,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       })
     }, 5000)
     return () => clearInterval(iv)
-  }, [squad, roleStates])
+  }, [squad, roleStates, reduceMotion])
 
   // ── Standup visual: los participantes se reúnen en círculo en el centro ──
   const MEET_CENTER = [0, 0.15]
@@ -1119,7 +1124,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
 
       <Room />
       <Window />
-      {T.fall && <Falling kind={T.fall} />}
+      {T.fall && !reduceMotion && <Falling kind={T.fall} />}
       <Shelf />
 
       {/* estación principal (dev): L en la esquina trasera-izquierda */}
@@ -1212,7 +1217,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         )}
 
         {/* mascota de la oficina 🦊 (preferencia) — pasea por el centro libre */}
-        {pet && <Pet url={`/models/pets/${pet}.glb`} spots={WANDER_SPOTS.map((s) => s.to)} standup={standup.length > 0} />}
+        {pet && !reduceMotion && <Pet url={`/models/pets/${pet}.glb`} spots={WANDER_SPOTS.map((s) => s.to)} standup={standup.length > 0} />}
 
         {/* squad: research / design / qa — cada uno con su L y su monitor */}
         {SLOTS.map((s, i) => {
