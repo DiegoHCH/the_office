@@ -22,7 +22,7 @@
     "directories": {
       "output": "release"
     },
-    "asar": false,
+    "asar": true,
     "files": [
       "electron/**/*",
       "dist/**/*",
@@ -52,7 +52,12 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "shortcutName": "La Oficina"
-    }
+    },
+    "asarUnpack": [
+      "dist/models/**",
+      "dist/textures/**",
+      "dist/*.svg"
+    ]
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",

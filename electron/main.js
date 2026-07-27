@@ -1966,7 +1966,14 @@ app.whenReady().then(() => {
     protocol.handle('app', (req) => {
       let p = decodeURIComponent(new URL(req.url).pathname)
       if (p === '/' || p === '') p = '/index.html'
-      return net.fetch(pathToFileURL(path.join(__dirname, '..', 'dist', p)).toString())
+      let file = path.join(__dirname, '..', 'dist', p)
+      // con asar activo, los assets binarios (modelos 3D, texturas) viven
+      // desempaquetados en app.asar.unpacked: net.fetch no lee dentro del asar
+      if (/\.(glb|gltf|jpg|png|svg|bin|hdr)$/i.test(p)) {
+        const unpacked = file.replace(`${path.sep}app.asar${path.sep}`, `${path.sep}app.asar.unpacked${path.sep}`)
+        if (fs.existsSync(unpacked)) file = unpacked
+      }
+      return net.fetch(pathToFileURL(file).toString())
     })
   }
   console.log('[oficina] usando binario claude en:', CLAUDE_BIN)
