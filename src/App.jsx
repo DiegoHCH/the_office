@@ -2736,6 +2736,17 @@ export default function App() {
                   </div>
                 </div>
                 <div className="art-actions">
+                  <button
+                    onClick={() => {
+                      setRefs((r) => (r.some((x) => x.path === a.path) ? r : [...r, { path: a.path, name: a.name, isDir: false }]))
+                      setArtsOpen(false)
+                      showToast('💬 Documento en contexto — escribe qué hacer con él')
+                      inputRef.current?.focus()
+                    }}
+                    title="Usar como contexto del próximo mensaje (el agente lo lee)"
+                  >
+                    💬
+                  </button>
                   <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title="Revelar en Finder">📂</button>
                   <button
                     onClick={async () => {
