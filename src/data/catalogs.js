@@ -1,5 +1,14 @@
 // Catálogos curados (skills, MCP) y presentación de tools (refactor #94).
 
+// Plantillas de arranque: se siembran UNA vez por perfil (si nunca guardó
+// ninguna) para mostrar el patrón — incluidas las {{variables}}. Borrables.
+export const SEED_SNIPPETS = [
+  { name: 'revisar-pr', text: 'Revisa el PR {{numero}} de este repo: mira el diff completo, señala riesgos y dime si es seguro mergear.' },
+  { name: 'explica-error', text: 'Explica este error y cómo arreglarlo paso a paso:\n\n{{error}}' },
+  { name: 'resume-cambios', text: 'Resume los cambios recientes del repo (git log y diff de los últimos commits) en viñetas claras, agrupadas por área.' },
+  { name: 'plan-feature', text: 'Diseña un plan corto para implementar: {{feature}}. Pasos, archivos a tocar y riesgos — sin escribir código todavía.' },
+]
+
 // Catálogo curado de skills de Claude Code (repo oficial anthropics/skills).
 // Se instalan en el CLAUDE_CONFIG_DIR del perfil: los agentes headless las
 // cargan solos y las usan cuando la tarea lo amerita.

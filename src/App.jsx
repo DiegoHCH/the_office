@@ -9,7 +9,7 @@ import {
   MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, modelLabelOf,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel } from './data/roles.js'
-import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo } from './data/catalogs.js'
+import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS } from './data/catalogs.js'
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
 import Tour from './components/Tour.jsx'
@@ -1340,10 +1340,21 @@ export default function App() {
   const [snippets, setSnippets] = useState([])
   const [snipForm, setSnipForm] = useState(null) // formulario de nueva plantilla
   useEffect(() => {
-    try {
-      setSnippets(JSON.parse(localStorage.getItem(`oficina-snippets-${profile}`)) || [])
-    } catch {
-      setSnippets([])
+    const raw = localStorage.getItem(`oficina-snippets-${profile}`)
+    if (raw === null) {
+      // perfil sin plantillas guardadas nunca: sembrar los ejemplos (borrables);
+      // si el usuario las borra todas queda '[]' y no se re-siembran
+      const seed = SEED_SNIPPETS.map((s) => ({ ...s, id: crypto.randomUUID() }))
+      try {
+        localStorage.setItem(`oficina-snippets-${profile}`, JSON.stringify(seed))
+      } catch {}
+      setSnippets(seed)
+    } else {
+      try {
+        setSnippets(JSON.parse(raw) || [])
+      } catch {
+        setSnippets([])
+      }
     }
     setSnipForm(null)
   }, [profile])
