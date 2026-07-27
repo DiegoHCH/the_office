@@ -1003,6 +1003,27 @@ export default function App() {
     else showToast(`⚠️ ${res?.error || 'No se pudo instalar'}`, 6000)
     refreshSkills()
   }
+  // «🔄 Actualizar todo»: re-instala (git pull + copia) las del catálogo
+  const [skillsUpdating, setSkillsUpdating] = useState(false)
+  const updateAllSkills = async () => {
+    const known = (installedSkills || []).map((x) => SKILL_CATALOG.find((s) => s.id === x.id)).filter(Boolean)
+    const propias = (installedSkills || []).length - known.length
+    if (!known.length) {
+      showToast(propias ? `Solo tienes skills propias (${propias}) — esas se actualizan a mano` : 'No hay skills del catálogo instaladas')
+      return
+    }
+    setSkillsUpdating(true)
+    let ok = 0
+    for (const [i, s] of known.entries()) {
+      showToast(`🔄 Actualizando ${s.name} (${i + 1}/${known.length})…`, 20000)
+      const res = await window.oficina?.skills?.install(profile, s.id, s.repo)
+      if (res?.ok) ok++
+    }
+    setSkillsUpdating(false)
+    showToast(`✅ ${ok} actualizada${ok !== 1 ? 's' : ''}${propias ? ` · ${propias} propia${propias !== 1 ? 's' : ''} sin tocar` : ''}`, 6000)
+    refreshSkills()
+  }
+
   const removeSkill = async (id) => {
     setSkillBusy(id)
     const res = await window.oficina?.skills?.remove(profile, id)
@@ -2471,6 +2492,13 @@ export default function App() {
               Se instalan en el perfil ({profile === 'work' ? '~/.claude-work' : '~/.claude-private'}) y los agentes las usan
               automáticamente cuando la tarea lo amerita.
             </div>
+            {installedSkills?.length > 0 && (
+              <div className="diag-actions">
+                <button type="button" className="skill-manual" onClick={updateAllSkills} disabled={skillsUpdating}>
+                  {skillsUpdating ? '⏳ Actualizando…' : '🔄 Actualizar todo'}
+                </button>
+              </div>
+            )}
             {installedSkills === null && <div className="hist-empty">Leyendo skills instaladas…</div>}
             {installedSkills !== null && (
               <>
