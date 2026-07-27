@@ -617,24 +617,27 @@ body {
 .hist-item:hover { background: var(--surface-3); border-color: var(--line); }
 .hist-title { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hist-meta { font-size: 11px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; margin-top: 2px; }
-.hist-del {
-  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; cursor: pointer; font-size: 13px; opacity: 0.4;
-}
-.hist-del:hover { opacity: 1; }
-/* exportar a Markdown: aparece al hacer hover sobre el item */
+/* Las acciones estaban a opacity 0 (o 0.4 sin color) y la fila parecía no
+   tenerlas (#129). Ahora se ven siempre, con superficie propia, y borrar en
+   rojo por ser destructivo. */
+.hist-del,
 .hist-export {
-  position: absolute; right: 28px; top: 50%; transform: translateY(-50%);
-  background: none; border: none; cursor: pointer; font-size: 13px; color: var(--accent-2);
-  opacity: 0; transition: opacity 0.15s;
+  position: absolute; top: 50%; transform: translateY(-50%);
+  display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
+  background: var(--surface-3); color: var(--muted); cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.hist-item:hover .hist-export { opacity: 0.6; }
-.hist-item .hist-export:hover { opacity: 1; }
-.hist-item:has(.hist-export) { padding-right: 54px; }
-.hist-item:has(.hist-pin) { padding-right: 76px; }
-.hist-pin { right: 50px !important; }
-.hist-item:has(.hist-ren) { padding-right: 98px; }
-.hist-ren { right: 72px !important; }
+.hist-del:hover,
+.hist-export:hover { color: var(--accent); border-color: var(--accent); background: var(--surface-4); }
+.hist-del { right: 6px; color: var(--danger-2); }
+.hist-del:hover { color: var(--danger); border-color: var(--danger); background: var(--surface-4); }
+.hist-export { right: 36px; }
+.hist-item:has(.hist-export) { padding-right: 70px; }
+.hist-item:has(.hist-pin) { padding-right: 100px; }
+.hist-pin { right: 66px !important; }
+.hist-item:has(.hist-ren) { padding-right: 130px; }
+.hist-ren { right: 96px !important; }
 .hist-rename {
   width: 100%; background: var(--surface-4); border: 1.5px solid var(--accent); color: var(--ink-bright);
   border-radius: 8px; padding: 3px 8px; font-size: 13px; outline: none;
@@ -679,10 +682,17 @@ select.squad-model {
 }
 .art-item > div:first-child { flex: 1; min-width: 0; }
 .art-actions { display: flex; gap: 4px; flex: none; }
+/* iconos sueltos a media opacidad no se leían como botones (#129): ahora
+   llevan superficie propia, y el destructivo va en rojo */
 .art-actions button {
-  background: none; border: none; cursor: pointer; font-size: 14px; opacity: 0.6; padding: 4px;
+  display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
+  background: var(--surface-3); color: var(--muted); cursor: pointer;
+  border: 1px solid var(--line); border-radius: 8px;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.art-actions button:hover { opacity: 1; }
+.art-actions button:hover { color: var(--accent); border-color: var(--accent); background: var(--surface-4); }
+.art-actions button.danger { color: var(--danger-2); }
+.art-actions button.danger:hover { color: var(--danger); border-color: var(--danger); }
 .hist-empty { color: var(--muted); font-size: 12.5px; padding: 8px; font-family: ui-monospace, Menlo, monospace; }
 /* buscador del historial */
 .hist-search {

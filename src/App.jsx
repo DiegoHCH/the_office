@@ -3300,6 +3300,20 @@ export default function App() {
                   >
                     <IconZip size={14} />
                   </button>
+                  <button
+                    className="danger"
+                    onClick={async () => {
+                      const r = await window.oficina?.artifacts?.delete?.(a.path)
+                      if (r?.canceled) return
+                      if (r?.ok) {
+                        setArtsList((l) => l.filter((x) => x.path !== a.path))
+                        showToast(t('toast.docDeleted'))
+                      } else showToast(t('toast.noDocDelete'))
+                    }}
+                    title={t('docs.delete')}
+                  >
+                    <IconTrash size={14} />
+                  </button>
                 </div>
               </div>
             ))}

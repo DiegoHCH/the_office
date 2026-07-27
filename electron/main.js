@@ -1178,6 +1178,27 @@ ipcMain.handle('artifacts:zip', async (_e, file) => {
   })
 })
 
+// Borra un documento (a la papelera, no destrucción directa: se puede recuperar
+// desde Finder si fue un error). Pide confirmación antes.
+ipcMain.handle('artifacts:delete', async (_e, file) => {
+  if (!file || !fs.existsSync(file)) return { ok: false }
+  const res = await dialog.showMessageBox(win, {
+    type: 'warning',
+    buttons: ['Cancelar', 'Mover a la papelera'],
+    defaultId: 0,
+    cancelId: 0,
+    message: `¿Borrar «${path.basename(file)}»?`,
+    detail: 'Se mueve a la papelera del sistema, así que se puede recuperar desde Finder.',
+  })
+  if (res.response !== 1) return { ok: false, canceled: true }
+  try {
+    await shell.trashItem(file)
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // ── Skills de Claude Code por perfil ─────────────────────────────────────────
 // Se instalan en CLAUDE_CONFIG_DIR/skills/<id>; los agentes headless las usan
 // automáticamente al correr con ese perfil.

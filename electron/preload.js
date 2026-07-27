@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('oficina', {
     open: (file) => ipcRenderer.invoke('artifacts:open', file),
     reveal: (file) => ipcRenderer.invoke('artifacts:reveal', file),
     zip: (file) => ipcRenderer.invoke('artifacts:zip', file),
+    delete: (file) => ipcRenderer.invoke('artifacts:delete', file),
   },
   // Abre la guía de uso en su propia ventana (en el idioma de la interfaz).
   openHelp: (lang) => ipcRenderer.invoke('help:open', lang),
