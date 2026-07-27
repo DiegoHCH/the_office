@@ -247,9 +247,11 @@ export const IconRestore = (p) => (
   </Svg>
 )
 
-export const IconCoin = (p) => (
+// «toll» (dos fichas): tokens, no dinero — el coste en la app nunca se
+// muestra en moneda, y el icono anterior era literalmente un signo de dólar
+export const IconToken = (p) => (
   <Svg {...p}>
-    <path d="M441-120v-86q-53-12-91.5-46T293-348l74-30q15 48 44.5 73t77.5 25q41 0 69.5-18.5T587-356q0-35-22-55.5T463-458q-86-27-118-64.5T313-614q0-65 42-101t106-43v-82h80v82q50 8 82 36.5t47 71.5l-74 32q-12-31-34-48.5T510-684q-44 0-67 19.5T420-614q0 32 29 50t93 39q79 24 116.5 64T696-354q0 71-42 108t-113 46v80h-100Z" />
+    <path d="M600-160q-116 0-198-82t-82-198q0-116 82-198t198-82q116 0 198 82t82 198q0 116-82 198t-198 82Zm0-80q83 0 141.5-58.5T800-440q0-83-58.5-141.5T600-640q-83 0-141.5 58.5T400-440q0 83 58.5 141.5T600-240ZM200-440q0 61 27 111t73 82v92q-75-36-121.5-108T132-440q0-85 46.5-157T300-705v92q-46 32-73 82t-27 91Z" />
   </Svg>
 )
 export const IconClock = (p) => (
