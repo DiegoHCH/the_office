@@ -147,11 +147,12 @@ function FlutterFrame({ position, rotation = [0, 0, 0] }) {
   const s = 0.0062
   return (
     <group position={position} rotation={rotation}>
-      {/* marco + lienzo */}
-      <RB args={[0.72, 0.88, 0.05]} r={0.02} castShadow>{mat(WHITE)}</RB>
+      {/* marco de madera oscura + lienzo mate: no debe florecer con el bloom
+          ni quemarse con la luz de ventana (si no, no se ve el logo) */}
+      <RB args={[0.72, 0.88, 0.05]} r={0.02} castShadow>{mat('#3a2c22', { rough: 0.85 })}</RB>
       <mesh position={[0, 0, 0.026]}>
         <planeGeometry args={[0.6, 0.76]} />
-        {mat('#eef4f7')}
+        {mat('#b9bfc4', { rough: 1 })}
       </mesh>
       {/* logo real, centrado y plano contra el lienzo (Y del SVG va hacia abajo → se voltea) */}
       <group position={[-38.92 * s, 48.1 * s, 0.03]} scale={[s, -s, 1]}>
@@ -452,21 +453,21 @@ function PottedTree({ position, height = 1.15 }) {
 // en el render (KbMouse) para caer siempre sobre el brazo.
 const PROPS = [
   // ── principal: rincón tras-izq, mira -z ──
-  { url: '/models/props/PottedPlant.glb', position: [-3.0, TOP, -2.0], fitHeight: 0.24 },
+  { url: '/models/props/PottedPlant.glb', position: [-3.0, TOP, -2.0], fitHeight: 0.4 },
   { url: '/models/furniture/books.glb', position: [-3.05, TOP, -2.55], scale: 1.0 },
   // ── SLOTS[0]: rincón tras-der, mira -z ──
-  { url: '/models/props/HousePlant.glb', position: [3.0, TOP, -2.0], fitHeight: 0.26 },
+  { url: '/models/props/HousePlant.glb', position: [3.0, TOP, -2.0], fitHeight: 0.42 },
   { url: '/models/furniture/radio.glb', position: [3.0, TOP, -1.55] },
   // ── SLOTS[1]: rincón frontal-izq, mira -x ──
   { url: '/models/furniture/books.glb', position: [-3.0, TOP, 1.9] },
-  { url: '/models/props/PottedPlant.glb', position: [-1.9, TOP, 2.95], fitHeight: 0.24 },
+  { url: '/models/props/PottedPlant.glb', position: [-1.9, TOP, 2.95], fitHeight: 0.4 },
   // ── SLOTS[2]: rincón frontal-der (isla), mira +z ──
   { url: '/models/furniture/speakerSmall.glb', position: [3.0, TOP, 1.9] },
-  { url: '/models/props/HousePlant.glb', position: [1.9, TOP, 2.95], fitHeight: 0.26 },
+  { url: '/models/props/HousePlant.glb', position: [1.9, TOP, 2.95], fitHeight: 0.42 },
   // ── SLOTS[3]: pared izquierda (medio, bajo ventana), mira -x ──
-  { url: '/models/props/Monstera.glb', position: [-3.0, TOP, 0.4], fitHeight: 0.22 },
+  { url: '/models/props/Monstera.glb', position: [-3.0, TOP, 0.4], fitHeight: 0.36 },
   // ── SLOTS[4]: lado derecho (medio), mira +x ──
-  { url: '/models/props/Monstera.glb', position: [3.0, TOP, -0.8], fitHeight: 0.22 },
+  { url: '/models/props/Monstera.glb', position: [3.0, TOP, -0.8], fitHeight: 0.36 },
 ]
 
 // Teclado + mouse derivados del monitor: se apoyan sobre el brazo de la L (media
@@ -1004,10 +1005,10 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           como en la referencia loft — da dirección y contraste a la sala */}
       <spotLight
         position={[-HALF - 1.2, 2.6, 0]}
-        target-position={[1.5, 0.2, 0]}
+        target-position={[1.2, 0.15, 0.9]}
         angle={0.85}
         penumbra={0.9}
-        intensity={T.lampsOn ? 6 : 26}
+        intensity={T.lampsOn ? 5 : 17}
         color={T.lampsOn ? '#8aa8c8' : '#fff0d8'}
         distance={16}
         decay={1.1}
@@ -1059,7 +1060,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       <DeskLamp position={[-3.02, TOP, -2.95]} rotation={[0, -Math.PI / 4, 0]} on={!!T.lampsOn} />
 
       <Suspense fallback={null}>
-        <FlutterFrame position={[-0.7, 1.35, -HALF + 0.07]} />
+        <FlutterFrame position={[0, 1.32, -HALF + 0.07]} />
         {/* teclado+mouse del principal (dentro de Suspense: carga modelos) */}
         <KbMouse monitor={MONITOR_POS} chair={CHAIR_POS} />
         {PROPS.map((p, i) => (
@@ -1215,7 +1216,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           «ligera» se apaga entero; oculta la ventana tampoco se compone. */}
       {quality !== 'ligera' && visible && (
         <EffectComposer multisampling={0} enableNormalPass={false} depthBuffer={false} stencilBuffer={false}>
-          <Bloom intensity={quality === 'cine' ? 0.75 : 0.45} luminanceThreshold={0.7} luminanceSmoothing={0.5} mipmapBlur radius={0.72} />
+          <Bloom intensity={quality === 'cine' ? 0.75 : 0.45} luminanceThreshold={0.82} luminanceSmoothing={0.5} mipmapBlur radius={0.72} />
           <Vignette offset={0.3} darkness={0.4} />
         </EffectComposer>
       )}
