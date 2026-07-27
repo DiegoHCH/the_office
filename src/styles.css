@@ -585,10 +585,10 @@ select.squad-model {
   transition: background 0.12s;
 }
 .menu-item:hover { background: #18242a; }
-.mi-icon { width: 22px; text-align: center; flex: none; }
+.mi-icon { display: flex; align-items: center; justify-content: center; width: 24px; color: #7fd8c8; flex: none; }
 .mi-label { flex: 1; }
 .mi-hint { color: #7e948f; font-size: 11px; flex: none; }
-.mi-chev { color: #55707a; font-size: 16px; line-height: 1; flex: none; }
+.mi-chev { color: #6b8089; display: flex; align-items: center; flex: none; }
 .menu-foot {
   margin-top: 14px; text-align: center; font-size: 10.5px; color: #5c7078;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -962,3 +962,24 @@ select.squad-model {
   padding: 5px 12px; font-size: 11px; cursor: pointer; font-family: inherit; white-space: nowrap;
 }
 .preset-chip:hover { color: #7fd8c8; border-color: #7fd8c8; background: rgba(45, 212, 191, 0.07); }
+
+/* estadísticas con gráficas (#80 mejorado) */
+.stat-cards { display: flex; gap: 8px; padding: 4px 8px 12px; }
+.stat-card {
+  flex: 1; background: #16222a; border: 1px solid #28353a; border-radius: 14px;
+  padding: 10px 8px; text-align: center; display: flex; flex-direction: column; gap: 2px;
+}
+.stat-ico { font-size: 14px; }
+.stat-card b { color: #e9f1ee; font-size: 15px; font-variant-numeric: tabular-nums; }
+.stat-k { font-size: 10px; color: #93a6a1; text-transform: uppercase; letter-spacing: 0.06em; }
+.stat-spark { width: 100%; height: 74px; padding: 0 8px 6px; display: block; }
+.stat-agent { padding: 8px 12px; }
+.stat-agent-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; }
+.stat-agent-num { color: #7fd8c8; font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
+.stat-agent-bar { height: 7px; background: #16222a; border-radius: 999px; overflow: hidden; margin: 5px 0 3px; }
+.stat-agent-bar div { height: 100%; border-radius: 999px; transition: width 0.5s ease; }
+.stat-agent-sub { font-size: 10.5px; color: #93a6a1; font-family: ui-monospace, Menlo, monospace; }
+
+/* iconos del menú: heredan el color del item y se resaltan al hover */
+.menu-item:hover .mi-icon { color: #2dd4bf; }
+.menu-item:hover .mi-chev { color: #93a6a1; }

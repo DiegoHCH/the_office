@@ -18,6 +18,10 @@ import SysMonitor from './components/SysMonitor.jsx'
 import Tour from './components/Tour.jsx'
 const Intro = lazy(() => import('./scene/Intro.jsx'))
 import { AvatarThumb, AttThumb } from './components/thumbs.jsx'
+import {
+  IconAgents, IconBook, IconSkills, IconMcp, IconStats, IconDiag, IconTour,
+  IconTerminal, IconExport, IconImport, IconTune, IconChevron,
+} from './components/icons.jsx'
 
 const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
 1) ¿En qué trabajamos la última vez?
@@ -148,6 +152,7 @@ export default function App() {
   const [skillsOpen, setSkillsOpen] = useState(false) // panel 🧩 Skills (catálogo por perfil)
   const [mcpOpen, setMcpOpen] = useState(false) // panel 🌐 MCP (servidores por perfil)
   const [hasClaudeMd, setHasClaudeMd] = useState(false)
+  const [prefsPanelOpen, setPrefsPanelOpen] = useState(false) // submenu 🎛 Preferencias
   const [statsOpen, setStatsOpen] = useState(false) // panel 📈 Estadísticas
   const [statsData, setStatsData] = useState({})
   const [diagOpen, setDiagOpen] = useState(false) // panel 🔧 Diagnóstico
@@ -370,6 +375,7 @@ export default function App() {
     setMcpOpen(false)
     setStatsOpen(false)
     setDiagOpen(false)
+    setPrefsPanelOpen(false)
   }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
@@ -766,6 +772,10 @@ export default function App() {
           setStatsOpen(false)
           return
         }
+        if (prefsPanelOpen) {
+          setPrefsPanelOpen(false)
+          return
+        }
         if (diagOpen) {
           setDiagOpen(false)
           return
@@ -803,7 +813,7 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen/lightbox: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen, diagOpen, tourOpen])
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen, diagOpen, tourOpen, prefsPanelOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -2077,10 +2087,9 @@ export default function App() {
             {/* navegación: filas de menú (ícono · label · chevron) */}
             <div className="menu-group">
               <button type="button" className="menu-item" onClick={openAgents}>
-                <span className="mi-icon">👥</span>
+                <span className="mi-icon"><IconAgents /></span>
                 <span className="mi-label">Agentes</span>
-                <span className="mi-hint">{squad.length} activos</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button
                 type="button"
@@ -2091,39 +2100,34 @@ export default function App() {
                   setHasClaudeMd(true)
                 }}
               >
-                <span className="mi-icon">📘</span>
+                <span className="mi-icon"><IconBook /></span>
                 <span className="mi-label">CLAUDE.md del proyecto</span>
-                <span className="mi-hint">{hasClaudeMd ? 'existe' : 'crear'}</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openSkills}>
-                <span className="mi-icon">🧩</span>
+                <span className="mi-icon"><IconSkills /></span>
                 <span className="mi-label">Skills</span>
-                <span className="mi-hint">superpoderes del perfil</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openMcp}>
-                <span className="mi-icon">🌐</span>
+                <span className="mi-icon"><IconMcp /></span>
                 <span className="mi-label">Servidores MCP</span>
-                <span className="mi-hint">herramientas externas</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openStats}>
-                <span className="mi-icon">📈</span>
+                <span className="mi-icon"><IconStats /></span>
                 <span className="mi-label">Estadísticas</span>
-                <span className="mi-hint">tareas · tokens · tiempos</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openDiag}>
-                <span className="mi-icon">🔧</span>
+                <span className="mi-icon"><IconDiag /></span>
                 <span className="mi-label">Diagnóstico</span>
-                <span className="mi-hint">eventos y errores</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.()}>
-                <span className="mi-icon">📖</span>
+                <span className="mi-icon"><IconBook /></span>
                 <span className="mi-label">Guía de uso</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button
                 type="button"
@@ -2133,9 +2137,9 @@ export default function App() {
                   setTourOpen(true)
                 }}
               >
-                <span className="mi-icon">🎓</span>
+                <span className="mi-icon"><IconTour /></span>
                 <span className="mi-label">Tour de bienvenida</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button
                 type="button"
@@ -2145,26 +2149,83 @@ export default function App() {
                   showToast(res?.ok ? `🖥 Abriendo ${res.app}…` : '⚠️ No pude abrir la terminal')
                 }}
               >
-                <span className="mi-icon">🖥</span>
+                <span className="mi-icon"><IconTerminal /></span>
                 <span className="mi-label">Abrir terminal en el proyecto</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={exportConfig}>
-                <span className="mi-icon">💾</span>
+                <span className="mi-icon"><IconExport /></span>
                 <span className="mi-label">Exportar configuración</span>
-                <span className="mi-hint">squad · plantillas · personas</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={importConfig}>
-                <span className="mi-icon">📥</span>
+                <span className="mi-icon"><IconImport /></span>
                 <span className="mi-label">Importar configuración</span>
-                <span className="mi-hint">o restaurar un respaldo</span>
-                <span className="mi-chev">›</span>
+                <span className="mi-chev"><IconChevron /></span>
+              </button>
+              <button type="button" className="menu-item" onClick={() => setPrefsPanelOpen(true)}>
+                <span className="mi-icon"><IconTune /></span>
+                <span className="mi-label">Preferencias</span>
+                <span className="mi-chev"><IconChevron /></span>
               </button>
             </div>
 
-            {/* preferencias — aplican al instante */}
-            <div className="menu-sec">Preferencias</div>
+
+            <div className="menu-foot">La Oficina{appVersion ? ` · v${appVersion}` : ''}</div>
+          </div>
+        )}
+
+        {diagOpen && (
+          <div className="drawer over">
+            <div className="drawer-head">
+              <b>Diagnóstico</b>
+              <button onClick={() => setDiagOpen(false)} title="Volver a Configuración">✕</button>
+            </div>
+            <div className="diag-actions">
+              <button
+                type="button"
+                className="skill-manual"
+                onClick={() => {
+                  navigator.clipboard.writeText(diagText())
+                  showToast('Log copiado 📋')
+                }}
+              >
+                📋 Copiar todo
+              </button>
+              <button
+                type="button"
+                className="skill-manual"
+                onClick={() => {
+                  const a = document.createElement('a')
+                  a.href = URL.createObjectURL(new Blob([diagText()], { type: 'text/plain' }))
+                  a.download = `la-oficina-diagnostico-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.log`
+                  a.click()
+                  URL.revokeObjectURL(a.href)
+                  showToast('⬇ Log exportado a Descargas')
+                }}
+              >
+                ⬇ Exportar
+              </button>
+              <button type="button" className="skill-manual" onClick={openDiag}>🔄 Refrescar</button>
+            </div>
+            {diagRows.length === 0 && <div className="hist-empty">Sin eventos aún — se registran init, tools, entregas y errores</div>}
+            {diagRows.map((r, i) => (
+              <div key={i} className={`diag-row ${r.kind}`}>
+                <span className="diag-time">{new Date(r.t).toLocaleTimeString('es')}</span>
+                <span className="diag-role">{memberOf(r.role).name || r.role}</span>
+                <span className="diag-kind">{r.kind}</span>
+                <span className="diag-info">{r.info}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {prefsPanelOpen && (
+          <div className="drawer over">
+            <div className="drawer-head">
+              <b>Preferencias</b>
+              <button onClick={() => setPrefsPanelOpen(false)} title="Volver a Configuración">✕</button>
+            </div>
             <div className="menu-group">
             <div className="pref-row">
               <span className="pref-label">Modelo:</span>
@@ -2289,110 +2350,116 @@ export default function App() {
               </button>
             </div>
             </div>
-
-            <div className="menu-foot">La Oficina{appVersion ? ` · v${appVersion}` : ''}</div>
-          </div>
-        )}
-
-        {diagOpen && (
-          <div className="drawer over">
-            <div className="drawer-head">
-              <b>🔧 Diagnóstico</b>
-              <button onClick={() => setDiagOpen(false)} title="Volver a Configuración">✕</button>
-            </div>
-            <div className="diag-actions">
-              <button
-                type="button"
-                className="skill-manual"
-                onClick={() => {
-                  navigator.clipboard.writeText(diagText())
-                  showToast('Log copiado 📋')
-                }}
-              >
-                📋 Copiar todo
-              </button>
-              <button
-                type="button"
-                className="skill-manual"
-                onClick={() => {
-                  const a = document.createElement('a')
-                  a.href = URL.createObjectURL(new Blob([diagText()], { type: 'text/plain' }))
-                  a.download = `la-oficina-diagnostico-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.log`
-                  a.click()
-                  URL.revokeObjectURL(a.href)
-                  showToast('⬇ Log exportado a Descargas')
-                }}
-              >
-                ⬇ Exportar
-              </button>
-              <button type="button" className="skill-manual" onClick={openDiag}>🔄 Refrescar</button>
-            </div>
-            {diagRows.length === 0 && <div className="hist-empty">Sin eventos aún — se registran init, tools, entregas y errores</div>}
-            {diagRows.map((r, i) => (
-              <div key={i} className={`diag-row ${r.kind}`}>
-                <span className="diag-time">{new Date(r.t).toLocaleTimeString('es')}</span>
-                <span className="diag-role">{memberOf(r.role).name || r.role}</span>
-                <span className="diag-kind">{r.kind}</span>
-                <span className="diag-info">{r.info}</span>
-              </div>
-            ))}
           </div>
         )}
 
         {statsOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>📈 Estadísticas de la oficina</b>
+              <b>Estadísticas de la oficina</b>
               <button onClick={() => setStatsOpen(false)} title="Volver a Configuración">✕</button>
             </div>
             {(() => {
-              const days = [...Array(7)].map((_, i) => {
-                const d = new Date(Date.now() - (6 - i) * 86400000)
+              const days = [...Array(14)].map((_, i) => {
+                const d = new Date(Date.now() - (13 - i) * 86400000)
                 const key = d.toISOString().slice(0, 10)
-                return { key, label: d.toLocaleDateString('es', { weekday: 'short' }), ...(statsData[key] || { tasks: 0, tokens: 0, ms: 0, agents: {} }) }
+                return {
+                  key,
+                  label: d.toLocaleDateString('es', { weekday: 'narrow' }),
+                  dia: d.getDate(),
+                  ...(statsData[key] || { tasks: 0, tokens: 0, ms: 0, agents: {} }),
+                }
               })
+              const semana = days.slice(-7)
               const maxTok = Math.max(...days.map((d) => d.tokens), 1)
-              // agregado de los 7 días por agente
+              // agregado por agente de los 14 días
               const agents = {}
-              for (const d of days) {
+              for (const d of days)
                 for (const [id, a] of Object.entries(d.agents || {})) {
                   const t = (agents[id] ||= { tasks: 0, tokens: 0, ms: 0 })
                   t.tasks += a.tasks
                   t.tokens += a.tokens
                   t.ms += a.ms
                 }
-              }
-              const rows = Object.entries(agents).sort((a, b) => b[1].tasks - a[1].tasks)
-              const total = days.reduce((s, d) => s + d.tasks, 0)
-              if (!total) return <div className="hist-empty">Aún no hay datos — se acumulan con cada tarea terminada</div>
+              const rows = Object.entries(agents).sort((a, b) => b[1].tokens - a[1].tokens)
+              const totTasks = days.reduce((s2, d) => s2 + d.tasks, 0)
+              const totTok = days.reduce((s2, d) => s2 + d.tokens, 0)
+              const totMs = days.reduce((s2, d) => s2 + d.ms, 0)
+              if (!totTasks) return <div className="hist-empty">Aún no hay datos — se acumulan con cada tarea terminada</div>
+              const maxAgente = Math.max(...rows.map(([, a]) => a.tokens), 1)
+              // sparkline de tokens: polilínea suave sobre los 14 días
+              const W = 320
+              const H = 68
+              const pts = days.map((d, i) => [(i / (days.length - 1)) * W, H - (d.tokens / maxTok) * (H - 8) - 4])
+              const linePath = pts.map((p, i) => `${i ? 'L' : 'M'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+              const areaPath = `${linePath} L${W},${H} L0,${H} Z`
               return (
                 <>
-                  <div className="menu-sec">🪙 Tokens · últimos 7 días</div>
-                  <div className="stats-bars">
-                    {days.map((d) => (
-                      <div key={d.key} className="stats-col" title={`${d.key} · ${d.tasks} tareas · ${fmtTokens(d.tokens)} tokens`}>
-                        <span className="stats-val">{d.tokens ? fmtTokens(d.tokens) : ''}</span>
-                        <div className="stats-bar" style={{ height: `${Math.max((d.tokens / maxTok) * 100, 2)}%` }} />
-                        <span className="stats-day">{d.label}</span>
+                  {/* tarjetas de resumen */}
+                  <div className="stat-cards">
+                    {[
+                      ['Tareas', totTasks, '📋'],
+                      ['Tokens', fmtTokens(totTok), '🪙'],
+                      ['Tiempo', fmtElapsed(totMs), '⏱'],
+                    ].map(([k, v, ico]) => (
+                      <div key={k} className="stat-card">
+                        <span className="stat-ico">{ico}</span>
+                        <b>{v}</b>
+                        <span className="stat-k">{k}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="menu-sec">Por agente · 7 días</div>
+
+                  <div className="menu-sec">Tokens · 14 días</div>
+                  <svg className="stat-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+                    <defs>
+                      <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#2dd4bf" stopOpacity="0.45" />
+                        <stop offset="100%" stopColor="#2dd4bf" stopOpacity="0.02" />
+                      </linearGradient>
+                    </defs>
+                    {[0.25, 0.5, 0.75].map((g) => (
+                      <line key={g} x1="0" y1={H * g} x2={W} y2={H * g} stroke="#28353a" strokeWidth="0.7" />
+                    ))}
+                    <path d={areaPath} fill="url(#sparkFill)" />
+                    <path d={linePath} fill="none" stroke="#2dd4bf" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round" />
+                    {pts.map((pt, i) => (
+                      <circle key={i} cx={pt[0]} cy={pt[1]} r={i === pts.length - 1 ? 3 : 1.6} fill="#2dd4bf" />
+                    ))}
+                  </svg>
+
+                  <div className="menu-sec">Tareas por día · esta semana</div>
+                  <div className="stats-bars">
+                    {semana.map((d) => {
+                      const maxT = Math.max(...semana.map((x) => x.tasks), 1)
+                      return (
+                        <div key={d.key} className="stats-col" title={`${d.key} · ${d.tasks} tareas · ${fmtTokens(d.tokens)} tokens`}>
+                          <span className="stats-val">{d.tasks || ''}</span>
+                          <div className="stats-bar" style={{ height: `${Math.max((d.tasks / maxT) * 100, 2)}%` }} />
+                          <span className="stats-day">{d.label}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div className="menu-sec">Por agente</div>
                   {rows.map(([id, a]) => (
-                    <div key={id} className="hist-item skill-item">
-                      <div className="skill-info">
-                        <div className="hist-title">
+                    <div key={id} className="stat-agent">
+                      <div className="stat-agent-top">
+                        <span>
                           {memberOf(id).emoji} {memberOf(id).name}
-                        </div>
-                        <div className="hist-meta">
-                          {a.tasks} tarea{a.tasks !== 1 ? 's' : ''} · 🪙 {fmtTokens(a.tokens)} · ⏱ {fmtElapsed(a.ms / Math.max(a.tasks, 1))} promedio
-                        </div>
+                        </span>
+                        <span className="stat-agent-num">🪙 {fmtTokens(a.tokens)}</span>
+                      </div>
+                      <div className="stat-agent-bar">
+                        <div style={{ width: `${(a.tokens / maxAgente) * 100}%`, background: memberOf(id).color || '#2dd4bf' }} />
+                      </div>
+                      <div className="stat-agent-sub">
+                        {a.tasks} tarea{a.tasks !== 1 ? 's' : ''} · ⏱ {fmtElapsed(a.ms / Math.max(a.tasks, 1))} promedio
                       </div>
                     </div>
                   ))}
-                  <div className="skills-note">
-                    Total 7 días: {total} tareas · 🪙 {fmtTokens(days.reduce((s, d) => s + d.tokens, 0))}. Se guardan 60 días.
-                  </div>
+                  <div className="skills-note">Se guardan 60 días de historia.</div>
                 </>
               )
             })()}
@@ -2778,7 +2845,7 @@ export default function App() {
         {agentsOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>👥 Agentes</b>
+              <b>Agentes</b>
               <button onClick={closeAgents} title="Volver a Configuración">✕</button>
             </div>
             <div className="preset-row">

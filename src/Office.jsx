@@ -304,7 +304,9 @@ function TrackSpot({ position, on = false }) {
 }
 
 // Lámpara de piso: decorativa siempre; en el tema Noche emite luz cálida real.
-function FloorLamp({ position, on = false }) {
+function FloorLamp({ position, on = false, dim = false }) {
+  // siempre encendidas: en temas claros la luz es tenue (se nota el brillo del
+  // bombillo sin lavar la escena), de noche alumbran de verdad
   return (
     <group position={position}>
       <mesh position={[0, 0.03, 0]} castShadow>
@@ -319,12 +321,12 @@ function FloorLamp({ position, on = false }) {
         <cylinderGeometry args={[0.13, 0.2, 0.26, 14, 1, true]} />
         <meshStandardMaterial
           color="#e8dcc8"
-          emissive={on ? '#ffb26b' : '#000000'}
-          emissiveIntensity={on ? 1 : 0}
+          emissive="#ffb26b"
+          emissiveIntensity={on ? 1 : 0.35}
           side={DoubleSide}
         />
       </mesh>
-      {on && <pointLight position={[0, 1.15, 0]} color="#ffb27a" intensity={9} distance={6.5} decay={1.5} castShadow={false} />}
+      <pointLight position={[0, 1.15, 0]} color="#ffb27a" intensity={on ? 9 : 2.2} distance={on ? 6.5 : 4} decay={1.6} castShadow={false} />
     </group>
   )
 }
@@ -344,12 +346,12 @@ function WallSconce({ position, rotation = [0, 0, 0], on = false }) {
         <coneGeometry args={[0.1, 0.17, 14, 1, true]} />
         <meshStandardMaterial
           color="#e8dcc8"
-          emissive={on ? '#ffb26b' : '#000000'}
-          emissiveIntensity={on ? 1 : 0}
+          emissive="#ffb26b"
+          emissiveIntensity={on ? 1 : 0.3}
           side={DoubleSide}
         />
       </mesh>
-      {on && <pointLight position={[0, 0.14, 0.28]} color="#ffcfa0" intensity={6} distance={5.5} decay={1.6} castShadow={false} />}
+      <pointLight position={[0, 0.14, 0.28]} color="#ffcfa0" intensity={on ? 6 : 1.6} distance={on ? 5.5 : 3.5} decay={1.7} castShadow={false} />
     </group>
   )
 }
