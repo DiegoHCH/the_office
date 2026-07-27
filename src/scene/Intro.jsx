@@ -317,7 +317,14 @@ function Building({ doorOpen, tex }) {
   })
   // rejilla de ventanas cálidas de la fachada frontal (2 pisos)
   const front = []
-  for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) front.push([-0.95 + c * 0.72, 0.95 + r * 0.85])
+  for (let r = 0; r < 2; r++)
+    for (let c = 0; c < 4; c++) {
+      const x = -0.95 + c * 0.72
+      const y = 0.95 + r * 0.85
+      // nada de ventanas sobre la entrada (x global entre -1.2 y 0.1, piso bajo)
+      if (y < 1.6 && 0.5 + x > -1.25 && 0.5 + x < 0.2) continue
+      front.push([x, y])
+    }
   return (
     <group>
       {/* base: deck de madera con césped alrededor, como una maqueta */}
@@ -373,16 +380,22 @@ function Building({ doorOpen, tex }) {
           <meshStandardMaterial color={WOOD_TRIM} roughness={0.7} />
         </RB>
       ))}
-      {/* túnel negro hacia adentro: se ve por el vano al abrir y envuelve a la
-          cámara cuando cruza (BackSide = se ve su interior) */}
-      <mesh position={[-0.55, 0.62, 0.1]}>
-        <boxGeometry args={[1.06, 1.28, 2.2]} />
-        <meshStandardMaterial color="#05070a" roughness={1} side={BackSide} />
+      {/* PANEL negro que cierra el vano: es lo que se ve al abrir las hojas
+          (la caja con BackSide era invisible desde fuera y dejaba ver la
+          fachada de ladrillo detrás) */}
+      <mesh position={[-0.55, 0.62, 1.02]}>
+        <planeGeometry args={[1.08, 1.3]} />
+        <meshBasicMaterial color="#04060a" />
+      </mesh>
+      {/* y el túnel hacia adentro envuelve a la cámara cuando cruza el panel */}
+      <mesh position={[-0.55, 0.62, 0.0]}>
+        <boxGeometry args={[1.06, 1.28, 2.0]} />
+        <meshBasicMaterial color="#04060a" side={BackSide} />
       </mesh>
       {/* tenue luz cálida lamiendo el piso del zaguán */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.55, 0.03, 0.85]}>
-        <planeGeometry args={[0.95, 0.7]} />
-        <meshStandardMaterial color="#2a1f16" emissive="#b87a3e" emissiveIntensity={0.45} />
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.55, 0.02, 0.55]}>
+        <planeGeometry args={[0.9, 0.5]} />
+        <meshStandardMaterial color="#241a12" emissive="#8a5a2e" emissiveIntensity={0.3} />
       </mesh>
       <group position={[-0.55, 0.64, 1.33]}>
         {[
@@ -457,8 +470,8 @@ function IntroCamera({ progress }) {
     [0.0, [13.6, 15.4, 16.6], [0, 1.2, 0]],
     [0.14, [12.4, 14.6, 15.4], [0, 1.2, 0]], // deriva suave del plano aéreo
     [0.45, [5.5, 5.6, 8.4], [-0.4, 1.2, 0.6]],
-    [0.78, [-0.35, 1.55, 3.9], [-0.55, 0.85, 1.2]],
-    [1.0, [-0.55, 0.78, 0.85], [-0.55, 0.72, -1.2]], // dentro del zaguán
+    [0.78, [-0.5, 1.15, 3.6], [-0.55, 0.72, 1.2]],
+    [1.0, [-0.55, 0.66, 0.6], [-0.55, 0.62, -1.4]], // cruzando el vano
   ]
   useFrame(() => {
     const c = cam.current
