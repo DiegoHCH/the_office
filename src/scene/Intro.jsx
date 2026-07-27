@@ -2,7 +2,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
 import { PerspectiveCamera, RoundedBox, ContactShadows } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
-import { DoubleSide, MathUtils, TextureLoader, RepeatWrapping, ACESFilmicToneMapping } from 'three'
+import { DoubleSide, MathUtils, TextureLoader, RepeatWrapping, ACESFilmicToneMapping, CanvasTexture } from 'three'
 import GltfProp from './GltfProp.jsx'
 
 // ── Intro cinemática (#112) ──────────────────────────────────────────────────
@@ -78,60 +78,96 @@ function WarmWindow({ position, rotation = [0, 0, 0], w = 0.52, h = 0.62, lit = 
 }
 
 
-// Torre moderna: núcleo oscuro con muro cortina de vidrio y remate.
-function GlassTower({ position, w, d, h, rot = 0, lit = 0.5 }) {
-  const floors = Math.max(2, Math.round(h / 0.52))
+// Fachada de vidrio generada en canvas: paneles individuales separados por
+// montantes oscuros, unos encendidos (cálidos) y otros apagados (azules) —
+// como en la referencia. Una textura por torre en vez de miles de mallas.
+function makeFacade(seed = 1, cols = 4, rows = 4) {
+  const c = document.createElement('canvas')
+  c.width = 128
+  c.height = 128
+  const ctx = c.getContext('2d')
+  let s2 = seed * 9301 + 49297
+  const rnd = () => ((s2 = (s2 * 9301 + 49297) % 233280) / 233280)
+  ctx.fillStyle = '#232a30' // montantes / estructura
+  ctx.fillRect(0, 0, 128, 128)
+  const cw = 128 / cols
+  const ch = 128 / rows
+  for (let x = 0; x < cols; x++) {
+    for (let y = 0; y < rows; y++) {
+      const r = rnd()
+      // 30% encendida (cálida), 45% vidrio azul con reflejo, resto apagada
+      const fill = r < 0.3 ? '#ffca85' : r < 0.75 ? '#5aa8dd' : '#2f4a5c'
+      ctx.fillStyle = fill
+      ctx.fillRect(x * cw + 1.5, y * ch + 2.5, cw - 3, ch - 5)
+      // brillo diagonal del vidrio (solo en los azules)
+      if (r >= 0.3 && r < 0.75) {
+        const g = ctx.createLinearGradient(x * cw, y * ch, (x + 1) * cw, (y + 1) * ch)
+        g.addColorStop(0, 'rgba(255,255,255,0.35)')
+        g.addColorStop(0.5, 'rgba(255,255,255,0.05)')
+        g.addColorStop(1, 'rgba(255,255,255,0.18)')
+        ctx.fillStyle = g
+        ctx.fillRect(x * cw + 1.5, y * ch + 2.5, cw - 3, ch - 5)
+      }
+    }
+  }
+  const tex = new CanvasTexture(c)
+  tex.wrapS = tex.wrapT = RepeatWrapping
+  return tex
+}
+
+// Torre moderna: losas blancas entre pisos y muro cortina de vidrio.
+function GlassTower({ position, w, d, h, rot = 0, seed = 1 }) {
+  const floors = Math.max(2, Math.round(h / 0.62))
+  const tex = useMemo(() => {
+    const t = makeFacade(seed, 4, 3)
+    t.repeat.set(Math.max(1, Math.round(w * 1.6)), Math.max(1, floors))
+    return t
+  }, [seed, w, floors])
+  const face = (
+    <meshStandardMaterial
+      map={tex}
+      emissiveMap={tex}
+      emissive="#ffffff"
+      emissiveIntensity={0.42}
+      roughness={0.18}
+      metalness={0.5}
+    />
+  )
   return (
     <group position={position} rotation={[0, rot, 0]}>
-      {/* núcleo */}
+      {/* núcleo (se ve en las esquinas, entre las fachadas) */}
       <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color="#39434c" roughness={0.55} metalness={0.35} />
+        <boxGeometry args={[w * 0.98, h, d * 0.98]} />
+        <meshStandardMaterial color="#eceae4" roughness={0.75} />
       </mesh>
-      {/* muro cortina: bandas de vidrio por piso en las 4 caras */}
-      {Array.from({ length: floors }, (_, f) => {
-        const y = 0.34 + f * 0.52
-        if (y > h - 0.22) return null
-        const warm = Math.random() < lit
-        const glass = (
-          <meshStandardMaterial
-            color={warm ? '#ffd6a0' : '#8fc4e8'}
-            emissive={warm ? '#ffa94d' : '#4a90c4'}
-            emissiveIntensity={warm ? 1.2 : 0.55}
-            roughness={0.12}
-            metalness={0.55}
-          />
-        )
-        return (
-          <group key={f} position={[0, y, 0]}>
-            <mesh position={[0, 0, d / 2 + 0.012]}>
-              <planeGeometry args={[w * 0.88, 0.34]} />
-              {glass}
-            </mesh>
-            <mesh position={[0, 0, -d / 2 - 0.012]} rotation={[0, Math.PI, 0]}>
-              <planeGeometry args={[w * 0.88, 0.34]} />
-              {glass}
-            </mesh>
-            <mesh position={[w / 2 + 0.012, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
-              <planeGeometry args={[d * 0.88, 0.34]} />
-              {glass}
-            </mesh>
-            <mesh position={[-w / 2 - 0.012, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
-              <planeGeometry args={[d * 0.88, 0.34]} />
-              {glass}
-            </mesh>
-          </group>
-        )
-      })}
+      {/* muro cortina en las 4 caras */}
+      {[
+        [[0, h / 2, d / 2 + 0.008], [0, 0, 0], w],
+        [[0, h / 2, -d / 2 - 0.008], [0, Math.PI, 0], w],
+        [[w / 2 + 0.008, h / 2, 0], [0, Math.PI / 2, 0], d],
+        [[-w / 2 - 0.008, h / 2, 0], [0, -Math.PI / 2, 0], d],
+      ].map(([pos, r, width], i) => (
+        <mesh key={i} position={pos} rotation={r}>
+          <planeGeometry args={[width * 0.94, h * 0.96]} />
+          {face}
+        </mesh>
+      ))}
+      {/* losas blancas entre pisos: el rasgo que define la referencia */}
+      {Array.from({ length: floors + 1 }, (_, f) => (
+        <mesh key={f} position={[0, (h / floors) * f, 0]} castShadow>
+          <boxGeometry args={[w + 0.1, 0.09, d + 0.1]} />
+          <meshStandardMaterial color="#f4f2ec" roughness={0.8} />
+        </mesh>
+      ))}
       {/* remate y antena */}
-      <mesh position={[0, h + 0.07, 0]} castShadow>
-        <boxGeometry args={[w + 0.14, 0.14, d + 0.14]} />
-        <meshStandardMaterial color="#2b333a" roughness={0.5} metalness={0.5} />
+      <mesh position={[0, h + 0.09, 0]} castShadow>
+        <boxGeometry args={[w + 0.16, 0.1, d + 0.16]} />
+        <meshStandardMaterial color="#d8d4cb" roughness={0.7} />
       </mesh>
-      {h > 3.5 && (
+      {h > 3.8 && (
         <mesh position={[0, h + 0.5, 0]}>
           <cylinderGeometry args={[0.015, 0.02, 0.8, 6]} />
-          <meshStandardMaterial color="#5b6770" metalness={0.7} roughness={0.3} />
+          <meshStandardMaterial color="#8d959c" metalness={0.7} roughness={0.3} />
         </mesh>
       )}
     </group>
@@ -197,22 +233,72 @@ function City() {
   }, [])
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.32, 0]} receiveShadow>
+      {/* terreno base */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.34, 0]} receiveShadow>
         <planeGeometry args={[52, 52]} />
-        <meshStandardMaterial color="#3f4a52" roughness={1} />
+        <meshStandardMaterial color="#6f7a6a" roughness={1} />
       </mesh>
-      {/* avenidas en cruz, con línea central */}
+      {/* CALZADA en cruz: asfalto oscuro con aceras claras elevadas */}
       {[
-        [52, 3.8, 0, 0],
-        [3.8, 52, 0, 0],
+        [52, 4.6, [0, Math.PI / 2]],
+        [4.6, 52, [0, 0]],
       ].map(([w, d], i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.31, 0]} receiveShadow>
+        <mesh key={`road${i}`} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.325, 0]} receiveShadow>
           <planeGeometry args={[w, d]} />
-          <meshStandardMaterial color="#565f66" roughness={1} />
+          <meshStandardMaterial color="#33373b" roughness={0.95} />
         </mesh>
       ))}
+      {/* aceras a ambos lados de cada avenida */}
+      {[
+        [0, 2.55, 52, 0.5],
+        [0, -2.55, 52, 0.5],
+        [2.55, 0, 0.5, 52],
+        [-2.55, 0, 0.5, 52],
+      ].map(([x, z, w, d], i) => (
+        <mesh key={`walk${i}`} position={[x, -0.29, z]} receiveShadow castShadow>
+          <boxGeometry args={[w, 0.09, d]} />
+          <meshStandardMaterial color="#a8a49b" roughness={1} />
+        </mesh>
+      ))}
+      {/* línea central discontinua de cada avenida (fuera del cruce) */}
+      {Array.from({ length: 22 }, (_, i) => {
+        const off = 3.6 + i * 2.1
+        return [off, -off].map((o) => (
+          <group key={`ln${i}${o}`}>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[o, -0.318, 0]}>
+              <planeGeometry args={[1.1, 0.11]} />
+              <meshStandardMaterial color="#e8dfc0" roughness={0.9} />
+            </mesh>
+            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.318, o]}>
+              <planeGeometry args={[0.11, 1.1]} />
+              <meshStandardMaterial color="#e8dfc0" roughness={0.9} />
+            </mesh>
+          </group>
+        ))
+      })}
+      {/* pasos de cebra en las cuatro bocas del cruce */}
+      {[
+        [3.1, 0, true],
+        [-3.1, 0, true],
+        [0, 3.1, false],
+        [0, -3.1, false],
+      ].map(([x, z, vert], k) =>
+        Array.from({ length: 7 }, (_, i) => {
+          const o = -1.8 + i * 0.6
+          return (
+            <mesh
+              key={`cb${k}${i}`}
+              rotation={[-Math.PI / 2, 0, 0]}
+              position={vert ? [x, -0.317, o] : [o, -0.317, z]}
+            >
+              <planeGeometry args={vert ? [0.75, 0.3] : [0.3, 0.75]} />
+              <meshStandardMaterial color="#efe9da" roughness={0.9} />
+            </mesh>
+          )
+        })
+      )}
       {blocks.map((b, i) => (
-        <GlassTower key={i} position={[b[0], -0.3, b[1]]} w={b[2]} d={b[3]} h={b[4]} lit={b[5]} />
+        <GlassTower key={i} position={[b[0], -0.3, b[1]]} w={b[2]} d={b[3]} h={b[4]} seed={i + 3} />
       ))}
       {trees.map((t, i) => (
         <StreetTree key={i} position={[t[0], -0.3, t[1]]} scale={t[2]} />
