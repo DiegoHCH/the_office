@@ -383,8 +383,8 @@ function Building({ doorOpen, tex }) {
       {/* PANEL negro que cierra el vano: es lo que se ve al abrir las hojas
           (la caja con BackSide era invisible desde fuera y dejaba ver la
           fachada de ladrillo detrás) */}
-      <mesh position={[-0.55, 0.62, 1.02]}>
-        <planeGeometry args={[1.08, 1.3]} />
+      <mesh position={[-0.55, 0.66, 1.05]}>
+        <planeGeometry args={[1.12, 1.36]} />
         <meshBasicMaterial color="#04060a" />
       </mesh>
       {/* y el túnel hacia adentro envuelve a la cámara cuando cruza el panel */}
@@ -397,26 +397,35 @@ function Building({ doorOpen, tex }) {
         <planeGeometry args={[0.9, 0.5]} />
         <meshStandardMaterial color="#241a12" emissive="#8a5a2e" emissiveIntensity={0.3} />
       </mesh>
-      <group position={[-0.55, 0.64, 1.33]}>
+      {/* HOJAS: cubren el vano completo (entre jambas: 1.05 de ancho por 1.32
+          de alto) — antes medían 0.6 en total y dejaban ver el fondo por los
+          costados. Bisagra en cada jamba, abren hacia adentro. */}
+      <group position={[-0.55, 0.66, 1.29]}>
         {[
-          ['left', -0.3, left],
-          ['right', 0.3, right],
-        ].map(([k, x, ref]) => (
-          <group key={k} ref={ref} position={[x, 0, 0]}>
-            <mesh position={[x < 0 ? 0.15 : -0.15, 0, 0]} castShadow>
-              <boxGeometry args={[0.3, 1.2, 0.05]} />
+          ['left', -0.525, left],
+          ['right', 0.525, right],
+        ].map(([k, hinge, ref]) => (
+          <group key={k} ref={ref} position={[hinge, 0, 0]}>
+            <mesh position={[hinge < 0 ? 0.2625 : -0.2625, 0, 0]} castShadow>
+              <boxGeometry args={[0.525, 1.3, 0.055]} />
               <meshStandardMaterial color={WOOD_DARK} roughness={0.5} />
             </mesh>
-            <mesh position={[x < 0 ? 0.15 : -0.15, 0.06, 0.032]}>
-              <planeGeometry args={[0.21, 0.95]} />
+            {/* vidrio de la hoja */}
+            <mesh position={[hinge < 0 ? 0.2625 : -0.2625, 0.06, 0.035]}>
+              <planeGeometry args={[0.4, 1.05]} />
               <meshStandardMaterial color="#20303c" emissive="#3a2a18" emissiveIntensity={0.35} side={DoubleSide} />
+            </mesh>
+            {/* manija vertical junto al borde libre */}
+            <mesh position={[hinge < 0 ? 0.47 : -0.47, 0.02, 0.06]}>
+              <cylinderGeometry args={[0.014, 0.014, 0.42, 8]} />
+              <meshStandardMaterial color="#c9b28a" metalness={0.7} roughness={0.3} />
             </mesh>
           </group>
         ))}
       </group>
       {/* letrero iluminado sobre la puerta */}
       <RB args={[0.95, 0.17, 0.06]} r={0.03} position={[-0.55, 1.68, 1.3]}>
-        <meshStandardMaterial color="#f6f1e6" emissive="#ffdfae" emissiveIntensity={1.2} />
+        <meshStandardMaterial color="#e8dcc4" emissive="#d9a86a" emissiveIntensity={0.55} />
       </RB>
       {/* apliques a los lados de la entrada (como los de adentro) */}
       {[-1.35, 0.25].map((x) => (
