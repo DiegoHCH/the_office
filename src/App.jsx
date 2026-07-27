@@ -884,6 +884,70 @@ export default function App() {
     showToast('Conversación nueva ✨')
   }
 
+  // ── Pestañas de conversación (#96) ───────────────────────────────────────
+  // Cada pestaña guarda su propio hilo: mensajes, sesiones de Claude, cola y
+  // tokens. Cambiar de pestaña con agentes trabajando pondría sus respuestas
+  // en el hilo equivocado, así que se bloquea mientras haya tareas en curso.
+  const MAX_TABS = 4
+  const tabStateRef = useRef({})
+  const [tabs, setTabs] = useState(() => [{ id: 'tab-1', title: 'Nueva' }])
+  const [activeTab, setActiveTab] = useState('tab-1')
+
+  const snapshotTab = () => {
+    tabStateRef.current[activeTab] = {
+      messages,
+      convId: convIdRef.current,
+      sessions: { ...sessionsRef.current },
+      queues: { ...queuesRef.current },
+      tokens: convTokens,
+    }
+  }
+  const restoreTab = async (id) => {
+    const st = tabStateRef.current[id] || {}
+    setMessages(st.messages || [])
+    setChatFilter(null)
+    setConvTokens(st.tokens || { in: 0, out: 0, cache: 0 })
+    convIdRef.current = st.convId || null
+    sessionsRef.current = st.sessions || {}
+    queuesRef.current = st.queues || {}
+    syncQueues()
+    await window.oficina?.setSession?.({ sessions: st.sessions || {}, profile, cwd: project })
+  }
+  const switchTab = async (id) => {
+    if (id === activeTab) return
+    if (busy) return showToast('Espera a que terminen las tareas para cambiar de pestaña')
+    snapshotTab()
+    setActiveTab(id)
+    await restoreTab(id)
+  }
+  const addTab = async () => {
+    if (tabs.length >= MAX_TABS) return showToast(`Máximo ${MAX_TABS} pestañas abiertas`)
+    if (busy) return showToast('Espera a que terminen las tareas para abrir otra pestaña')
+    snapshotTab()
+    const id = `tab-${Date.now()}`
+    setTabs((t) => [...t, { id, title: 'Nueva' }])
+    setActiveTab(id)
+    clearConversation()
+  }
+  const closeTab = async (e, id) => {
+    e.stopPropagation()
+    if (tabs.length === 1) return newChat() // la última no se cierra: se vacía
+    if (busy && id === activeTab) return showToast('Espera a que terminen las tareas')
+    delete tabStateRef.current[id] // el hilo ya está guardado en el historial
+    const resto = tabs.filter((t) => t.id !== id)
+    setTabs(resto)
+    if (id === activeTab) {
+      const siguiente = resto[resto.length - 1].id
+      setActiveTab(siguiente)
+      await restoreTab(siguiente)
+    }
+  }
+  // el título de la pestaña sigue al primer mensaje del hilo
+  useEffect(() => {
+    const t = messages.find((m) => m.role === 'user')?.text?.slice(0, 22)
+    setTabs((prev) => prev.map((x) => (x.id === activeTab ? { ...x, title: t || 'Nueva' } : x)))
+  }, [messages, activeTab])
+
   // ¿El proyecto tiene repo git? (red de seguridad del modo edición)
   const hasGit = async (dir) => {
     if (!dir) return true
@@ -1441,6 +1505,7 @@ export default function App() {
     setMessages(c.messages || [])
     await window.oficina?.setSession?.({ sessions: saved, profile: c.profile, cwd: c.project })
     setHistOpen(false)
+    tabStateRef.current[activeTab] = null // el hilo de esta pestaña se reemplaza
     showToast(Object.keys(saved).length ? 'Retomada — recordamos todo 🧠' : 'Conversación cargada')
   }
 
@@ -3275,8 +3340,31 @@ export default function App() {
           </div>
         )}
 
+        {(messages.length > 0 || tabs.length > 1) && (
+          <div className="tabbar">
+            {tabs.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={t.id === activeTab ? 'tab on' : 'tab'}
+                onClick={() => switchTab(t.id)}
+                title={t.title}
+              >
+                <span className="tab-title">{t.title}</span>
+                <span className="tab-x" onClick={(e) => closeTab(e, t.id)} title="Cerrar pestaña">
+                  <IconClose size={11} />
+                </span>
+              </button>
+            ))}
+            {tabs.length < MAX_TABS && (
+              <button type="button" className="tab tab-add" onClick={addTab} title="Nueva pestaña" aria-label="Nueva pestaña">
+                <IconAdd size={14} />
+              </button>
+            )}
+          </div>
+        )}
         {messages.length > 0 && (
-          <div className="chat" ref={logRef} onScroll={onLogScroll} onMouseUp={onChatMouseUp}>
+          <div className="chat chat-tabbed" ref={logRef} onScroll={onLogScroll} onMouseUp={onChatMouseUp}>
             {findOpen && (
               <div className="find-bar">
                 <input
