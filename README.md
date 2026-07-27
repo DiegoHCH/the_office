@@ -6,7 +6,7 @@
 
 Cada personaje es una sesión real de Claude Code con su propio rol, memoria y contexto. Corre con **tu suscripción** (no la API de pago) → **$0 por token**.
 
-![Electron](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)
+![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)
 ![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![Three.js](https://img.shields.io/badge/react--three--fiber-000?logo=three.js&logoColor=white)
 ![Platform](https://img.shields.io/badge/macOS-Apple%20Silicon-000?logo=apple&logoColor=white)
@@ -78,7 +78,7 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 
 | Capa | Tecnología |
 |---|---|
-| App de escritorio | **Electron 33** |
+| App de escritorio | **Electron 43** |
 | UI | **React 18** + **Vite 5** |
 | Escena 3D | **React Three Fiber** + **@react-three/drei** (Three.js) |
 | Markdown | react-markdown + remark-gfm |

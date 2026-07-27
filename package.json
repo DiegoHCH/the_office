@@ -73,7 +73,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.3",
     "concurrently": "^9.1.0",
-    "electron": "^33.2.0",
+    "electron": "^43.2.0",
     "electron-builder": "^26.15.3",
     "vite": "^5.4.11",
     "vitest": "^4.1.10",
