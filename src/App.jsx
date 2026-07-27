@@ -13,6 +13,7 @@ import {
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
 import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n.js'
+import { prefKey, leerPref } from './lib/prefs.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -309,16 +310,20 @@ export default function App() {
     localStorage.setItem(`oficina-theme-${profile}`, theme)
   }, [theme, profile])
 
-  // modelo y permiso también se persisten por perfil: al reiniciar la app no
-  // vuelven al default de settings.json ni al modo edición
+  // Modelo y permiso se guardan POR PROYECTO (#124): un repo de cliente puede
+  // quedarse en solo-lectura mientras el propio sigue en edición. Un proyecto
+  // sin valor propio hereda el del perfil, que es también lo último elegido.
   useEffect(() => {
     if (!themeLoaded.current) return
-    localStorage.setItem(`oficina-model-${profile}`, model)
-  }, [model, profile])
+    localStorage.setItem(prefKey('oficina-model', profile), model) // default del perfil
+    if (project) localStorage.setItem(prefKey('oficina-model', profile, project), model)
+  }, [model, profile, project])
   useEffect(() => {
     if (!themeLoaded.current) return
-    localStorage.setItem(`oficina-write-${profile}`, writeMode ? '1' : '0')
-  }, [writeMode, profile])
+    const v = writeMode ? '1' : '0'
+    localStorage.setItem(prefKey('oficina-write', profile), v)
+    if (project) localStorage.setItem(prefKey('oficina-write', profile, project), v)
+  }, [writeMode, profile, project])
   // calidad gráfica (glow-up #111) y mascota 🦊, por perfil
   const [quality, setQuality] = useState('normal')
   const saveQuality = (v) => {
@@ -440,8 +445,9 @@ export default function App() {
       setProfile(first)
       setProject(c.projectsByProfile[first]?.[0]?.path || '')
       // el modelo persistido gana sobre el default de settings.json
-      setModel(localStorage.getItem(`oficina-model-${first}`) || c.defaultModels?.[first] || FALLBACK_MODEL)
-      setWriteMode(localStorage.getItem(`oficina-write-${first}`) !== '0')
+      const proy0 = c.projectsByProfile[first]?.[0]?.path || ''
+      setModel(leerPref('oficina-model', first, proy0) || c.defaultModels?.[first] || FALLBACK_MODEL)
+      setWriteMode(leerPref('oficina-write', first, proy0) !== '0')
       themeLoaded.current = true
       setTheme(localStorage.getItem(`oficina-theme-${first}`) || 'clasico')
       loadSquad(first)
@@ -1032,8 +1038,9 @@ export default function App() {
     if (p === profile) return
     setProfile(p)
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
-    setModel(localStorage.getItem(`oficina-model-${p}`) || cfg?.defaultModels?.[p] || FALLBACK_MODEL)
-    setWriteMode(localStorage.getItem(`oficina-write-${p}`) !== '0')
+    const proy = cfg?.projectsByProfile?.[p]?.[0]?.path || ''
+    setModel(leerPref('oficina-model', p, proy) || cfg?.defaultModels?.[p] || FALLBACK_MODEL)
+    setWriteMode(leerPref('oficina-write', p, proy) !== '0')
     setTheme(localStorage.getItem(`oficina-theme-${p}`) || 'clasico') // tema por cuenta
     clearConversation()
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
@@ -1042,9 +1049,14 @@ export default function App() {
   const selectProject = async (v) => {
     if (v === project) return
     setProject(v)
+    // cada proyecto recupera su modelo y su permiso (#124)
+    const suModelo = leerPref('oficina-model', profile, v) || cfg?.defaultModels?.[profile] || FALLBACK_MODEL
+    const suEdicion = leerPref('oficina-write', profile, v) !== '0'
+    setModel(suModelo)
+    setWriteMode(suEdicion)
     clearConversation()
     // edición activa + proyecto sin git = sin red de seguridad
-    if (writeMode && !(await hasGit(v))) {
+    if (suEdicion && !(await hasGit(v))) {
       showToast(t('toast.noGitOpen'), 6000)
     }
   }
