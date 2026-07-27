@@ -884,7 +884,7 @@ function HelperGhost({ chair }) {
   )
 }
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', quality = 'normal', director = false, onTourDone, onPickMember }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', petHeight = 0.55, quality = 'normal', director = false, onTourDone, onPickMember }) {
   // Accesibilidad (#104): con «reducir movimiento» activo en el sistema, la
   // escena se queda quieta — nada de paseos, visitas, mascota ni partículas.
   // El trabajo real (entregas, estados) sigue viéndose.
@@ -1251,7 +1251,9 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         )}
 
         {/* mascota de la oficina 🦊 (preferencia) — pasea por el centro libre */}
-        {pet && !reduceMotion && <Pet url={`/models/pets/${pet}.glb`} spots={WANDER_SPOTS.map((s) => s.to)} standup={standup.length > 0} />}
+        {pet && !reduceMotion && (
+          <Pet url={`/models/pets/${pet}.glb`} spots={WANDER_SPOTS.map((s) => s.to)} standup={standup.length > 0} height={petHeight} />
+        )}
 
         {/* squad: research / design / qa — cada uno con su L y su monitor */}
         {SLOTS.map((s, i) => {

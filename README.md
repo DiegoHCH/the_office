@@ -172,7 +172,7 @@ xattr -cr "/Applications/La Oficina.app"
 
 - **Muebles** — [Kenney · Furniture Kit](https://kenney.nl/assets/furniture-kit) (CC0)
 - **Personajes** — [Quaternius · Animated Characters](https://quaternius.com) (CC0)
-- **Mascota 🦊 y plantas** — [Quaternius](https://quaternius.com) (CC0) · planta de tallo por CreativeTrio (CC0) · "House plant" por [Poly by Google](https://poly.pizza/m/3qh9saogdJd) (CC-BY 3.0)
+- **Mascotas (zorro, shiba, husky, lobo, venado, alpaca) y plantas** — [Quaternius](https://quaternius.com) (CC0) · planta de tallo por CreativeTrio (CC0) · "House plant" por [Poly by Google](https://poly.pizza/m/3qh9saogdJd) (CC-BY 3.0)
 - **Texturas** (ladrillo y madera) — [ambientCG](https://ambientcg.com) (CC0)
 - **Logo de Flutter** — marca de Google, usado en el cuadro decorativo
 

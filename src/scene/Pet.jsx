@@ -6,7 +6,7 @@ import { Box3 } from 'three'
 // Mascota de la oficina 🦊: pasea entre puntos libres del centro de la sala,
 // se detiene a husmear/comer y, si hay standup, se acerca a mirar la reunión.
 // El modelo se normaliza por bounding box (los packs traen escalas distintas).
-export default function Pet({ url = '/models/pets/Fox.glb', spots = [], standup = false }) {
+export default function Pet({ url = '/models/pets/Fox.glb', spots = [], standup = false, height = 0.55 }) {
   const group = useRef()
   const { scene, animations } = useGLTF(url)
   const { actions } = useAnimations(animations, group)
@@ -17,8 +17,8 @@ export default function Pet({ url = '/models/pets/Fox.glb', spots = [], standup 
   const scale = useMemo(() => {
     const box = new Box3().setFromObject(scene)
     const h = Math.max(box.max.y - box.min.y, 0.001)
-    return 0.55 / h
-  }, [scene])
+    return height / h
+  }, [scene, height])
 
   const play = (name, fade = 0.25) => {
     const next = actions[name] || actions[`AnimalArmature|${name}`]
@@ -79,4 +79,4 @@ export default function Pet({ url = '/models/pets/Fox.glb', spots = [], standup 
   return <primitive ref={group} object={scene} scale={scale} />
 }
 
-useGLTF.preload('/models/pets/Fox.glb')
+// sin preload: la mascota elegida se carga bajo demanda (hay 6 modelos)

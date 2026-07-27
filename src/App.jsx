@@ -12,7 +12,7 @@ import {
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
-import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS } from './data/catalogs.js'
+import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
 import Tour from './components/Tour.jsx'
@@ -324,7 +324,7 @@ export default function App() {
   const savePet = (v) => {
     setPet(v)
     localStorage.setItem(`oficina-pet-${profile}`, v)
-    showToast(v ? '🦊 ¡La mascota llegó a la oficina!' : 'La mascota se fue a casa')
+    showToast(v ? `¡${PETS.find((p2) => p2.id === v)?.label || 'La mascota'} llegó a la oficina!` : 'La mascota se fue a casa')
   }
 
   useEffect(() => {
@@ -2128,6 +2128,7 @@ export default function App() {
           standup={standupIds}
           subagents={Object.keys(agentTool).filter((r) => agentTool[r] === 'Task')}
           pet={pet}
+          petHeight={PETS.find((p2) => p2.id === pet)?.height || 0.55}
           quality={quality}
           director={director}
           elapsed={elapsed}
@@ -2337,7 +2338,11 @@ export default function App() {
               <span className="pref-label">Mascota:</span>
               <select className="sel pref-sel" value={pet} onChange={(e) => savePet(e.target.value)}>
                 <option value="">Sin mascota</option>
-                <option value="Fox">Zorrito</option>
+                {PETS.map((p2) => (
+                  <option key={p2.id} value={p2.id}>
+                    {p2.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="pref-row">

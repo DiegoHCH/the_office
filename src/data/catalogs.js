@@ -54,3 +54,14 @@ export const TOOL_INFO = {
   TodoWrite: ['📝', 'Organizando sus tareas'],
 }
 export const toolInfo = (name) => TOOL_INFO[name] || ['🔧', `Usando ${name}`]
+
+// Mascotas disponibles (#89): modelos animados de Quaternius (CC0) con las
+// mismas animaciones — Walk, Idle, Eating — así todas se comportan igual.
+export const PETS = [
+  { id: 'Fox', label: 'Zorro', height: 0.55 },
+  { id: 'Shiba', label: 'Shiba Inu', height: 0.5 },
+  { id: 'Husky', label: 'Husky', height: 0.58 },
+  { id: 'Wolf', label: 'Lobo', height: 0.62 },
+  { id: 'Deer', label: 'Venado', height: 0.85 },
+  { id: 'Alpaca', label: 'Alpaca', height: 0.9 },
+]
