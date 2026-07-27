@@ -1987,15 +1987,47 @@ app.whenReady().then(() => {
   // (se muestra cuando la ventana ya es visible: un sheet sobre una ventana
   // oculta no se vería)
   if (CLAUDE_BIN === 'claude') {
-    win.once('show', () => dialog.showMessageBox(win, {
-      type: 'warning',
-      title: 'La Oficina',
-      message: 'No encontré el binario de Claude Code',
-      detail:
-        'Busqué en ~/.local/bin, /usr/local/bin y /opt/homebrew/bin.\n\n' +
-        'Instálalo con:\n  curl -fsSL https://claude.ai/install.sh | bash\n\n' +
-        'inicia sesión con `claude` en la terminal y vuelve a abrir La Oficina.',
-    }))
+    // Onboarding (#106): en vez de solo avisar, ofrecer instalarlo — se abre
+    // la terminal con el comando oficial listo y se puede re-verificar sin
+    // reiniciar la app.
+    const offerInstall = () =>
+      dialog
+        .showMessageBox(win, {
+          type: 'warning',
+          title: 'La Oficina',
+          message: 'No encontré el binario de Claude Code',
+          detail:
+            'La Oficina necesita el CLI de Claude Code (plan Pro o Max).\n\n' +
+            'Busqué en ~/.local/bin, /usr/local/bin y /opt/homebrew/bin.',
+          buttons: ['Instalar…', 'Ya lo instalé', 'Ahora no'],
+          defaultId: 0,
+          cancelId: 2,
+        })
+        .then(({ response }) => {
+          if (response === 0) {
+            // abre la terminal con el instalador oficial escrito y listo
+            const cmd = 'curl -fsSL https://claude.ai/install.sh | bash'
+            execFile('osascript', [
+              '-e',
+              `tell application "Terminal" to do script "${cmd}"`,
+              '-e',
+              'tell application "Terminal" to activate',
+            ], (err) => {
+              if (err) shell.openExternal('https://claude.ai/download')
+            })
+          } else if (response === 1) {
+            // re-verificar sin reiniciar: si aparece, avisar que ya se puede usar
+            const found = CLAUDE_CANDIDATES.find((p2) => fs.existsSync(p2))
+            dialog.showMessageBox(win, {
+              type: found ? 'info' : 'warning',
+              message: found ? '¡Listo! Ya encontré Claude Code' : 'Sigo sin encontrarlo',
+              detail: found
+                ? `En ${found}. Reinicia La Oficina para empezar a usarlo (y recuerda iniciar sesión con \`claude\` si no lo has hecho).`
+                : 'Abre una terminal, corre `claude` para verificar la instalación y el login, y vuelve a intentar.',
+            })
+          }
+        })
+    win.once('show', offerInstall)
   }
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
