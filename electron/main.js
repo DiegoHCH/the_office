@@ -995,6 +995,12 @@ function fetchClaudeUsage(profile) {
               // que pisaba el último dato bueno y el monitor "desaparecía".
               // Solo un 200 con datos reales cuenta como éxito; lo demás → null
               // (la caché conserva el dato anterior y reintenta con backoff).
+              if (res.statusCode === 429) {
+                // la API limita este endpoint por hora (y por IP): respetar
+                // retry-after en vez de reintentar a ciegas cada 15-60s
+                const ra = Number(res.headers['retry-after']) || 900
+                return resolve({ rateLimited: true, retryAfter: Math.min(ra, 3600) })
+              }
               if (res.statusCode !== 200) return resolve(null)
               const j = JSON.parse(body)
               if (!j.five_hour && !j.seven_day) return resolve(null)
@@ -1048,10 +1054,16 @@ ipcMain.handle('stats:get', async (_e, profile = 'work') => {
     c.fetching = true
     fetchClaudeUsage(profile).then((d) => {
       c.fetching = false
-      if (d) {
+      if (d?.rateLimited) {
+        // limitado por la API: no insistir hasta que lo permita; conserva el
+        // último dato bueno y deja constancia para que el monitor lo explique
+        c.limitedUntil = Date.now() + d.retryAfter * 1000
+        c.nextAt = c.limitedUntil
+      } else if (d) {
         // éxito: guarda el dato y marca fresco por 60s
         c.data = d
         c.fails = 0
+        c.limitedUntil = 0
         c.nextAt = Date.now() + 60_000
       } else {
         // fallo (red/timeout/sin token): CONSERVA el último dato bueno y
@@ -1069,6 +1081,7 @@ ipcMain.handle('stats:get', async (_e, profile = 'work') => {
     ramTotal: os.totalmem(),
     appMB,
     claude: c.data,
+    claudeLimitedFor: c.limitedUntil > Date.now() ? Math.round((c.limitedUntil - Date.now()) / 60000) : 0,
   }
 })
 

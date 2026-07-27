@@ -100,7 +100,11 @@ export default function SysMonitor({ modelLabel, profile, tokens }) {
           </div>
         )}
         {!(s.claude && (s.claude.session || s.claude.weekly)) && (
-          <div className="mon-sub mon-nodata">Uso no disponible · reintentando…</div>
+          <div className="mon-sub mon-nodata">
+            {s.claudeLimitedFor
+              ? `Uso limitado por la API · vuelve en ${s.claudeLimitedFor}m`
+              : 'Uso no disponible · reintentando…'}
+          </div>
         )}
         {s.claude?.session && (
           <>
