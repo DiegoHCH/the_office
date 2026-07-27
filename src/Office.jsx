@@ -176,6 +176,31 @@ function FlutterFrame({ position, rotation = [0, 0, 0] }) {
   )
 }
 
+// Spot de riel colgante (glow-up #111): los focos negros de la referencia loft,
+// suspendidos del techo apuntando a la pared de ladrillo. Emiten luz cálida.
+function TrackSpot({ position, on = false }) {
+  return (
+    <group position={position}>
+      {/* varilla al techo */}
+      <mesh position={[0, 0.42, 0]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.84, 6]} />
+        {mat(DARK)}
+      </mesh>
+      {/* campana */}
+      <mesh position={[0, 0, 0]} castShadow>
+        <coneGeometry args={[0.11, 0.17, 16, 1, true]} />
+        <meshStandardMaterial color="#1c2124" roughness={0.45} metalness={0.35} side={DoubleSide} />
+      </mesh>
+      {/* bombillo: brilla siempre un poco, fuerte de noche */}
+      <mesh position={[0, -0.07, 0]}>
+        <sphereGeometry args={[0.045, 12, 12]} />
+        <meshStandardMaterial color="#fff2d8" emissive="#ffc078" emissiveIntensity={on ? 2.6 : 1.1} />
+      </mesh>
+      {on && <pointLight position={[0, -0.12, 0]} color="#ffc98a" intensity={7} distance={4.5} decay={1.7} castShadow={false} />}
+    </group>
+  )
+}
+
 // Lámpara de piso: decorativa siempre; en el tema Noche emite luz cálida real.
 function FloorLamp({ position, on = false }) {
   return (
@@ -956,6 +981,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}
+        shadow-radius={4}
         shadow-camera-left={-7}
         shadow-camera-right={7}
         shadow-camera-top={7}
@@ -963,6 +989,21 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
         shadow-camera-near={0.1}
         shadow-camera-far={25}
       />
+      {/* luz de ventana (glow-up #111): haz cálido que entra por la izquierda,
+          como en la referencia loft — da dirección y contraste a la sala */}
+      <spotLight
+        position={[-HALF - 1.2, 2.6, 0]}
+        target-position={[1.5, 0.2, 0]}
+        angle={0.85}
+        penumbra={0.9}
+        intensity={T.lampsOn ? 6 : 26}
+        color={T.lampsOn ? '#8aa8c8' : '#fff0d8'}
+        distance={16}
+        decay={1.1}
+        castShadow={false}
+      />
+      {/* rebote cálido del piso de madera: sube el tono general sin aplanar */}
+      <pointLight position={[0, 0.5, 1.2]} intensity={T.lampsOn ? 2 : 4} color="#ffd9b0" distance={9} decay={1.8} />
 
       <Room />
       <Window />
@@ -999,6 +1040,10 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       <WallSconce position={[1.9, 1.7, -HALF + 0.06]} on={!!T.lampsOn} />
       <WallSconce position={[-HALF + 0.06, 1.7, -1.9]} rotation={[0, Math.PI / 2, 0]} on={!!T.lampsOn} />
       <WallSconce position={[-HALF + 0.06, 1.7, 1.9]} rotation={[0, Math.PI / 2, 0]} on={!!T.lampsOn} />
+      {/* spots de riel colgantes sobre la pared de ladrillo (referencia loft) */}
+      <TrackSpot position={[-1.0, 1.92, -HALF + 0.55]} on={!!T.lampsOn} />
+      <TrackSpot position={[0.6, 1.92, -HALF + 0.55]} on={!!T.lampsOn} />
+      <TrackSpot position={[2.2, 1.92, -HALF + 0.55]} on={!!T.lampsOn} />
       {/* lamparita de escritorio del principal (en la esquina de su L, NO frente al monitor) */}
       <DeskLamp position={[-3.02, TOP, -2.95]} rotation={[0, -Math.PI / 4, 0]} on={!!T.lampsOn} />
 
