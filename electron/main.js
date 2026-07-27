@@ -488,6 +488,16 @@ function makeLineHandler(role, claveSesion, displayName) {
       return
     }
 
+    // Cualquier otro mensaje de sistema queda registrado en Diagnóstico con su
+    // subtipo y campos (#123). Hoy no sabemos qué emite Claude Code al compactar
+    // el contexto —la documentación del SDK no lo menciona— así que en vez de
+    // adivinar el nombre, esto deja la evidencia la próxima vez que ocurra.
+    if (msg.type === 'system') {
+      const campos = Object.keys(msg).filter((k) => k !== 'type' && k !== 'subtype' && k !== 'session_id')
+      emit({ kind: 'system', role, subtype: msg.subtype || '(sin subtipo)', fields: campos.join(', ') })
+      return
+    }
+
     if (msg.type === 'stream_event' && msg.event) {
       const ev = msg.event
       if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {

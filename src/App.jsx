@@ -493,7 +493,9 @@ export default function App() {
                   : ''
                 : e.kind === 'init'
                   ? (e.sessionId || '').slice(0, 8)
-                  : ''
+                  : e.kind === 'system'
+                    ? `${e.subtype}${e.fields ? ` · ${e.fields}` : ''}`
+                    : ''
         diagRef.current.push({ t: Date.now(), role: e.role || '—', kind: e.kind, info })
         if (diagRef.current.length > 500) diagRef.current.shift()
       }
