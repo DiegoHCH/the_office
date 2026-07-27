@@ -3,67 +3,31 @@
 // una regresión aquí manda mensajes al agente equivocado en silencio.
 import { norm, escRe } from './helpers.js'
 
-// Fórmulas con las que se abre un mensaje antes de nombrar a alguien. Son una
-// lista cerrada a propósito: «hola nami» interpela, pero «el bug que reportó
-// nami» no, y sin esta lista cualquier palabra suelta antes del nombre valdría.
-const SALUDOS = [
-  'hola',
-  'holi',
-  'holis',
-  'buenas',
-  'buenos dias',
-  'buenas tardes',
-  'buenas noches',
-  'saludos',
-  'que tal',
-  'que mas',
-  'hey',
-  'ey',
-  'eh',
-  'oye',
-  'oiga',
-  'oigan',
-  'disculpa',
-  'disculpe',
-  'perdona',
-  'perdon',
-  'porfa',
-  'por favor',
-  'a ver',
-  'mira',
-  'oe',
-  'hi',
-  'hello',
-]
-const APERTURA = `(?:${SALUDOS.join('|')})`
-
-// A qué miembro va el mensaje: vocativo / @nombre / keywords / principal.
+// A qué miembro va el mensaje: nombre / keywords / principal.
 //
-// Se considera que hablas DIRECTAMENTE a alguien cuando su nombre:
-//   · abre el mensaje                → «Nami, investiga esto»
-//   · lleva @                        → «oye @Nami mira»
-//   · va tras un saludo, con coma o sin ella → «Hola Nami ¿cuál es tu cargo?»
-//   · va tras cualquier prefijo y coma → «buenas tardes Sanji: mira esto»
-//   · cierra el mensaje tras coma    → «revisa esto, Nami»
-// Mencionarlo de pasada NO rutea («esto lo vio Zoro ayer» va al principal).
+// Nombrar a alguien —en cualquier parte del texto— le dirige el mensaje:
+// «Nami, investiga esto», «oye @Nami mira», «revisa esto, Nami» y también
+// «el bug que reportó Nami» van todos a Nami. Es una decisión explícita: se
+// prefiere que nombrar siempre funcione, aunque a veces rutee una mención
+// que era de pasada, antes que tener que recordar dónde colocar el nombre.
+//
+// Si aparecen varios, gana el que se nombra ANTES en el texto, no el orden
+// del squad: «Nami investiga y pásaselo a Luffy» arranca en Nami.
+//
+// El límite de palabra se mantiene: «Namibia» no es «Nami».
 export function routeMessage(text, squad, principal) {
   const t = norm(text)
+  let elegido = null
+  let posicion = Infinity
   for (const m of squad) {
     const n = escRe(norm(m.name))
-    // saludo + nombre: la coma es opcional porque casi nadie la escribe
-    const trasSaludo = new RegExp(`^(?:${APERTURA}[\\s,]+){1,3}${n}\\b`)
-    // cualquier otro prefijo corto exige coma o dos puntos para desambiguar
-    const vocativoInicial = new RegExp(`^(?:[a-z]+\\s+){0,3}${n}\\s*[,:]`)
-    const vocativoFinal = new RegExp(`,\\s*${n}\\s*[?!.…]*$`) // «…, nami?»
-    if (
-      new RegExp(`^${n}\\b`).test(t) ||
-      t.includes(`@${norm(m.name)}`) ||
-      trasSaludo.test(t) ||
-      vocativoInicial.test(t) ||
-      vocativoFinal.test(t)
-    )
-      return m.id
+    const hit = new RegExp(`\\b${n}\\b`).exec(t)
+    if (hit && hit.index < posicion) {
+      posicion = hit.index
+      elegido = m.id
+    }
   }
+  if (elegido) return elegido
   for (const m of squad) if (m.id !== principal && m.kw?.test(t)) return m.id
   return principal
 }
