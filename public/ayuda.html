@@ -117,7 +117,8 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   </div>
 
   <h2>Primer arranque</h2>
-  <p>Verás el splash de La Oficina y una oficina con <b>un solo agente activo</b> (el principal, con un nombre real sorteado). Activa más roles desde <b>⚙️ Configuración → 👥 Agentes</b> — hasta 6 a la vez, de un catálogo de 7 (Dev, Research, UI/UX, QA, Revisor PR, Docs, Publicador) más los que crees tú.</p>
+  <p>La app abre con una <b>intro cinemática</b> 🎬: un vuelo sobre la ciudad hasta el edificio de La Oficina, las puertas se abren y entras. Se salta con el botón o <kbd>Esc</kbd>, y se apaga en Preferencias. Después, un <b>tour guiado</b> 🎓 te señala las partes de la pantalla (repetible desde Configuración).</p>
+  <p>Verás una oficina con <b>un solo agente activo</b> (el principal, con un nombre real sorteado). Activa más roles desde <b>⚙️ Configuración → 👥 Agentes</b> — hasta 6 a la vez, de un catálogo de 7 (Dev, Research, UI/UX, QA, Revisor PR, Docs, Publicador) más los que crees tú.</p>
 
   <h2>La barra superior</h2>
   <ul>
@@ -140,7 +141,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   </table></div>
   <ul>
     <li><b>⌨️ Composer multilínea:</b> <kbd>Enter</kbd> envía, <kbd>Shift</kbd>+<kbd>Enter</kbd> hace salto de línea; la caja crece con el texto.</li>
-    <li><b>📌 Plantillas:</b> escribe <code>/</code> y salen tus plantillas de prompts guardadas (por perfil); <kbd>Enter</kbd> o <kbd>Tab</kbd> insertan la primera, y desde el mismo popover se crean y borran.</li>
+    <li><b>📌 Plantillas:</b> escribe <code>/</code> y salen tus plantillas (por perfil); <kbd>Enter</kbd> o <kbd>Tab</kbd> insertan la primera, y se crean/borran ahí mismo. Admiten <code>{{variables}}</code>: al insertarlas, un mini-formulario pide los valores. Vienen 4 de ejemplo para empezar.</li>
     <li><b>✏️/🔒 Chip de permiso</b> (junto al composer): ámbar = <i>edición</i> (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git; sin git, la app te lo advierte); gris = <i>lectura</i> (solo investiga). Un clic lo alterna.</li>
     <li><b>⏳ Cola:</b> si un agente está ocupado, tu mensaje se encola (✕ para sacarlo) y el personaje muestra un badge <b>⏳ N</b>. La cola <b>sobrevive un cierre de la app</b>: al volver pregunta si retoma los pendientes. Un mensaje <b>⏹ Cancelado</b> trae ✏️ Editar.</li>
     <li><b>✏️ Editar y reenviar:</b> pasa el mouse por cualquiera de tus mensajes y el lápiz lo carga al composer para corregirlo.</li>
@@ -151,6 +152,9 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <li><b>⏹ Detener:</b> chip rojo con el nombre de quien trabaja; click para cancelar su tarea. Si algo falla, el error trae el detalle y un botón <b>🔁 Reintentar</b>.</li>
     <li><b>🔘 Respuesta rápida:</b> si la respuesta termina en un menú de opciones, salen como botones.</li>
     <li><b>🖼📁 Adjuntos:</b> pega (<kbd>⌘V</kbd>) o arrastra imágenes, archivos y carpetas al chat.</li>
+    <li><b>💬 Citar:</b> selecciona un fragmento de una respuesta y el botón flotante lo lleva al composer como cita, para preguntar sobre eso.</li>
+    <li><b>🔁 Reintento automático:</b> si una tarea falla por algo pasajero (límite de la API, timeout, red), se reintenta sola una vez a los 5s.</li>
+    <li><b>⚠️ Aviso de colisión:</b> si mandas una tarea de edición a un repo donde otro agente ya está editando, la app te advierte (no bloquea).</li>
     <li><b>📋 Copiar:</b> cada bloque de código tiene botón de copiar al hover (y <b>resaltado de sintaxis</b>), y cada respuesta el suyo en la esquina.</li>
   </ul>
 
@@ -168,7 +172,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
 
   <h2>Configuración ⚙️</h2>
   <ul>
-    <li><b>👥 Agentes</b> — el submenu del squad: activa/desactiva con el <b>switch</b> (hasta 6; el <b>1º activo es el principal</b>), reordena arrastrando el grip <b>⠿</b>, renombra, elige personaje en la galería 3D (46 modelos, sin repetir — el cambio aplica al instante), edita su <b>✏️ Personalidad</b> (un <code>.md</code> por personaje) y fija su <b>🧠 modelo propio</b> (UI/UX con Opus, QA con Haiku… los demás usan el global). Los roles personalizados se crean y editan ahí mismo, y <b>♻️ Restaurar predeterminados</b> recupera los borrados.</li>
+    <li><b>👥 Agentes</b> — el submenu del squad: activa/desactiva con el <b>switch</b> (hasta 6; el <b>1º activo es el principal</b>), reordena arrastrando el grip <b>⠿</b>, renombra, elige personaje en la galería 3D (46 modelos, sin repetir — el cambio aplica al instante), edita su <b>✏️ Personalidad</b> (un <code>.md</code> por personaje) y fija su <b>🧠 modelo propio</b> (UI/UX con Opus, QA con Haiku… los demás usan el global). Arriba hay <b>presets</b> (Equipo web, mobile, research o solo el principal) que activan un conjunto de roles de un clic respetando tus nombres. Los roles personalizados se crean y editan ahí mismo, y <b>♻️ Restaurar predeterminados</b> recupera los borrados.</li>
     <li><b>🧩 Skills</b> — superpoderes del perfil: catálogo curado del repo oficial de Anthropic (frontend design para el UI/UX, testing con navegador para QA, Word/PDF/PowerPoint/Excel para Docs…), instalar desde <b>cualquier repo de GitHub</b> (detecta las skills adentro), crear las tuyas con el esqueleto listo, y la sección <b>Plugins</b>: paquetes completos (skills + comandos + agentes + MCP) instalables desde marketplaces o repos directos. Todo llega a tus agentes automáticamente.</li>
     <li><b>🌐 Servidores MCP</b> — herramientas externas para los agentes: <b>Playwright</b> (manejan un navegador real — QA de interfaces vivas), Chrome DevTools, Context7 (docs al día), Figma, o cualquier servidor propio (comando npx o URL).</li>
     <li><b>Modelo</b> — el global: Opus 5 · 1M (recomendado), Fable 5, Sonnet 5 o Haiku 4.5. Se recuerda por perfil.</li>
@@ -179,15 +183,22 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <li><b>🧠 Pizarra SQUAD.md</b> — memoria común del squad en la raíz del proyecto: los agentes la leen y anotan avances para el resto.</li>
     <li><b>Notificaciones</b> — sonidos + avisos de macOS cuando alguien termina y estás en otra app.</li>
     <li><b>🖥 Abrir terminal en el proyecto</b> — Warp (o la predeterminada) en la carpeta del proyecto actual, para lo <b>interactivo</b> que la app no cubre (plan mode, <code>/login</code>, git fino…).</li>
-    <li><b>💾 Exportar / 📥 Importar configuración</b> — squad, personalidades, plantillas y proyectos en un JSON, para respaldar o migrar de máquina.</li>
+    <li><b>📘 CLAUDE.md del proyecto</b> — abre (o crea) las instrucciones que TODOS los agentes leen al trabajar en ese repo, sin salir de la app.</li>
+    <li><b>📈 Estadísticas</b> — tareas, tokens y tiempos por agente, con las barras de los últimos 7 días.</li>
+    <li><b>🔧 Diagnóstico</b> — los últimos eventos de cada agente y los errores con su detalle, para copiar o exportar.</li>
+    <li><b>🎬 Intro y 🎓 Tour</b> — activar la intro de arranque y relanzar el tour guiado.</li>
+    <li><b>Calidad</b> — 🎬 Cine (todos los efectos), ✨ Normal o 🔋 Ligera (ahorra batería).</li>
+    <li><b>Mascota</b> 🦊 — un zorrito que pasea por la oficina, husmea y se acerca a mirar el standup.</li>
+    <li><b>Standup programado</b> — a la hora que elijas en días hábiles; al terminar puedes <b>📤 compartir el resumen a Slack</b> (canal configurable).</li>
+    <li><b>💾 Exportar / 📥 Importar configuración</b> — squad, personalidades, plantillas y proyectos en un JSON, para respaldar o migrar de máquina. Además se guarda un <b>respaldo automático semanal</b>.</li>
   </ul>
   <div class="tip">💡 <b>La Oficina vs la terminal:</b> usa la app para el flujo del día (tareas, investigación, standup, trabajo en paralelo) y el botón 🖥 para la cirugía fina interactiva.</div>
 
   <h2>Documentos 📄</h2>
-  <p>Pide un <b>reporte, documento, dashboard o página</b> y el agente genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder y exportar como .zip. Y si quieres publicarlo en la web, el <b>Publicador</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
+  <p>Pide un <b>reporte, documento, dashboard o página</b> y el agente genera un HTML autocontenido (con imágenes) que se abre dentro de la app. En el panel 📄: abrir, revelar en Finder, exportar como .zip y <b>💬 usar como contexto</b> del próximo mensaje («revisa este reporte y actualízalo»). Y si quieres publicarlo en la web, el <b>Publicador</b> lo sube a GitHub Pages — siempre con tu confirmación, porque queda público.</p>
 
   <h2>Historial 🕘</h2>
-  <p>Cada conversación se guarda sola (se conservan las 100 más recientes). Hay <b>buscador</b> por título y proyecto, <b>📌 fijar</b> (las fijadas van arriba y no se purgan nunca) y <b>⬇ exportar a Markdown</b> con metadatos y todos los mensajes. Al abrir una, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
+  <p>Cada conversación se guarda sola (se conservan las 100 más recientes). Hay <b>buscador</b> por título, proyecto <b>y por el texto de los mensajes</b> (muestra un extracto), <b>✏️ renombrar</b>, <b>📌 fijar</b> (las fijadas van arriba y no se purgan nunca) y <b>⬇ exportar a Markdown</b> con metadatos y todos los mensajes. Al abrir una, el squad <b>recuerda todo el contexto</b> (se retoman las sesiones reales de Claude). 🗑 la borra.</p>
 
   <h2>Monitores 📊</h2>
   <p>Arriba a la izquierda, dos burbujas: <b>Sistema</b> (CPU y RAM reales del Mac, memoria de la app) y <b>Claude</b> (modelo en uso, <b>🪙 tokens acumulados de la conversación</b> y tu % de suscripción — sesión de 5h y semana con sus tiempos de reset). Si vas por encima del 90% de la sesión, la app te avisa al despachar una tarea. Fuera de la ventana, el <b>Dock</b> muestra cuántos agentes trabajan (y el ícono salta al terminar en background) y la <b>barra de menús 🏢</b> tiene lo mismo con menú rápido.</p>

@@ -48,6 +48,8 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente, con **cronómetro**, su **checklist 📝 en tiempo real** (TodoWrite) y **🪙 tokens por tarea** (acumulado en el monitor); botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones.
 - **🔀 Vista de diff** — si la tarea editó archivos, la respuesta ofrece el `git diff` coloreado del proyecto.
 - **🔍 Buscar en la conversación** — ⌘F con n/total y navegación entre coincidencias.
+- **💬 Citar** — selecciona un fragmento de una respuesta y pásalo al composer como cita.
+- **⚠️ Aviso de colisión** — si dos agentes van a editar el mismo repo a la vez, la app avisa.
 - **🔁 Errores recuperables** — si `claude` falla, el error llega al chat **con el stderr** y un botón Reintentar; cualquier mensaje tuyo se puede **✏️ editar y reenviar**.
 - **🎨 Resaltado de sintaxis** — bloques de código coloreados (12 lenguajes), con botón de copiar; cada respuesta tiene el suyo.
 - **📎 Adjuntos** — arrastra carpetas, archivos e imágenes (o pega con ⌘V).
@@ -59,7 +61,7 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 ### La app
 - **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs, proyectos y **➕ Agregar proyecto…** para carpetas fuera de la raíz del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
 - **🎨 Estilo Material 3** — botones pill, switches M3, superficies con elevación, scrollbars propias.
-- **🕘 Historial con búsqueda** — cada conversación se guarda sola y se retoma con todo su contexto; filtro por título/proyecto, **📌 fijar** (a salvo de la purga) y **⬇ exportar a Markdown**.
+- **🕘 Historial con búsqueda** — cada conversación se guarda sola y se retoma con todo su contexto; busca por título, proyecto **y contenido de los mensajes**, **✏️ renombra**, **📌 fija** (a salvo de la purga) y **⬇ exporta a Markdown**.
 - **📊 Monitores** — dos burbujas: Sistema (CPU/RAM reales) y Claude (modelo en uso, 🪙 tokens de la conversación + % de sesión y semana, con **aviso al pasar del 90%**). El modelo se **sincroniza con el `/model` de tu terminal**.
 - **🖥 Integración macOS** — badge del **Dock** y **Tray 🏢** en la barra de menús con el nº de agentes trabajando, atajo global **⌥Espacio** (trae la app con el composer listo desde cualquier parte), y **powerSaveBlocker**: el Mac no se duerme mientras el squad trabaja.
 - **🎬 Intro cinemática** — la app abre llegando al edificio de La Oficina: la cámara se acerca, las puertas se abren y un destello funde a tu oficina (saltable y desactivable).
@@ -67,7 +69,9 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🎭 Vida ambiental** — frases por rol, música, paseos y visitas con detección de obstáculos; temas Clásico, Noche, Playa, **🌸 Sakura** (pétalos), **🍂 Otoño** (hojas secas), **❄️ Invierno** (nieve) y **🌗 Auto**.
 - **🧠 Pizarra SQUAD.md** — memoria común del squad en la raíz del proyecto.
 - **⏳ Cola persistente** — los mensajes encolados sobreviven un cierre de la app: al volver pregunta si los retoma.
-- **💾 Exportar/importar configuración** — squad, personalidades y plantillas en un JSON para respaldar o migrar.
+- **💾 Exportar/importar configuración** — squad, personalidades y plantillas en un JSON para respaldar o migrar, con **respaldo automático semanal**.
+- **🎬 Intro cinemática y 🎓 tour guiado** al primer arranque, ambos saltables y desactivables.
+- **📘 CLAUDE.md del proyecto** y **presets de squad** (Equipo web / mobile / research) desde el menú.
 - **🧹 Mantenimiento solo** — purga de adjuntos viejos y tope de 100 conversaciones al arrancar (las 📌 fijadas no cuentan).
 
 ## 🧱 Stack
@@ -179,6 +183,7 @@ xattr -cr "/Applications/La Oficina.app"
 - ✅ **v1.2** — aviso de edición sin git, nombres únicos, filtro del chat por agente, exportar conversación a Markdown, resaltado de sintaxis, tema automático 🌗, badge ⏳ de cola en la escena, integración con el Dock, broadcast `@todos`, cámara persistente con reset por doble click
 - ✅ **v1.3** — tokens por tarea 🪙 y acumulado en el monitor, checklist del agente en vivo 📝, plantillas de prompts con `/`, buscar en la conversación (⌘F), vista de diff 🔀, Tray en la barra de menús 🏢, atajo global ⌥Espacio, cola persistente, standup visual en el centro de la sala
 - ✅ **v1.4** — 🧩 skills por perfil (catálogo oficial + cualquier repo + crear propias), 🔌 plugins (marketplaces), 🌐 servidores MCP, 🧠 modelo por agente, editar y reenviar mensajes, 📌 fijar conversaciones, aviso de cuota alta, 💾 exportar/importar configuración, powerSaveBlocker
+- ✅ **v1.6** *(en main, ronda 7 en curso)* — glow-up gráfico «loft» (ladrillo, madera, luz cálida, bloom/ACES/tilt-shift, estaciones 🌸🍂❄️), intro cinemática 🎬, mascota 🦊, citar selección, presets de squad, CLAUDE.md, respaldo automático, skills en lote
 - ✅ **v1.5** — imágenes con Nano Banana 🍌 (MCP + env vars), Engram y shadcn como recomendaciones, @autocompletar, miniaturas de adjuntos + visor, sub-agentes visibles 👻, estadísticas 📈, standup programado, deep links `la-oficina://`, tour de bienvenida 🎓, consola de diagnóstico 🔧, SQUAD.md al .gitignore
 - ✅ **v1.6** *(en main)* — usar Documentos como contexto 💬, renombrar y buscar por contenido en el historial, mascota de oficina 🦊, auto-retry en errores transitorios, standup → Slack 📤, plantillas con {{variables}}, CI en GitHub Actions (checks + smoke test + DMG automático) y refactor de App.jsx en módulos
 - ⏭️ **Épica v2.0** — compañero móvil **Android en Flutter**: servidor WS embebido + QR en el desktop, app con chat/estado/notificaciones, acceso remoto vía Tailscale
