@@ -30,6 +30,10 @@ jobs:
         run: npm run lint
       - name: Tests del núcleo (ruteo y helpers)
         run: npm test
+      # la guía en inglés se genera del español; si alguien la edita a mano o
+      # toca el original sin traducir, aquí se ve (#118)
+      - name: Guía en inglés al día
+        run: npm run guia:check
       - name: Build del renderer
         run: npx vite build
       # El runner corre con GL por software y a veces el proceso GPU se cae a

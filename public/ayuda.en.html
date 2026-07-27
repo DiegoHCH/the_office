@@ -71,7 +71,6 @@
 </style>
 </head>
 <body>
-<body>
 <div class="page">
 
   <h1>La Oficina 🏢</h1>
@@ -94,7 +93,7 @@ claude   # then follow the /login flow with your account</code></pre>
 
   <h3>So agents can use tools (recommended)</h3>
   <div class="card">
-    <p><b>Homebrew on the shell PATH.</b> Agents run commands with your zsh profile; so they can find <code>gh</code>, <code>node</code> and friends, make sure <code>~/.zprofile</code> has:</p>
+    <p><b>Homebrew on the shell PATH.</b> Agents run commands with your zsh profile; so they can find <code>gh</code>, <code>node</code> and friends, make sure you have this in <code>~/.zprofile</code>:</p>
     <pre><code>eval "$(/opt/homebrew/bin/brew shellenv)"</code></pre>
     <p>The app also adds <code>/opt/homebrew/bin</code>, <code>/usr/local/bin</code> and <code>~/.local/bin</code> to every agent's PATH in case the profile does not load.</p>
   </div>
@@ -151,7 +150,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <li><b>🪙 Tokens:</b> every response shows how many tokens it used (breakdown in the tooltip) and the monitor keeps the conversation total.</li>
     <li><b>🔀 View changes:</b> if the task edited files, the response offers the project's coloured <code>git diff</code>, with new files listed separately.</li>
     <li><b>🔍 Search (⌘F):</b> a small bar over the chat with n/total and navigation between matches. And clicking a message's <b>name</b> filters the chat down to that agent.</li>
-    <li><b>⏹ Stop:</b> a red chip with the name of whoever is working; click to cancel their task. If something fails, the error carries the detail and a <b>🔁 Retry</b> button.</li>
+    <li><b>⏹ Stop:</b> a red chip with the name of whoever is working; click to cancel their task. If something fails, the error carries the detail and a <b>🔁 Retry button</b>.</li>
     <li><b>🔘 Quick replies:</b> if the response ends in a menu of options, they appear as buttons.</li>
     <li><b>🖼📁 Attachments:</b> paste (<kbd>⌘V</kbd>) or drag images, files and folders into the chat.</li>
     <li><b>💬 Quote:</b> select a fragment of a response and the floating button carries it to the composer as a quote, so you can ask about it.</li>
@@ -192,7 +191,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <li><b>Quality</b> — 🎬 Cinematic (all effects), ✨ Normal or 🔋 Light (saves battery).</li>
     <li><b>Pet</b> 🦊 — fox, shiba, husky, wolf, deer or alpaca: it wanders the office, sniffs around, eats and comes over to watch the standup. Pick one (or none) in Preferences.</li>
     <li><b>Scheduled standup</b> — at the time you pick, on weekdays; when it ends you can <b>📤 share the summary to Slack</b> (configurable channel).</li>
-    <li><b>💾 Export / 📥 Import settings</b> — squad, personalities, templates and projects in a JSON, to back up or move machine. A <b>weekly automatic backup</b> is kept too.</li>
+    <li><b>💾 Export / 📥 Import settings</b> — squad, personalities, templates and projects in a JSON, to back up or move machine. There is also a <b>weekly automatic backup</b>.</li>
     <li><b>🌐 Language</b> — Spanish or English. It changes the whole interface and this guide, and the agents answer in the language you pick.</li>
   </ul>
   <div class="tip">💡 <b>La Oficina vs the terminal:</b> use the app for the daily flow (tasks, research, standup, parallel work) and the 🖥 button for fine interactive surgery.</div>

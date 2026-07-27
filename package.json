@@ -17,7 +17,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write"
+    "format": "prettier --write",
+    "guia": "node scripts/guia.mjs",
+    "guia:check": "node scripts/guia.mjs --check"
   },
   "build": {
     "appId": "com.diegohoyos.laoficina",
