@@ -921,10 +921,11 @@ select.squad-model {
 }
 
 /* intro cinemática (#112): cubre la app hasta que termina */
-.intro { position: fixed; inset: 0; z-index: 20; background: #b9ccd3; }
+.intro { position: fixed; inset: 0; z-index: 20; background: #0e1417; }
+/* al cruzar la puerta la pantalla funde a NEGRO y de ahí aparece la oficina */
 .intro-flash {
-  position: absolute; inset: 0; background: #ffffff; pointer-events: none;
-  transition: opacity 0.12s linear;
+  position: absolute; inset: 0; background: #000000; pointer-events: none;
+  transition: opacity 0.1s linear;
 }
 .intro-skip {
   position: absolute; right: 20px; bottom: 20px; z-index: 21;
