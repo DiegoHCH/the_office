@@ -114,14 +114,21 @@ export default function App() {
     showToast(v ? '🎬 La intro se verá al abrir la app' : 'Intro desactivada')
   }
 
-  // tour de bienvenida: una vez en el primer arranque, repetible desde Config
+  // Tour de bienvenida: espera a que la intro termine (si no, se dispara
+  // debajo de ella y salta encima justo al acabar) y se marca como visto al
+  // MOSTRARLO, no al completarlo — así no reaparece si cierras la app antes.
   const [tourOpen, setTourOpen] = useState(false)
   useEffect(() => {
-    if (!localStorage.getItem('oficina-tour-done')) {
-      const t = setTimeout(() => setTourOpen(true), 2500) // tras el splash y el primer render
-      return () => clearTimeout(t)
-    }
-  }, [])
+    if (introOpen) return // la intro manda; el tour espera su turno
+    if (localStorage.getItem('oficina-tour-done')) return
+    const t = setTimeout(() => {
+      setTourOpen(true)
+      try {
+        localStorage.setItem('oficina-tour-done', '1')
+      } catch {}
+    }, 1200)
+    return () => clearTimeout(t)
+  }, [introOpen])
   const endTour = () => {
     try {
       localStorage.setItem('oficina-tour-done', '1')
@@ -746,6 +753,10 @@ export default function App() {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         // por capas: primero el submenu de Agentes; Configuración queda debajo
+        if (tourOpen) {
+          endTour()
+          return
+        }
         if (lightbox) {
           setLightbox(null)
           return
@@ -807,7 +818,7 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen/lightbox: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen, diagOpen])
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen, diagOpen, tourOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
