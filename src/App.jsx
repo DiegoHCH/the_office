@@ -393,6 +393,22 @@ export default function App() {
     setDiagOpen(false)
     setPrefsPanelOpen(false)
   }
+  // ¿hay algún panel lateral abierto? (el dropdown de contexto tiene su propio backdrop)
+  const panelOpen =
+    histOpen || artsOpen || prefsOpen || agentsOpen || skillsOpen || mcpOpen || statsOpen || diagOpen || prefsPanelOpen || !!diffView
+  // Cierra SOLO la capa de arriba: los submenus se apilan sobre Configuración,
+  // así que el primer cierre los quita a ellos y deja el panel de abajo abierto.
+  // La usan Esc y el clic fuera, para que ambos se comporten igual.
+  const closeTopPanel = () => {
+    if (diffView) return setDiffView(null)
+    if (skillsOpen) return setSkillsOpen(false)
+    if (mcpOpen) return setMcpOpen(false)
+    if (statsOpen) return setStatsOpen(false)
+    if (prefsPanelOpen) return setPrefsPanelOpen(false)
+    if (diagOpen) return setDiagOpen(false)
+    if (agentsOpen) return closeAgents()
+    closePanels()
+  }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
     const next = !artsOpen
@@ -772,32 +788,7 @@ export default function App() {
           setFindOpen(false)
           return
         }
-        if (diffView) {
-          setDiffView(null)
-          return
-        }
-        if (skillsOpen) {
-          setSkillsOpen(false)
-          return
-        }
-        if (mcpOpen) {
-          setMcpOpen(false)
-          return
-        }
-        if (statsOpen) {
-          setStatsOpen(false)
-          return
-        }
-        if (prefsPanelOpen) {
-          setPrefsPanelOpen(false)
-          return
-        }
-        if (diagOpen) {
-          setDiagOpen(false)
-          return
-        }
-        if (agentsOpen) closeAgents()
-        else closePanels()
+        closeTopPanel()
         return
       }
       if (!e.metaKey) return
@@ -830,6 +821,21 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
     // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen/lightbox: Esc por capas
   }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen, diagOpen, tourOpen, prefsPanelOpen])
+
+  // Clic fuera de un panel abierto = cerrarlo, capa por capa (igual que Esc).
+  // Se excluye el HUD: sus botones son toggles y ya cierran lo que abrieron —
+  // si el clic los cerrara antes, la barra no podría volver a cerrar nada.
+  useEffect(() => {
+    if (!panelOpen) return
+    const DENTRO = '.drawer, .hud, .ctx-pop, .ctx-backdrop, .snip-pop, .tour, .lightbox'
+    const onDown = (e) => {
+      if (e.target.closest?.(DENTRO)) return
+      closeTopPanel()
+    }
+    // captura: así se adelanta a los handlers de la escena y del chat
+    window.addEventListener('mousedown', onDown, true)
+    return () => window.removeEventListener('mousedown', onDown, true)
+  }, [panelOpen, diffView, skillsOpen, mcpOpen, statsOpen, prefsPanelOpen, diagOpen, agentsOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
