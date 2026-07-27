@@ -6,6 +6,8 @@ const os = require('node:os')
 const https = require('node:https')
 const crypto = require('node:crypto')
 const { pathToFileURL } = require('node:url')
+// lógica pura y testeable del main (#116)
+const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = require('./lib/core.js')
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -310,9 +312,8 @@ function ensureSquadIgnored(dir) {
   try {
     if (!fs.existsSync(path.join(dir, '.git'))) return
     const gi = path.join(dir, '.gitignore')
-    const cur = fs.existsSync(gi) ? fs.readFileSync(gi, 'utf8') : ''
-    if (cur.split('\n').some((l) => l.trim() === 'SQUAD.md')) return
-    fs.writeFileSync(gi, (cur && !cur.endsWith('\n') ? `${cur}\n` : cur) + 'SQUAD.md\n')
+    const nuevo = gitignoreConSquad(fs.existsSync(gi) ? fs.readFileSync(gi, 'utf8') : '')
+    if (nuevo) fs.writeFileSync(gi, nuevo)
   } catch {}
 }
 
@@ -469,7 +470,7 @@ function toolDetail(name, input = {}) {
 }
 
 // Parser de una línea NDJSON del stream, ligado al rol que la produce.
-function makeLineHandler(role, sessionKey, displayName) {
+function makeLineHandler(role, claveSesion, displayName) {
   return (line) => {
     let msg
     try {
@@ -480,8 +481,8 @@ function makeLineHandler(role, sessionKey, displayName) {
 
     if (msg.type === 'system' && msg.subtype === 'init') {
       if (msg.session_id) {
-        sessions.set(sessionKey, msg.session_id)
-        rememberSession(sessionKey, msg.session_id)
+        sessions.set(claveSesion, msg.session_id)
+        rememberSession(claveSesion, msg.session_id)
       }
       emit({ kind: 'init', role, sessionId: msg.session_id })
       return
@@ -518,8 +519,8 @@ function makeLineHandler(role, sessionKey, displayName) {
 
     if (msg.type === 'result') {
       if (msg.session_id) {
-        sessions.set(sessionKey, msg.session_id)
-        rememberSession(sessionKey, msg.session_id)
+        sessions.set(claveSesion, msg.session_id)
+        rememberSession(claveSesion, msg.session_id)
       }
       console.log('[claude:result]', role, JSON.stringify({ cost: msg.total_cost_usd, session: msg.session_id }))
       emit({ kind: 'done', role, result: msg.result ?? '', cost: msg.total_cost_usd ?? null, usage: msg.usage ?? null })
@@ -666,9 +667,9 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   if (children.has(role)) return { ok: false, error: `${role} ya está trabajando en algo` }
 
   const workdir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
-  const sessionKey = `${role}::${profile}::${workdir}`
+  const sesion = sessionKey(role, profile, workdir)
   // standup: si no hay conversación activa, retoma la ÚLTIMA sesión conocida
-  const sid = sessions.get(sessionKey) || (standup ? getLastSessions().get(sessionKey) : undefined)
+  const sid = sessions.get(sesion) || (standup ? getLastSessions().get(sesion) : undefined)
 
   const member = getSquad(profile).find((r) => r.id === role)
   const displayName = member?.name || role
@@ -718,28 +719,13 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   const isPR = role === 'pr'
   const allowed = !writeMode ? READ_TOOLS : isPR ? PR_TOOLS : WRITE_TOOLS
 
-  const args = [
-    '-p', prompt,
-    '--output-format', 'stream-json',
-    '--verbose',
-    '--include-partial-messages',
-    '--allowedTools', allowed,
-    '--append-system-prompt', persona,
-  ]
-  if (writeMode) args.push('--permission-mode', isPR ? 'bypassPermissions' : 'acceptEdits')
-  if (model) args.push('--model', model)
-  if (sid) args.push('--resume', sid)
+  const args = buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid })
 
   // Sin API key en el entorno → usa el login de la suscripción ($0 por token).
-  const env = { ...process.env }
-  delete env.ANTHROPIC_API_KEY
-  delete env.ANTHROPIC_AUTH_TOKEN
-  // El PATH del shell de login no llega a Electron: añade las rutas típicas
-  // (Homebrew, ~/.local/bin) para que los agentes encuentren gh, acli, etc.
-  const extraPaths = ['/opt/homebrew/bin', '/usr/local/bin', path.join(app.getPath('home'), '.local', 'bin')]
-  env.PATH = [...new Set([...(env.PATH || '').split(':').filter(Boolean), ...extraPaths])].join(':')
-  if (PROFILE_DIRS[profile]) env.CLAUDE_CONFIG_DIR = PROFILE_DIRS[profile]()
-  else delete env.CLAUDE_CONFIG_DIR
+  const env = sanitizeEnv(process.env, {
+    home: app.getPath('home'),
+    profileDir: PROFILE_DIRS[profile] ? PROFILE_DIRS[profile]() : null,
+  })
 
   let child
   try {
@@ -749,7 +735,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   }
   children.set(role, child)
 
-  const handleLine = makeLineHandler(role, sessionKey, displayName)
+  const handleLine = makeLineHandler(role, sesion, displayName)
   let buffer = ''
   child.stdout.on('data', (chunk) => {
     buffer += chunk.toString()
@@ -1009,19 +995,7 @@ function fetchClaudeUsage(profile) {
               // que pisaba el último dato bueno y el monitor "desaparecía".
               // Solo un 200 con datos reales cuenta como éxito; lo demás → null
               // (la caché conserva el dato anterior y reintenta con backoff).
-              if (res.statusCode === 429) {
-                // la API limita este endpoint por hora (y por IP): respetar
-                // retry-after en vez de reintentar a ciegas cada 15-60s
-                const ra = Number(res.headers['retry-after']) || 900
-                return resolve({ rateLimited: true, retryAfter: Math.min(ra, 3600) })
-              }
-              if (res.statusCode !== 200) return resolve(null)
-              const j = JSON.parse(body)
-              if (!j.five_hour && !j.seven_day) return resolve(null)
-              resolve({
-                session: j.five_hour ? { pct: j.five_hour.utilization ?? 0, resetsAt: j.five_hour.resets_at } : null,
-                weekly: j.seven_day ? { pct: j.seven_day.utilization ?? 0, resetsAt: j.seven_day.resets_at } : null,
-              })
+              resolve(parseUsage(res.statusCode, res.headers, body))
             } catch {
               resolve(null)
             }
@@ -1362,14 +1336,10 @@ ipcMain.handle('skills:remove', (_e, { profile, id }) => {
 // ── Plugins de Claude Code por perfil (marketplaces) ─────────────────────────
 // Mismo entorno que los agentes headless: el CLI opera sobre el perfil elegido.
 function claudeEnvFor(profile) {
-  const env = { ...process.env }
-  delete env.ANTHROPIC_API_KEY
-  delete env.ANTHROPIC_AUTH_TOKEN
-  const extraPaths = ['/opt/homebrew/bin', '/usr/local/bin', path.join(app.getPath('home'), '.local', 'bin')]
-  env.PATH = [...new Set([...(env.PATH || '').split(':').filter(Boolean), ...extraPaths])].join(':')
-  if (PROFILE_DIRS[profile]) env.CLAUDE_CONFIG_DIR = PROFILE_DIRS[profile]()
-  else delete env.CLAUDE_CONFIG_DIR
-  return env
+  return sanitizeEnv(process.env, {
+    home: app.getPath('home'),
+    profileDir: PROFILE_DIRS[profile] ? PROFILE_DIRS[profile]() : null,
+  })
 }
 const claudePlugin = (profile, args, timeout = 180000) =>
   execFileP(CLAUDE_BIN, ['plugin', ...args], { env: claudeEnvFor(profile), timeout, maxBuffer: 16 * 1024 * 1024 })
@@ -1475,13 +1445,7 @@ function buildConfigSnapshot(extras) {
     try {
       const cdir = PROFILE_DIRS[prof] ? PROFILE_DIRS[prof]() : path.join(app.getPath('home'), '.claude')
       const cj = JSON.parse(fs.readFileSync(path.join(cdir, '.claude.json'), 'utf8'))
-      const safe = {}
-      const skipped = []
-      for (const [name, srv] of Object.entries(cj.mcpServers || {})) {
-        const hasSecrets = Object.keys(srv?.headers || {}).length > 0 || Object.keys(srv?.env || {}).length > 0
-        if (hasSecrets) skipped.push(name)
-        else safe[name] = srv
-      }
+      const { safe, skipped } = pickSafeMcp(cj.mcpServers)
       if (Object.keys(safe).length) entry.mcp = safe
       if (skipped.length) entry.mcpSkipped = skipped
     } catch {}
