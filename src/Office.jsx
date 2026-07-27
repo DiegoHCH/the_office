@@ -5,6 +5,7 @@ import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
 import GltfProp from './scene/GltfProp.jsx'
 import Character3D from './scene/Character3D.jsx'
+import Pet from './scene/Pet.jsx'
 
 // ── Paleta calcada de la referencia ─────────────────────────────────────────
 // ── Temas de la sala ─────────────────────────────────────────────────────────
@@ -701,7 +702,7 @@ function HelperGhost({ chair }) {
   )
 }
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], onTourDone, onPickMember }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -1017,6 +1018,9 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
             {devState === 'working' && subagents.includes(main.id) && <HelperGhost chair={CHAIR_POS} />}
           </>
         )}
+
+        {/* mascota de la oficina 🦊 (preferencia) — pasea por el centro libre */}
+        {pet && <Pet url={`/models/pets/${pet}.glb`} spots={WANDER_SPOTS.map((s) => s.to)} standup={standup.length > 0} />}
 
         {/* squad: research / design / qa — cada uno con su L y su monitor */}
         {SLOTS.map((s, i) => {

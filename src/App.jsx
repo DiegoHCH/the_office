@@ -261,6 +261,16 @@ export default function App() {
     if (!themeLoaded.current) return
     localStorage.setItem(`oficina-write-${profile}`, writeMode ? '1' : '0')
   }, [writeMode, profile])
+  // mascota 🦊 por perfil
+  const [pet, setPet] = useState('')
+  useEffect(() => {
+    setPet(localStorage.getItem(`oficina-pet-${profile}`) || '')
+  }, [profile])
+  const savePet = (v) => {
+    setPet(v)
+    localStorage.setItem(`oficina-pet-${profile}`, v)
+    showToast(v ? '🦊 ¡La mascota llegó a la oficina!' : 'La mascota se fue a casa')
+  }
 
   useEffect(() => {
     localStorage.setItem('oficina-board', board ? '1' : '0')
@@ -1901,6 +1911,7 @@ export default function App() {
           todos={agentTodos}
           standup={standupIds}
           subagents={Object.keys(agentTool).filter((r) => agentTool[r] === 'Task')}
+          pet={pet}
           elapsed={elapsed}
           queued={queuedCounts}
           deliverTargets={deliverTargets}
@@ -2013,6 +2024,13 @@ export default function App() {
                     {modelLabelOf(id)}
                   </option>
                 ))}
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Mascota:</span>
+              <select className="sel pref-sel" value={pet} onChange={(e) => savePet(e.target.value)}>
+                <option value="">Sin mascota</option>
+                <option value="Fox">🦊 Zorrito</option>
               </select>
             </div>
             <div className="pref-row">

@@ -167,6 +167,7 @@ xattr -cr "/Applications/La Oficina.app"
 
 - **Muebles** — [Kenney · Furniture Kit](https://kenney.nl/assets/furniture-kit) (CC0)
 - **Personajes** — [Quaternius · Animated Characters](https://quaternius.com) (CC0)
+- **Mascota 🦊** — [Quaternius · Animated Animal Pack](https://quaternius.com) (CC0)
 - **Logo de Flutter** — marca de Google, usado en el cuadro decorativo
 
 ## 🗺 Roadmap
