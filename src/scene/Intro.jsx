@@ -288,7 +288,8 @@ function IntroCamera({ progress }) {
   const cam = useRef()
   // keyframes [t, posición, mirada]
   const KEYS = [
-    [0.0, [13, 15, 16], [0, 1.2, 0]],
+    [0.0, [13.6, 15.4, 16.6], [0, 1.2, 0]],
+    [0.14, [12.4, 14.6, 15.4], [0, 1.2, 0]], // deriva suave del plano aéreo
     [0.45, [5.5, 5.6, 8.4], [-0.4, 1.2, 0.6]],
     [0.78, [-0.35, 1.55, 3.9], [-0.55, 0.85, 1.2]],
     [1.0, [-0.55, 0.78, 0.85], [-0.55, 0.72, -1.2]], // dentro del zaguán
@@ -337,15 +338,20 @@ export default function Intro({ onDone, bg = '#e8b98a' }) {
 
   useEffect(() => {
     let raf
+    // Ritmo de la toma (en segundos):
+    //  0.0-1.6  la cámara sostiene el plano aéreo de la ciudad (respira)
+    //  1.6-7.0  desciende y vuela hacia el edificio, sin prisa
+    //  5.6      las puertas empiezan a abrirse, ya de frente a la entrada
+    //  6.6-8.0  cruza el umbral fundiendo a negro
+    //  8.0-8.9  el negro se sostiene antes de entregar la oficina
+    const HOLD = 1.6
+    const FLIGHT = 5.4
     const tick = () => {
       const t = (performance.now() - startedAt.current) / 1000
-      // 0→3.9s: vuelo completo (ciudad → puerta → cruzarla)
-      progress.current = Math.min(t / 3.9, 1)
-      // las puertas se abren cuando la cámara ya está encarando la entrada
-      doorOpen.current = t > 2.1 ? Math.min((t - 2.1) / 0.9, 1) : 0
-      // al cruzar el umbral, la pantalla funde a negro
-      if (t > 3.35) setFlash(Math.min((t - 3.35) / 0.75, 1))
-      if (t > 4.3) return finish()
+      progress.current = t < HOLD ? 0 : Math.min((t - HOLD) / FLIGHT, 1)
+      doorOpen.current = t > 5.6 ? Math.min((t - 5.6) / 1.1, 1) : 0
+      if (t > 6.6) setFlash(Math.min((t - 6.6) / 1.4, 1))
+      if (t > 8.9) return finish()
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)

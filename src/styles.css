@@ -934,3 +934,12 @@ select.squad-model {
   backdrop-filter: blur(6px); font-family: inherit;
 }
 .intro-skip:hover { background: rgba(14, 20, 23, 0.78); }
+/* la oficina emerge del negro cuando la intro termina (no aparece de golpe) */
+.intro-veil {
+  position: fixed; inset: 0; z-index: 19; background: #000; pointer-events: none;
+  animation: introVeil 1.6s ease-out forwards;
+}
+@keyframes introVeil {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}

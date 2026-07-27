@@ -76,6 +76,7 @@ export default function App() {
     return !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
   })
   const [introOn, setIntroOn] = useState(() => localStorage.getItem('oficina-intro') !== '0')
+  const [introFade, setIntroFade] = useState(false)
   const saveIntro = (v) => {
     setIntroOn(v)
     localStorage.setItem('oficina-intro', v ? '1' : '0')
@@ -3228,7 +3229,16 @@ export default function App() {
         </div>
       )}
 
-      {introOpen && <Intro onDone={() => setIntroOpen(false)} />}
+      {introOpen && (
+        <Intro
+          onDone={() => {
+            setIntroOpen(false)
+            setIntroFade(true) // la oficina emerge del negro, no aparece de golpe
+            setTimeout(() => setIntroFade(false), 1700) // hasta que el velo termine
+          }}
+        />
+      )}
+      {introFade && <div className="intro-veil" />}
       {tourOpen && <Tour onDone={endTour} />}
 
       {(attachments.length > 0 || refs.length > 0) && (
