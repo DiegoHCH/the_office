@@ -1,6 +1,6 @@
 // Monitor de recursos y cuota de Claude (refactor #94).
 import { useEffect, useState } from 'react'
-import { fmtReset, fmtTokens } from '../lib/helpers.js'
+import { fmtReset, fmtTokens, ventanaDe } from '../lib/helpers.js'
 import { t } from '../lib/i18n.js'
 
 // Logo de Apple (sistema) y spark de Claude, como SVG inline.
@@ -31,7 +31,7 @@ function Bar({ pct }) {
   )
 }
 
-export default function SysMonitor({ modelLabel, profile, tokens }) {
+export default function SysMonitor({ modelLabel, model, profile, tokens, contexto = 0 }) {
   const tokTotal = tokens ? tokens.in + tokens.out + tokens.cache : 0
   const [s, setS] = useState(null)
   useEffect(() => {
@@ -103,6 +103,17 @@ export default function SysMonitor({ modelLabel, profile, tokens }) {
             <span className="mon-model">{t('mon.thisConv', { n: fmtTokens(tokTotal) })}</span>
           </div>
         )}
+        {contexto > 0 && (() => {
+          // aviso antes de que Claude compacte solo y el agente «olvide» (#123)
+          const pct = Math.min(100, (contexto / ventanaDe(model)) * 100)
+          return (
+            <div className="mon-row" title={t('mon.ctxTitle', { n: fmtTokens(contexto), max: fmtTokens(ventanaDe(model)) })}>
+              <span>{t('mon.context')}</span>
+              <Bar pct={pct} />
+              <b>{Math.round(pct)}%</b>
+            </div>
+          )
+        })()}
         {!(s.claude && (s.claude.session || s.claude.weekly)) && (
           <div className="mon-sub mon-nodata">
             {s.claudeLimitedFor ? t('mon.limited', { m: s.claudeLimitedFor }) : t('mon.noUsage')}

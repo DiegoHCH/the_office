@@ -53,6 +53,16 @@ export function modelLabelOf(id) {
   return id.replace(/^claude-/, '')
 }
 
+// Ventana de contexto por modelo, para avisar antes de que Claude compacte
+// solo. No es el acumulado de la conversación: lo que ocupa contexto es lo que
+// se ENVÍA cada turno (entrada + caché), y eso es lo que se compara aquí.
+const VENTANAS = { 'claude-haiku-4-5': 200_000, 'claude-haiku-4-5-20251001': 200_000 }
+export const ventanaDe = (id) => VENTANAS[id] ?? (id?.includes('haiku') ? 200_000 : 1_000_000)
+
+// Tokens realmente enviados en el último turno = ocupación del contexto.
+export const contextoUsado = (u) =>
+  (u?.input_tokens || 0) + (u?.cache_read_input_tokens || 0) + (u?.cache_creation_input_tokens || 0)
+
 // El composer es un textarea que crece con el contenido (hasta el máximo del CSS).
 export const autoGrow = (el) => {
   if (!el) return

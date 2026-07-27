@@ -8,7 +8,7 @@ import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 import {
   fmtReset, autoGrow, fmtElapsed, fmtTokens, usageTotal, usageTitle, norm, escRe, extractOptions,
-  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, modelLabelOf,
+  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, modelLabelOf, contextoUsado,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
@@ -33,7 +33,8 @@ const standupPrompt = () => t('prompt.standup')
 
 export default function App() {
   const [messages, setMessages] = useState([])
-  const [convTokens, setConvTokens] = useState({ in: 0, out: 0, cache: 0 }) // tokens de la conversación
+  const [convTokens, setConvTokens] = useState({ in: 0, out: 0, cache: 0 })
+  const [ctxUsado, setCtxUsado] = useState(0) // tokens enviados en el último turno (#123) // tokens de la conversación
   const [agentTodos, setAgentTodos] = useState({}) // rol → checklist (TodoWrite) mientras trabaja
   const [agentTool, setAgentTool] = useState({}) // rol → su última tool (para el ayudante 👻 de Task)
   const [standupIds, setStandupIds] = useState([]) // participantes del standup (se reúnen en la escena)
@@ -571,6 +572,8 @@ export default function App() {
           }
           return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, edited, thinking }] : ms
         })
+        // ocupación del contexto: lo enviado en ESTE turno, no el acumulado
+        if (usage) setCtxUsado(contextoUsado(usage))
         // acumulado de tokens de la conversación (para el monitor de claude)
         if (usage)
           setConvTokens((tok) => ({
@@ -933,6 +936,7 @@ export default function App() {
     setMessages([])
     setChatFilter(null)
     setConvTokens({ in: 0, out: 0, cache: 0 })
+    setCtxUsado(0)
     setAgentTodos({})
     convIdRef.current = null
     sessionsRef.current = {}
@@ -2183,7 +2187,7 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <SysMonitor profile={profile} modelLabel={modelLabelOf(model)} tokens={convTokens} />
+        <SysMonitor profile={profile} model={model} modelLabel={modelLabelOf(model)} tokens={convTokens} contexto={ctxUsado} />
         <Suspense fallback={null}>
         <Office
           roleStates={roleStates}
