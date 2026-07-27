@@ -1,6 +1,6 @@
 {
   "name": "la-oficina",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "Cliente visual 3D de Claude Code — una oficina isométrica que reacciona a lo que Claude hace.",
   "main": "electron/main.js",
