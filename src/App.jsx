@@ -23,6 +23,8 @@ import {
   IconTerminal, IconExport, IconImport, IconTune, IconChevron,
   IconWork, IconPrivate, IconPerson, IconFolder, IconPin, IconAdd,
   IconClose, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
+  IconCheck, IconWarn, IconSpinner, IconPlug, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
+  IconCopy, IconRetry, IconShare, IconDiff, IconChat, IconBoard, IconBell, IconBellOff, IconRestore, IconCoin, IconClock,
 } from './components/icons.jsx'
 
 const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
@@ -2087,7 +2089,7 @@ export default function App() {
         {prefsOpen && (
           <div className="drawer">
             <div className="drawer-head">
-              <b>⚙️ Configuración</b>
+              <b>Configuración</b>
               <button onClick={() => setPrefsOpen(false)}><IconClose size={16} /></button>
             </div>
 
@@ -2197,7 +2199,7 @@ export default function App() {
                   showToast('Log copiado 📋')
                 }}
               >
-                📋 Copiar todo
+                <IconCopy size={13} /> Copiar todo
               </button>
               <button
                 type="button"
@@ -2247,30 +2249,30 @@ export default function App() {
             <div className="pref-row">
               <span className="pref-label">Intro:</span>
               <select className="sel pref-sel" value={introOn ? '1' : '0'} onChange={(e) => saveIntro(e.target.value === '1')}>
-                <option value="1">🎬 Mostrar al abrir la app</option>
+                <option value="1">Mostrar al abrir la app</option>
                 <option value="0">Sin intro</option>
               </select>
             </div>
             <div className="pref-row">
               <span className="pref-label">Calidad:</span>
               <select className="sel pref-sel" value={quality} onChange={(e) => saveQuality(e.target.value)}>
-                <option value="cine">🎬 Cine — todos los efectos</option>
-                <option value="normal">✨ Normal (recomendado)</option>
-                <option value="ligera">🔋 Ligera — ahorra batería</option>
+                <option value="cine">Cine — todos los efectos</option>
+                <option value="normal">Normal (recomendado)</option>
+                <option value="ligera">Ligera — ahorra batería</option>
               </select>
             </div>
             <div className="pref-row">
               <span className="pref-label">Cámara:</span>
               <select className="sel pref-sel" value={director ? '1' : '0'} onChange={(e) => saveDirector(e.target.value === '1')}>
                 <option value="0">Fija (tú la mueves)</option>
-                <option value="1">🎬 Director — sigue a quien trabaja</option>
+                <option value="1">Director — sigue a quien trabaja</option>
               </select>
             </div>
             <div className="pref-row">
               <span className="pref-label">Mascota:</span>
               <select className="sel pref-sel" value={pet} onChange={(e) => savePet(e.target.value)}>
                 <option value="">Sin mascota</option>
-                <option value="Fox">🦊 Zorrito</option>
+                <option value="Fox">Zorrito</option>
               </select>
             </div>
             <div className="pref-row">
@@ -2288,7 +2290,7 @@ export default function App() {
                 <option value="">Apagado</option>
                 {['08:00', '08:30', '09:00', '09:30', '10:00', '11:00', '12:00'].map((h) => (
                   <option key={h} value={h}>
-                    📋 {h} · días hábiles
+                    {h} · días hábiles
                   </option>
                 ))}
               </select>
@@ -2301,14 +2303,14 @@ export default function App() {
                 onChange={(e) => setWritePermission(e.target.value === 'write')}
                 disabled={busy}
               >
-                <option value="write">✏️ Edición — puede modificar y correr comandos</option>
-                <option value="read">🔒 Lectura — solo investigar</option>
+                <option value="write">Edición — puede modificar y correr comandos</option>
+                <option value="read">Lectura — solo investigar</option>
               </select>
             </div>
             <div className="pref-row">
               <span className="pref-label">Tema:</span>
               <select className="sel pref-sel" value={theme} onChange={(e) => setTheme(e.target.value)}>
-                <option value="auto">🌗 Auto — Noche al atardecer</option>
+                <option value="auto">Auto — Noche al atardecer</option>
                 {Object.entries(THEMES).map(([id, t]) => (
                   <option key={id} value={id}>
                     {t.label}
@@ -2319,7 +2321,7 @@ export default function App() {
             <div className="pref-row">
               <span className="pref-label">Documentos:</span>
               <button type="button" className="pref-toggle" onClick={pickArtsDir} title={artsDir}>
-                📁 …{artsDir.slice(-30) || 'Carpeta por defecto'}
+                <IconFolder size={13} /> …{artsDir.slice(-30) || 'Carpeta por defecto'}
               </button>
             </div>
             <div className="pref-row">
@@ -2330,7 +2332,9 @@ export default function App() {
                 onClick={() => setBoard((b) => !b)}
                 title="Memoria común del squad en SQUAD.md (leen y anotan lo importante)"
               >
-                {board ? '🧠 Activada' : '🧠 Desactivada'}
+                <>
+                <IconBoard size={13} /> {board ? 'Activada' : 'Desactivada'}
+              </>
               </button>
               <button
                 type="button"
@@ -2353,7 +2357,9 @@ export default function App() {
                 onClick={() => setSound((s) => !s)}
                 title={sound ? 'Apagar sonidos y avisos' : 'Encender sonidos y avisos'}
               >
-                {sound ? '🔔 Encendidas' : '🔕 Apagadas'}
+                <>
+                {sound ? <IconBell size={13} /> : <IconBellOff size={13} />} {sound ? 'Encendidas' : 'Apagadas'}
+              </>
               </button>
             </div>
             </div>
@@ -2405,9 +2411,9 @@ export default function App() {
                   {/* tarjetas de resumen */}
                   <div className="stat-cards">
                     {[
-                      ['Tareas', totTasks, '📋'],
-                      ['Tokens', fmtTokens(totTok), '🪙'],
-                      ['Tiempo', fmtElapsed(totMs), '⏱'],
+                      ['Tareas', totTasks, <IconStats key="t" size={14} />],
+                      ['Tokens', fmtTokens(totTok), <IconCoin key="k" size={14} />],
+                      ['Tiempo', fmtElapsed(totMs), <IconClock key="c" size={14} />],
                     ].map(([k, v, ico]) => (
                       <div key={k} className="stat-card">
                         <span className="stat-ico">{ico}</span>
@@ -2456,7 +2462,7 @@ export default function App() {
                         <span>
                           {memberOf(id).emoji} {memberOf(id).name}
                         </span>
-                        <span className="stat-agent-num">🪙 {fmtTokens(a.tokens)}</span>
+                        <span className="stat-agent-num">{fmtTokens(a.tokens)} tokens</span>
                       </div>
                       <div className="stat-agent-bar">
                         <div style={{ width: `${(a.tokens / maxAgente) * 100}%`, background: memberOf(id).color || '#2dd4bf' }} />
@@ -2487,7 +2493,7 @@ export default function App() {
             {mcpList !== null && (
               <>
                 {mcpList.length === 0 && (
-                  <div className="hist-empty">Aún no tienes servidores en este perfil — conecta del catálogo 👇</div>
+                  <div className="hist-empty">Aún no tienes servidores en este perfil — conecta del catálogo</div>
                 )}
                 {MCP_CATALOG.map((s) => {
                   const inst = mcpList.some((x) => x.name === s.id)
@@ -2495,7 +2501,7 @@ export default function App() {
                     <div key={s.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {s.name} {inst && <span className="skill-ok">✓ conectado</span>}
+                          {s.name} {inst && <span className="skill-ok"><IconCheck size={12} /> conectado</span>}
                         </div>
                         <div className="hist-meta">{s.desc}</div>
                         <div className="skill-tags">
@@ -2506,7 +2512,7 @@ export default function App() {
                       </div>
                       <div className="art-actions">
                         {mcpBusy === s.id ? (
-                          <span className="skill-busy">⏳</span>
+                          <span className="skill-busy"><IconSpinner /></span>
                         ) : inst ? (
                           <button title="Quitar del perfil" onClick={() => removeMcp(s.id)}><IconTrash size={14} /></button>
                         ) : s.manual ? (
@@ -2538,13 +2544,13 @@ export default function App() {
                     <div key={x.name} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {x.name} <span className="skill-ok">✓ conectado</span>
+                          {x.name} <span className="skill-ok"><IconCheck size={12} /> conectado</span>
                         </div>
                         <div className="hist-meta">{x.spec}</div>
                       </div>
                       <div className="art-actions">
                         {mcpBusy === x.name ? (
-                          <span className="skill-busy">⏳</span>
+                          <span className="skill-busy"><IconSpinner /></span>
                         ) : (
                           <button title="Quitar del perfil" onClick={() => removeMcp(x.name)}><IconTrash size={14} /></button>
                         )}
@@ -2555,7 +2561,7 @@ export default function App() {
                     configurados desde la terminal (solo lectura desde aquí) */}
                 <div className="menu-sec">Desde tu cuenta y terminal</div>
                 {mcpAccount?.loading && <div className="hist-empty">Consultando al CLI (hace health-check, tarda unos segundos)…</div>}
-                {mcpAccount?.error && <div className="hist-empty">⚠️ {mcpAccount.error}</div>}
+                {mcpAccount?.error && <div className="hist-empty"><IconWarn size={13} /> {mcpAccount.error}</div>}
                 {mcpAccount?.servers &&
                   (() => {
                     const extra = mcpAccount.servers.filter((s) => !mcpList.some((x) => x.name === s.name))
@@ -2566,7 +2572,7 @@ export default function App() {
                           <div className="hist-title">
                             {s.name}{' '}
                             <span className={s.status.startsWith('✔') ? 'skill-ok' : 'mcp-warn'}>
-                              {s.status.startsWith('✔') ? '✓ conectado' : s.status.replace(/^!\s*/, '⚠ ')}
+                              {s.status.startsWith('✔') ? 'conectado' : s.status.replace(/^!\s*/, 'atención: ')}
                             </span>
                           </div>
                           <div className="hist-meta">{s.target}</div>
@@ -2607,7 +2613,7 @@ export default function App() {
                   </div>
                 ) : (
                   <button type="button" className="snip-new" onClick={() => setMcpForm({ name: '', target: '' })}>
-                    ➕ Conectar otro servidor
+                    <IconAdd size={14} /> Conectar otro servidor
                   </button>
                 )}
               </>
@@ -2636,7 +2642,7 @@ export default function App() {
             {installedSkills !== null && (
               <>
                 {installedSkills.length === 0 && (
-                  <div className="hist-empty">Aún no tienes skills en este perfil — instala del catálogo 👇</div>
+                  <div className="hist-empty">Aún no tienes skills en este perfil — instala del catálogo</div>
                 )}
                 {SKILL_CATALOG.map((s) => {
                   const inst = installedSkills.some((x) => x.id === s.id)
@@ -2644,7 +2650,7 @@ export default function App() {
                     <div key={s.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {s.name} {inst && <span className="skill-ok">✓ instalada</span>}
+                          {s.name} {inst && <span className="skill-ok"><IconCheck size={12} /> instalada</span>}
                         </div>
                         <div className="hist-meta">{s.desc}</div>
                         <div className="skill-tags">
@@ -2655,7 +2661,7 @@ export default function App() {
                       </div>
                       <div className="art-actions">
                         {skillBusy === s.id ? (
-                          <span className="skill-busy">⏳</span>
+                          <span className="skill-busy"><IconSpinner /></span>
                         ) : inst ? (
                           <>
                             <button title="Actualizar a la última versión" onClick={() => installSkill(s)}><IconRefresh size={14} /></button>
@@ -2674,13 +2680,13 @@ export default function App() {
                     <div key={x.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {x.id} <span className="skill-ok">✓ instalada</span>
+                          {x.id} <span className="skill-ok"><IconCheck size={12} /> instalada</span>
                         </div>
                         <div className="hist-meta">{x.desc || 'Skill propia (fuera del catálogo)'}</div>
                       </div>
                       <div className="art-actions">
                         {skillBusy === x.id ? (
-                          <span className="skill-busy">⏳</span>
+                          <span className="skill-busy"><IconSpinner /></span>
                         ) : (
                           <button title="Quitar del perfil" onClick={() => removeSkill(x.id)}><IconTrash size={14} /></button>
                         )}
@@ -2701,7 +2707,7 @@ export default function App() {
                     {scanResult?.loading ? '⏳' : 'Buscar'}
                   </button>
                 </div>
-                {scanResult?.error && <div className="hist-empty">⚠️ {scanResult.error}</div>}
+                {scanResult?.error && <div className="hist-empty"><IconWarn size={13} /> {scanResult.error}</div>}
                 {scanResult?.skills?.length === 0 && <div className="hist-empty">Ese repo no trae carpetas con SKILL.md</div>}
                 {scanResult?.skills?.map((s) => {
                   const inst = installedSkills.some((x) => x.id === s.id)
@@ -2709,13 +2715,13 @@ export default function App() {
                     <div key={s.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {s.id} {inst && <span className="skill-ok">✓ instalada</span>}
+                          {s.id} {inst && <span className="skill-ok"><IconCheck size={12} /> instalada</span>}
                         </div>
                         <div className="hist-meta">{s.desc || `de ${scanResult.repo}`}</div>
                       </div>
                       <div className="art-actions">
                         {skillBusy === s.id ? (
-                          <span className="skill-busy">⏳</span>
+                          <span className="skill-busy"><IconSpinner /></span>
                         ) : (
                           <button className="skill-install" onClick={() => installSkill({ id: s.id, repo: scanResult.repo, name: s.id })}>
                             {inst ? 'Actualizar' : 'Instalar'}
@@ -2750,7 +2756,7 @@ export default function App() {
                   </div>
                 ) : (
                   <button type="button" className="snip-new" onClick={() => setSkillForm({ name: '', desc: '' })}>
-                    ➕ Crear skill propia
+                    <IconAdd size={14} /> Crear skill propia
                   </button>
                 )}
 
@@ -2761,7 +2767,7 @@ export default function App() {
                   GitHub sirve como fuente.
                 </div>
                 {pluginData?.loading && <div className="hist-empty">Consultando plugins del perfil…</div>}
-                {pluginData?.error && <div className="hist-empty">⚠️ {pluginData.error}</div>}
+                {pluginData?.error && <div className="hist-empty"><IconWarn size={13} /> {pluginData.error}</div>}
                 {pluginData?.installed && (
                   <>
                     <div className="skill-scan">
@@ -2783,7 +2789,7 @@ export default function App() {
                         </div>
                         <div className="art-actions">
                           {pluginBusy === m.name ? (
-                            <span className="skill-busy">⏳</span>
+                            <span className="skill-busy"><IconSpinner /></span>
                           ) : (
                             m.name !== 'claude-plugins-official' && (
                               <button title="Quitar fuente" onClick={() => removeMkt(m.name)}><IconTrash size={14} /></button>
@@ -2796,13 +2802,13 @@ export default function App() {
                       <div key={p.id} className="hist-item skill-item">
                         <div className="skill-info">
                           <div className="hist-title">
-                            🔌 {p.name} <span className="skill-ok">✓ instalado</span>
+                            {p.name} <span className="skill-ok"><IconCheck size={12} /> instalado</span>
                           </div>
                           <div className="hist-meta">{p.desc}</div>
                         </div>
                         <div className="art-actions">
                           {pluginBusy === p.id ? (
-                            <span className="skill-busy">⏳</span>
+                            <span className="skill-busy"><IconSpinner /></span>
                           ) : (
                             <button title="Desinstalar" onClick={() => uninstallPlugin(p.id)}><IconTrash size={14} /></button>
                           )}
@@ -2811,7 +2817,7 @@ export default function App() {
                     ))}
                     <div className="skill-scan">
                       <input
-                        placeholder={`🔍 Buscar entre ${pluginData.available.length} plugins disponibles…`}
+                        placeholder={`Buscar entre ${pluginData.available.length} plugins disponibles…`}
                         value={pluginQuery}
                         onChange={(e) => setPluginQuery(e.target.value)}
                       />
@@ -2833,9 +2839,9 @@ export default function App() {
                             </div>
                             <div className="art-actions">
                               {pluginBusy === p.id ? (
-                                <span className="skill-busy">⏳</span>
+                                <span className="skill-busy"><IconSpinner /></span>
                               ) : pluginData.installed.some((x) => x.name === p.name) ? (
-                                <span className="skill-ok">✓</span>
+                                <span className="skill-ok"><IconCheck size={13} /></span>
                               ) : (
                                 <button className="skill-install" onClick={() => installPlugin(p.id)}>Instalar</button>
                               )}
@@ -2926,7 +2932,7 @@ export default function App() {
                         onClick={() => deleteRole(r.id)}
                         title={r.custom ? 'Eliminar este rol personalizado' : 'Eliminar este rol'}
                       >
-                        🗑️
+                        <IconTrash size={13} />
                       </button>
                     )}
                   </span>
@@ -2959,10 +2965,10 @@ export default function App() {
                     onChange={(e) => setMemberModel(r.id, e.target.value)}
                     title="Modelo propio de este agente (Global = el del selector de arriba)"
                   >
-                    <option value="">🧠 Global</option>
+                    <option value="">Modelo global</option>
                     {Object.keys(MODEL_OPTIONS).map((id) => (
                       <option key={id} value={id}>
-                        🧠 {modelLabelOf(id)}
+                        {modelLabelOf(id)}
                       </option>
                     ))}
                   </select>
@@ -2993,7 +2999,7 @@ export default function App() {
                 <div className="add-role-row">
                   <input
                     className="add-role-emoji"
-                    placeholder="🛠️"
+                    placeholder="🛠"
                     value={nr.emoji}
                     maxLength={2}
                     onChange={(e) => setNr((v) => ({ ...v, emoji: e.target.value }))}
@@ -3025,10 +3031,10 @@ export default function App() {
                   onChange={(e) => setNr((v) => ({ ...v, model: e.target.value }))}
                   title="Modelo propio de este agente (si no, usa el global)"
                 >
-                  <option value="">🧠 Modelo: el global ({modelLabelOf(model)})</option>
+                  <option value="">Modelo: el global ({modelLabelOf(model)})</option>
                   {Object.keys(MODEL_OPTIONS).map((id) => (
                     <option key={id} value={id}>
-                      🧠 {modelLabelOf(id)}
+                      {modelLabelOf(id)}
                     </option>
                   ))}
                 </select>
@@ -3047,12 +3053,12 @@ export default function App() {
               </div>
             ) : (
               <button className="squad-add" type="button" onClick={() => setAddingRole(true)}>
-                ➕ Agregar rol
+                <IconAdd size={14} /> Agregar rol
               </button>
             )}
             {missingBuiltins.length > 0 && (
               <button className="squad-add" type="button" onClick={restoreDefaults} title="Recupera UI/UX, QA o Docs si los borraste">
-                ♻️ Restaurar roles predeterminados ({missingBuiltins.length})
+                <IconRestore size={14} /> Restaurar roles predeterminados ({missingBuiltins.length})
               </button>
             )}
             <button className="squad-save" onClick={saveSquad}>
@@ -3088,7 +3094,7 @@ export default function App() {
                         <AvatarThumb file={a} />
                         <div className="avatar-name">
                           {avatarLabel(a)}
-                          {isTaken ? ' 🔒' : ''}
+                          {isTaken ? ' (en uso)' : ''}
                         </div>
                       </div>
                     )
@@ -3105,12 +3111,12 @@ export default function App() {
               <button onClick={() => setDiffView(null)}><IconClose size={16} /></button>
             </div>
             {diffView.loading && <div className="hist-empty">Leyendo el diff…</div>}
-            {diffView.error && <div className="hist-empty">⚠️ {diffView.error}</div>}
+            {diffView.error && <div className="hist-empty"><IconWarn size={13} /> {diffView.error}</div>}
             {diffView.diff !== undefined && !diffView.diff && !diffView.untracked?.length && (
               <div className="hist-empty">Sin cambios pendientes en el repo (¿ya fueron commiteados?)</div>
             )}
             {diffView.untracked?.length > 0 && (
-              <div className="diff-untracked">📄 Nuevos sin trackear: {diffView.untracked.join(' · ')}</div>
+              <div className="diff-untracked"><IconFile size={13} /> Nuevos sin trackear: {diffView.untracked.join(' · ')}</div>
             )}
             {diffView.diff && (
               <pre className="diff-pre">
@@ -3134,7 +3140,7 @@ export default function App() {
             {artsList.map((a) => (
               <div key={a.path} className="hist-item art-item">
                 <div onClick={() => window.oficina?.artifacts?.open?.(a.path)} style={{ cursor: 'pointer' }}>
-                  <div className="hist-title">🔗 {prettyArtifact(a.name)}</div>
+                  <div className="hist-title"><IconLink size={13} /> {prettyArtifact(a.name)}</div>
                   <div className="hist-meta">
                     {a.at ? new Date(a.at).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                   </div>
@@ -3149,7 +3155,7 @@ export default function App() {
                     }}
                     title="Usar como contexto del próximo mensaje (el agente lo lee)"
                   >
-                    💬
+                    <IconChat size={13} />
                   </button>
                   <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title="Revelar en Finder"><IconReveal size={14} /></button>
                   <button
@@ -3176,7 +3182,7 @@ export default function App() {
             {histList.length > 0 && (
               <input
                 className="hist-search"
-                placeholder="🔍 Buscar por título o proyecto…"
+                placeholder="Buscar por título o proyecto…"
                 value={histQuery}
                 onChange={(e) => setHistQuery(e.target.value)}
                 autoFocus
@@ -3202,11 +3208,11 @@ export default function App() {
                   />
                 ) : (
                   <div className="hist-title">
-                    {h.pinned && '📌 '}
+                    {h.pinned && <IconPin size={12} />}
                     {h.title}
                   </div>
                 )}
-                {histContent[h.id] && <div className="hist-meta hist-excerpt">🔎 {histContent[h.id]}</div>}
+                {histContent[h.id] && <div className="hist-meta hist-excerpt"><IconSearchSmall size={12} /> {histContent[h.id]}</div>}
                 <div className="hist-meta">
                   <span className="ctx-ico">{h.profile === 'work' ? <IconWork size={12} /> : <IconPrivate size={12} />}</span>{h.project?.split('/').pop()} · {h.count} msgs ·{' '}
                   {h.updatedAt
@@ -3230,7 +3236,7 @@ export default function App() {
                   style={h.pinned ? { opacity: 0.8 } : undefined}
                   onClick={(e) => togglePin(e, h)}
                 >
-                  📌
+                  <IconPin size={13} />
                 </button>
                 <button className="hist-export" title="Exportar a Markdown" aria-label="Exportar conversación a Markdown" onClick={(e) => exportConvo(e, h.id)}>
                   <IconDownload size={14} />
@@ -3289,8 +3295,8 @@ export default function App() {
                   }}
                 />
                 <span className="find-count">{findQuery.trim() ? (findHits.length ? `${findIdx + 1}/${findHits.length}` : '0') : ''}</span>
-                <button type="button" onClick={() => gotoHit(findIdx - 1)} title="Anterior (⇧Enter)">↑</button>
-                <button type="button" onClick={() => gotoHit(findIdx + 1)} title="Siguiente (Enter)">↓</button>
+                <button type="button" onClick={() => gotoHit(findIdx - 1)} title="Anterior (⇧Enter)"><IconArrowUp size={14} /></button>
+                <button type="button" onClick={() => gotoHit(findIdx + 1)} title="Siguiente (Enter)"><IconArrowDown size={14} /></button>
                 <button type="button" onClick={() => setFindOpen(false)} title="Cerrar (Esc)"><IconClose size={16} /></button>
               </div>
             )}
@@ -3326,9 +3332,9 @@ export default function App() {
                 {m.role === 'user' && m.to && m.to !== principal && <div className="who to">→ {memberOf(m.to).name}</div>}
                 {m.role === 'user' && m.queued && (
                   <div className="who to">
-                    ⏳ En cola
+                    <IconClock size={12} /> En cola
                     <button type="button" className="queue-cancel" onClick={() => cancelQueued(m)} title="Quitar de la cola">
-                      ✕
+                      <IconClose size={12} />
                     </button>
                   </div>
                 )}
@@ -3345,14 +3351,14 @@ export default function App() {
                         requestAnimationFrame(() => autoGrow(inputRef.current))
                       }}
                     >
-                      ✏️ Editar
+                      <IconEdit size={13} /> Editar
                     </button>
                   </div>
                 )}
                 {m.role === 'user' && m.atts?.length > 0 && (
                   <div className="msg-atts">
                     {m.atts.map((a, j) =>
-                      typeof a === 'string' ? <span key={j}>🖼 {a}</span> : <AttThumb key={j} att={a} onZoom={setLightbox} />
+                      typeof a === 'string' ? <span key={j}><IconImage size={12} /> {a}</span> : <AttThumb key={j} att={a} onZoom={setLightbox} />
                     )}
                   </div>
                 )}
@@ -3366,7 +3372,7 @@ export default function App() {
                 {m.streaming ? '▍' : ''}
                 {m.usage && (
                   <div className="msg-tokens" title={usageTitle(m.usage)}>
-                    🪙 {fmtTokens(usageTotal(m.usage))} tokens
+                    {fmtTokens(usageTotal(m.usage))} tokens
                   </div>
                 )}
                 {m.role === 'assistant' && !m.streaming && !m.error && (
@@ -3380,7 +3386,7 @@ export default function App() {
                       showToast('Respuesta copiada 📋')
                     }}
                   >
-                    📋
+                    <IconCopy size={12} />
                   </button>
                 )}
                 {m.role === 'user' && !m.queued && (
@@ -3403,22 +3409,22 @@ export default function App() {
                 )}
                 {m.artifact && (
                   <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
-                    🔗 Abrir · {prettyArtifact(m.artifact.name)}
+                    <IconLink size={13} /> Abrir · {prettyArtifact(m.artifact.name)}
                   </button>
                 )}
                 {m.edited && (
                   <button className="artifact-btn" onClick={openDiff}>
-                    🔀 Ver cambios
+                    <IconDiff size={13} /> Ver cambios
                   </button>
                 )}
                 {m.role === 'system' && m.standupShare && (
                   <button className="artifact-btn" onClick={() => shareStandup(i)}>
-                    📤 Compartir resumen a Slack
+                    <IconShare size={13} /> Compartir resumen a Slack
                   </button>
                 )}
                 {m.error && lastJobRef.current[m.who] && i === messages.findLastIndex((x) => x.who === m.who) && (
                   <button className="artifact-btn" onClick={() => retryJob(m.who)}>
-                    🔁 Reintentar
+                    <IconRetry size={13} /> Reintentar
                   </button>
                 )}
                 {options.length > 0 && (
@@ -3457,7 +3463,7 @@ export default function App() {
       {introFade && <div className="intro-veil" />}
       {quote && (
         <button type="button" className="quote-btn" style={{ left: quote.x, top: quote.y }} onClick={useQuote}>
-          💬 Citar
+          <IconChat size={13} /> Citar
         </button>
       )}
       {tourOpen && <Tour onDone={endTour} />}
@@ -3472,7 +3478,7 @@ export default function App() {
           ))}
           {refs.map((r, i) => (
             <span key={r.path} className="attachchip">
-              {r.isDir ? '📁' : '📄'} {r.name}
+              {r.isDir ? <IconFolder size={12} /> : <IconFile size={12} />} {r.name}
               <button type="button" onClick={() => setRefs((arr) => arr.filter((_, j) => j !== i))}><IconClose size={16} /></button>
             </span>
           ))}
@@ -3530,7 +3536,7 @@ export default function App() {
                   saveSnippets(snippets.filter((x) => x.id !== s.id))
                 }}
               >
-                ✕
+                <IconClose size={12} />
               </button>
             </div>
           ))}
@@ -3570,7 +3576,7 @@ export default function App() {
             </div>
           ) : (
             <button type="button" className="snip-new" onClick={() => setSnipForm({ name: snipQuery || '', text: '' })}>
-              ➕ Nueva plantilla
+              <IconAdd size={13} /> Nueva plantilla
             </button>
           )}
         </div>

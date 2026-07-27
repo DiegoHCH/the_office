@@ -988,3 +988,12 @@ select.squad-model {
 .ctx-item { display: flex; align-items: center; }
 .ctx-item.on .ctx-ico, .ctx-tab.on .ctx-ico { color: #2dd4bf; }
 .ctx-add .ctx-ico { color: #2dd4bf; }
+/* iconos inline dentro de botones y etiquetas: alineados con el texto */
+.artifact-btn svg, .skill-manual svg, .snip-new svg, .quote-btn svg,
+.pref-toggle svg, .squad-avatar-btn svg, .add-role-ok svg, .diag-actions svg,
+.skill-ok svg, .hist-excerpt svg, .diff-untracked svg, .msg-atts svg,
+.attachchip svg, .who svg, .stat-ico svg, .hist-empty svg { vertical-align: -2px; margin-right: 3px; flex: none; }
+.skill-ok { display: inline-flex; align-items: center; gap: 2px; }
+.ico-spin { animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.stat-ico { display: flex; justify-content: center; color: #7fd8c8; }
