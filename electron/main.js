@@ -1778,9 +1778,35 @@ function checkForUpdates() {
   req.on('timeout', () => req.destroy())
 }
 
+// ── Deep links la-oficina:// (Atajos de macOS, Raycast, scripts) ─────────────
+// la-oficina://ask?text=…&role=…  → lanza un prompt · la-oficina://standup
+function handleDeepLink(raw) {
+  try {
+    const u = new URL(raw)
+    if (u.protocol !== 'la-oficina:') return
+    win?.show()
+    win?.focus()
+    win?.webContents.send('claude:event', {
+      kind: 'deep-link',
+      action: u.hostname || u.pathname.replace(/^\/+/, ''),
+      text: (u.searchParams.get('text') || '').slice(0, 4000),
+      role: (u.searchParams.get('role') || '').slice(0, 40),
+    })
+  } catch {}
+}
+app.on('open-url', (e, url) => {
+  e.preventDefault()
+  // puede llegar antes de que la ventana exista (app recién lanzada por el link)
+  if (win && !win.isDestroyed()) handleDeepLink(url)
+  else app.whenReady().then(() => setTimeout(() => handleDeepLink(url), 2500))
+})
+
 app.whenReady().then(() => {
   pruneStorage()
   createTray()
+  try {
+    app.setAsDefaultProtocolClient('la-oficina')
+  } catch {}
   // Si el sistema durmió pese a todo (batería crítica, tapa cerrada), avisar
   // al renderer al despertar: las tareas que estaban corriendo quedaron rotas.
   powerMonitor.on('resume', () => {

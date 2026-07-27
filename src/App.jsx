@@ -550,6 +550,7 @@ export default function App() {
   useEffect(() => {
     messagesRef.current = messages
   }, [messages])
+  const deepLinkRef = useRef(() => {}) // handler de la-oficina:// con closures frescas
   // vista de diff: qué roles editaron archivos en su tarea actual
   const editedRef = useRef({})
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
@@ -826,6 +827,10 @@ export default function App() {
       }
       if (e.kind === 'focus-composer') {
         inputRef.current?.focus()
+        return
+      }
+      if (e.kind === 'deep-link') {
+        deepLinkRef.current(e)
         return
       }
       if (e.kind === 'system-resumed') {
@@ -1806,6 +1811,29 @@ export default function App() {
   const standupCmdRef = useRef(() => {})
   useEffect(() => {
     standupCmdRef.current = () => handleLocalCommand('/standup')
+  })
+
+  // ── Deep links: el handler vive en un ref para tener closures frescas ────
+  useEffect(() => {
+    deepLinkRef.current = (d) => {
+      if (d.action === 'standup') {
+        handleLocalCommand('/standup')
+        return
+      }
+      if (d.action === 'ask') {
+        const text = (d.text || '').trim()
+        if (!text) {
+          inputRef.current?.focus()
+          return
+        }
+        if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+        const target = d.role
+          ? squad.find((m) => m.id === d.role || norm(m.name) === norm(d.role))?.id || principal
+          : routeMessage(text, squad, principal)
+        routeJob({ id: crypto.randomUUID(), target, text, display: `🔗 ${text}`, prompt: text, atts: [] })
+        showToast(`🔗 Deep link → ${memberOf(target).name}`)
+      }
+    }
   })
   const scheduledStandupRef = useRef(false) // ¿el standup en curso fue automático?
   useEffect(() => {
