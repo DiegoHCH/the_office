@@ -885,6 +885,27 @@ export default function App() {
     addFiles(e.dataTransfer?.files)
   }
   const fileInputRef = useRef(null)
+  // pestañas: renombrar con doble click y reordenar arrastrando (#121)
+  const [tabRename, setTabRename] = useState(null) // {id, val} | null
+  const [tabDrag, setTabDrag] = useState(null)
+  const commitTabRename = () => {
+    if (!tabRename) return
+    const val = tabRename.val.trim()
+    // el título es del usuario a partir de aquí: `fijo` frena el autotítulo
+    if (val) setTabs((prev) => prev.map((x) => (x.id === tabRename.id ? { ...x, title: val, fijo: true } : x)))
+    setTabRename(null)
+  }
+  const moveTab = (destino) => {
+    if (!tabDrag || tabDrag === destino) return
+    setTabs((prev) => {
+      const arr = [...prev]
+      const desde = arr.findIndex((x) => x.id === tabDrag)
+      const hasta = arr.findIndex((x) => x.id === destino)
+      if (desde < 0 || hasta < 0) return prev
+      arr.splice(hasta, 0, ...arr.splice(desde, 1))
+      return arr
+    })
+  }
 
   // aviso transitorio: aparece y se desvanece solo (no ensucia el chat)
   const showToast = (text, ms = 3500) => {
@@ -977,7 +998,7 @@ export default function App() {
   // el título de la pestaña sigue al primer mensaje del hilo
   useEffect(() => {
     const primero = messages.find((m) => m.role === 'user')?.text?.slice(0, 22)
-    setTabs((prev) => prev.map((x) => (x.id === activeTab ? { ...x, title: primero || t('hud.new') } : x)))
+    setTabs((prev) => prev.map((x) => (x.id === activeTab && !x.fijo ? { ...x, title: primero || t('hud.new') } : x)))
   }, [messages, activeTab])
 
   // ¿El proyecto tiene repo git? (red de seguridad del modo edición)
@@ -3393,14 +3414,39 @@ export default function App() {
               <button
                 key={tb.id}
                 type="button"
-                className={tb.id === activeTab ? 'tab on' : 'tab'}
+                className={[tb.id === activeTab ? 'tab on' : 'tab', tabDrag === tb.id ? 'dragging' : ''].filter(Boolean).join(' ')}
                 onClick={() => switchTab(tb.id)}
-                title={tb.title}
+                onDoubleClick={() => setTabRename({ id: tb.id, val: tb.title })}
+                title={tabRename?.id === tb.id ? '' : `${tb.title} — ${t('chat.renameHint')}`}
+                draggable={!tabRename}
+                onDragStart={() => setTabDrag(tb.id)}
+                onDragEnd={() => setTabDrag(null)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => moveTab(tb.id)}
               >
-                <span className="tab-title">{tb.title}</span>
-                <span className="tab-x" onClick={(e) => closeTab(e, tb.id)} title={t('chat.closeTab')}>
-                  <IconClose size={11} />
-                </span>
+                {tabRename?.id === tb.id ? (
+                  <input
+                    className="tab-rename"
+                    value={tabRename.val}
+                    autoFocus
+                    maxLength={28}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => setTabRename({ id: tb.id, val: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitTabRename()
+                      if (e.key === 'Escape') setTabRename(null)
+                      e.stopPropagation() // que Esc no cierre además los paneles
+                    }}
+                    onBlur={commitTabRename}
+                  />
+                ) : (
+                  <>
+                    <span className="tab-title">{tb.title}</span>
+                    <span className="tab-x" onClick={(e) => closeTab(e, tb.id)} title={t('chat.closeTab')}>
+                      <IconClose size={11} />
+                    </span>
+                  </>
+                )}
               </button>
             ))}
             {tabs.length < MAX_TABS && (

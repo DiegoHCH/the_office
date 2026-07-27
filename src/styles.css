@@ -1188,5 +1188,10 @@ select.squad-model {
 .tab:hover .tab-x { opacity: 0.55; }
 .tab-x:hover { opacity: 1 !important; background: rgba(233, 241, 238, 0.12); }
 .tab-add { flex: none; width: 30px; justify-content: center; padding: 6px; color: var(--accent-2); }
+.tab.dragging { opacity: 0.5; }
+.tab-rename {
+  flex: 1; min-width: 0; background: transparent; border: none; outline: none;
+  color: var(--ink); font-size: 11.5px; font-family: inherit; padding: 0;
+}
 /* con pestañas, el chat empieza más abajo para no quedar tapado */
 .chat-tabbed { top: 46px; }
