@@ -140,6 +140,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <tr><td>🖱 Click en un personaje</td><td>Prefija su nombre en el mensaje (igual que <kbd>⌘1</kbd>–<kbd>⌘6</kbd>)</td></tr>
   </table></div>
   <ul>
+    <li><b>🗂 Pestañas de conversación:</b> hasta 4 hilos abiertos a la vez sobre el chat. Cada pestaña guarda sus mensajes, sus sesiones de Claude y sus colas, así que cambiar de una a otra no pierde nada; la ✕ cierra y el hilo queda en el historial. No se puede cambiar de pestaña con el squad trabajando.</li>
     <li><b>⌨️ Composer multilínea:</b> <kbd>Enter</kbd> envía, <kbd>Shift</kbd>+<kbd>Enter</kbd> hace salto de línea; la caja crece con el texto.</li>
     <li><b>📌 Plantillas:</b> escribe <code>/</code> y salen tus plantillas (por perfil); <kbd>Enter</kbd> o <kbd>Tab</kbd> insertan la primera, y se crean/borran ahí mismo. Admiten <code>{{variables}}</code>: al insertarlas, un mini-formulario pide los valores. Vienen 4 de ejemplo para empezar.</li>
     <li><b>✏️/🔒 Chip de permiso</b> (junto al composer): ámbar = <i>edición</i> (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git; sin git, la app te lo advierte); gris = <i>lectura</i> (solo investiga). Un clic lo alterna.</li>
@@ -168,7 +169,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <tr><td class="mono">/clear</td><td>Conversación nueva</td></tr>
     <tr><td class="mono">/mi-plantilla</td><td>Con plantillas guardadas, / las lista y filtra; sin coincidencia, el /comando pasa directo a Claude Code — tus skills funcionan</td></tr>
   </table></div>
-  <p><kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘F</kbd> buscar en la conversación · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigirte a cada agente · <kbd>Esc</kbd> cierra paneles (por capas) · <kbd>Enter</kbd> envía. Y desde <b>cualquier app</b>: <kbd>⌥Espacio</kbd> trae La Oficina con el composer listo (segundo toque la aparta).</p>
+  <p><kbd>⌘K</kbd> nueva · <kbd>⌘Y</kbd> historial · <kbd>⌘F</kbd> buscar en la conversación · <kbd>⌘,</kbd> configuración · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> dirigirte a cada agente · <kbd>Esc</kbd> o un <b>clic fuera</b> cierran los paneles (por capas: primero el submenu, luego el de abajo) · <kbd>Enter</kbd> envía. Y desde <b>cualquier app</b>: <kbd>⌥Espacio</kbd> trae La Oficina con el composer listo (segundo toque la aparta).</p>
 
   <h2>Configuración ⚙️</h2>
   <ul>
@@ -188,7 +189,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <li><b>🔧 Diagnóstico</b> — los últimos eventos de cada agente y los errores con su detalle, para copiar o exportar.</li>
     <li><b>🎬 Intro y 🎓 Tour</b> — activar la intro de arranque y relanzar el tour guiado.</li>
     <li><b>Calidad</b> — 🎬 Cine (todos los efectos), ✨ Normal o 🔋 Ligera (ahorra batería).</li>
-    <li><b>Mascota</b> 🦊 — un zorrito que pasea por la oficina, husmea y se acerca a mirar el standup.</li>
+    <li><b>Mascota</b> 🦊 — zorro, shiba, husky, lobo, venado o alpaca: pasea por la oficina, husmea, come y cuando hay standup se acerca a mirar la reunión. Se elige (o se quita) en Preferencias.</li>
     <li><b>Standup programado</b> — a la hora que elijas en días hábiles; al terminar puedes <b>📤 compartir el resumen a Slack</b> (canal configurable).</li>
     <li><b>💾 Exportar / 📥 Importar configuración</b> — squad, personalidades, plantillas y proyectos en un JSON, para respaldar o migrar de máquina. Además se guarda un <b>respaldo automático semanal</b>.</li>
     <li><b>🌐 Idioma</b> — español o inglés. Cambia toda la interfaz y esta guía, y los agentes responden en el idioma elegido.</li>

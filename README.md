@@ -62,11 +62,13 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs, proyectos y **➕ Agregar proyecto…** para carpetas fuera de la raíz del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
 - **🌐 Español o inglés** — toda la interfaz sale de un diccionario y arranca en el idioma del sistema; se cambia en ⚙️ Preferencias. Cambia también la Guía de uso y **los agentes responden en el idioma elegido**.
 - **🎨 Estilo Material 3 con iconos Material Symbols** — botones pill, switches M3, superficies con elevación, scrollbars propias.
+- **🗂 Pestañas de conversación** — hasta 4 hilos abiertos a la vez, cada uno con sus mensajes, sesiones y colas; al cerrar una, el hilo queda en el historial.
 - **🕘 Historial con búsqueda** — cada conversación se guarda sola y se retoma con todo su contexto; busca por título, proyecto **y contenido de los mensajes**, **✏️ renombra**, **📌 fija** (a salvo de la purga) y **⬇ exporta a Markdown**.
 - **📊 Monitores** — dos burbujas: Sistema (CPU/RAM reales) y Claude (modelo en uso, 🪙 tokens de la conversación + % de sesión y semana, con **aviso al pasar del 90%**). El modelo se **sincroniza con el `/model` de tu terminal**.
 - **🖥 Integración macOS** — badge del **Dock** y **Tray 🏢** en la barra de menús con el nº de agentes trabajando, atajo global **⌥Espacio** (trae la app con el composer listo desde cualquier parte), y **powerSaveBlocker**: el Mac no se duerme mientras el squad trabaja.
 - **🎬 Intro cinemática** — la app abre llegando al edificio de La Oficina: la cámara se acerca, las puertas se abren y un destello funde a tu oficina (saltable y desactivable).
 - **🖥 Splash screen**, la ventana **recuerda tamaño y posición**, la cámara 3D **recuerda su encuadre** (doble click lo restablece), **aviso de versión nueva** que **descarga el DMG directo** y abre el instalador, y la escena **ahorra batería** cuando la ventana está tapada (multi-monitor friendly: visible = 60fps).
+- **🦊 Mascota** — zorro, shiba, husky, lobo, venado o alpaca paseando por la oficina (o ninguna).
 - **🎭 Vida ambiental** — frases por rol, música, paseos y visitas con detección de obstáculos; temas Clásico, Noche, Playa, **🌸 Sakura** (pétalos), **🍂 Otoño** (hojas secas), **❄️ Invierno** (nieve) y **🌗 Auto**.
 - **🧠 Pizarra SQUAD.md** — memoria común del squad en la raíz del proyecto.
 - **⏳ Cola persistente** — los mensajes encolados sobreviven un cierre de la app: al volver pregunta si los retoma.

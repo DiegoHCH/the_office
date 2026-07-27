@@ -141,6 +141,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <tr><td>🖱 Click on a character</td><td>Prefixes their name in the message (same as <kbd>⌘1</kbd>–<kbd>⌘6</kbd>)</td></tr>
   </table></div>
   <ul>
+    <li><b>🗂 Conversation tabs:</b> up to 4 threads open at once above the chat. Each tab keeps its own messages, Claude sessions and queues, so switching loses nothing; ✕ closes it and the thread goes to the history. You cannot switch tabs while the squad is working.</li>
     <li><b>⌨️ Multiline composer:</b> <kbd>Enter</kbd> sends, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line break; the box grows with the text.</li>
     <li><b>📌 Templates:</b> type <code>/</code> and your templates show up (per profile); <kbd>Enter</kbd> or <kbd>Tab</kbd> inserts the first one, and you create/delete them right there. They support <code>{{variables}}</code>: when inserted, a mini form asks for the values. Four examples ship with the app.</li>
     <li><b>✏️/🔒 Permission chip</b> (next to the composer): amber = <i>edit</i> (can change files and run commands, auto-approved — use it in repos with git; without git the app warns you); grey = <i>read</i> (investigate only). One click toggles it.</li>
@@ -169,7 +170,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <tr><td class="mono">/clear</td><td>New conversation</td></tr>
     <tr><td class="mono">/my-template</td><td>With saved templates, / lists and filters them; with no match, the /command goes straight to Claude Code — your skills work</td></tr>
   </table></div>
-  <p><kbd>⌘K</kbd> new · <kbd>⌘Y</kbd> history · <kbd>⌘F</kbd> search the conversation · <kbd>⌘,</kbd> settings · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> address each agent · <kbd>Esc</kbd> closes panels (in layers) · <kbd>Enter</kbd> sends. And from <b>any app</b>: <kbd>⌥Space</kbd> brings up La Oficina with the composer ready (a second press tucks it away).</p>
+  <p><kbd>⌘K</kbd> new · <kbd>⌘Y</kbd> history · <kbd>⌘F</kbd> search the conversation · <kbd>⌘,</kbd> settings · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> address each agent · <kbd>Esc</kbd> or a <b>click outside</b> closes panels (in layers: the submenu first, then the one underneath) · <kbd>Enter</kbd> sends. And from <b>any app</b>: <kbd>⌥Space</kbd> brings up La Oficina with the composer ready (a second press tucks it away).</p>
 
   <h2>Settings ⚙️</h2>
   <ul>
@@ -189,7 +190,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <li><b>🔧 Diagnostics</b> — the latest events from each agent and errors with their detail, ready to copy or export.</li>
     <li><b>🎬 Intro and 🎓 Tour</b> — turn the startup intro on and relaunch the guided tour.</li>
     <li><b>Quality</b> — 🎬 Cinematic (all effects), ✨ Normal or 🔋 Light (saves battery).</li>
-    <li><b>Pet</b> 🦊 — a little fox that wanders the office, sniffs around and comes over to watch the standup.</li>
+    <li><b>Pet</b> 🦊 — fox, shiba, husky, wolf, deer or alpaca: it wanders the office, sniffs around, eats and comes over to watch the standup. Pick one (or none) in Preferences.</li>
     <li><b>Scheduled standup</b> — at the time you pick, on weekdays; when it ends you can <b>📤 share the summary to Slack</b> (configurable channel).</li>
     <li><b>💾 Export / 📥 Import settings</b> — squad, personalities, templates and projects in a JSON, to back up or move machine. A <b>weekly automatic backup</b> is kept too.</li>
     <li><b>🌐 Language</b> — Spanish or English. It changes the whole interface and this guide, and the agents answer in the language you pick.</li>
