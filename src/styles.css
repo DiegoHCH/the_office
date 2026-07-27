@@ -186,6 +186,21 @@ body {
 .find-bar button:hover { background: #16222a; color: #7fd8c8; }
 .msg.find-hit { outline: 1px solid rgba(45, 212, 191, 0.35); }
 .msg.find-current { outline: 2px solid #2dd4bf; }
+/* consola de diagnóstico 🔧 */
+.diag-actions { display: flex; gap: 8px; padding: 2px 8px 10px; }
+.diag-row {
+  display: flex; gap: 8px; align-items: baseline; padding: 3px 10px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px;
+  border-radius: 8px;
+}
+.diag-row:nth-child(even) { background: rgba(22, 34, 42, 0.5); }
+.diag-row.error { background: rgba(224, 102, 74, 0.1); }
+.diag-time { color: #6b7f79; flex: none; }
+.diag-role { color: #7fd8c8; flex: none; min-width: 64px; }
+.diag-kind { color: #93a6a1; flex: none; min-width: 52px; }
+.diag-info { color: #c8d6d1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.diag-row.error .diag-info { color: #e8a29a; white-space: normal; word-break: break-word; }
+
 /* tour de bienvenida: spotlight + tarjeta paso a paso */
 .tour { position: fixed; inset: 0; z-index: 10; pointer-events: none; }
 .tour-spot {

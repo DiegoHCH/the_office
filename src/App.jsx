@@ -661,6 +661,9 @@ export default function App() {
   const [mcpOpen, setMcpOpen] = useState(false) // panel 🌐 MCP (servidores por perfil)
   const [statsOpen, setStatsOpen] = useState(false) // panel 📈 Estadísticas
   const [statsData, setStatsData] = useState({})
+  const [diagOpen, setDiagOpen] = useState(false) // panel 🔧 Diagnóstico
+  const [diagRows, setDiagRows] = useState([])
+  const diagRef = useRef([]) // ring buffer de eventos del stream (máx 500)
   const [installedSkills, setInstalledSkills] = useState(null) // null = leyendo
   const [skillBusy, setSkillBusy] = useState(null) // id de la skill en proceso
   const [prefsOpen, setPrefsOpen] = useState(false) // panel ⚙️ Configuración
@@ -837,6 +840,7 @@ export default function App() {
     setSkillsOpen(false)
     setMcpOpen(false)
     setStatsOpen(false)
+    setDiagOpen(false)
   }
   const toggleArts = async () => {
     if (!artsOpen) await refreshArtifacts()
@@ -890,6 +894,23 @@ export default function App() {
   useEffect(() => {
     if (!window.oficina?.onEvent) return
     return window.oficina.onEvent((e) => {
+      // 🔧 diagnóstico: todo evento (menos el chorro de texto) queda en el buffer
+      if (e.kind !== 'text') {
+        const info =
+          e.kind === 'tool'
+            ? `${e.name}${e.detail ? ` · ${String(e.detail).slice(0, 90)}` : ''}`
+            : e.kind === 'error'
+              ? `${String(e.message || '').slice(0, 120)}${e.detail ? ` — ${String(e.detail).slice(0, 200)}` : ''}`
+              : e.kind === 'done'
+                ? e.usage
+                  ? `🪙 ${fmtTokens(usageTotal(e.usage))}`
+                  : ''
+                : e.kind === 'init'
+                  ? (e.sessionId || '').slice(0, 8)
+                  : ''
+        diagRef.current.push({ t: Date.now(), role: e.role || '—', kind: e.kind, info })
+        if (diagRef.current.length > 500) diagRef.current.shift()
+      }
       // órdenes del proceso principal (Tray, atajo global) — no son del stream
       if (e.kind === 'new-chat') {
         newChat()
@@ -1182,6 +1203,10 @@ export default function App() {
           setStatsOpen(false)
           return
         }
+        if (diagOpen) {
+          setDiagOpen(false)
+          return
+        }
         if (agentsOpen) closeAgents()
         else closePanels()
         return
@@ -1215,7 +1240,7 @@ export default function App() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
     // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen/lightbox: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen])
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox, statsOpen, diagOpen])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -2063,6 +2088,15 @@ export default function App() {
       localStorage.setItem('oficina-stats', JSON.stringify(all))
     } catch {}
   }
+  const openDiag = () => {
+    setDiagRows([...diagRef.current].reverse()) // lo más reciente arriba
+    setDiagOpen(true)
+  }
+  const diagText = () =>
+    [...diagRef.current]
+      .map((r) => `${new Date(r.t).toLocaleTimeString('es')} · ${r.role} · ${r.kind}${r.info ? ` · ${r.info}` : ''}`)
+      .join('\n')
+
   const openStats = () => {
     try {
       setStatsData(JSON.parse(localStorage.getItem('oficina-stats')) || {})
@@ -2348,6 +2382,12 @@ export default function App() {
                 <span className="mi-hint">tareas · tokens · tiempos</span>
                 <span className="mi-chev">›</span>
               </button>
+              <button type="button" className="menu-item" onClick={openDiag}>
+                <span className="mi-icon">🔧</span>
+                <span className="mi-label">Diagnóstico</span>
+                <span className="mi-hint">eventos y errores</span>
+                <span className="mi-chev">›</span>
+              </button>
               <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.()}>
                 <span className="mi-icon">📖</span>
                 <span className="mi-label">Guía de uso</span>
@@ -2480,6 +2520,51 @@ export default function App() {
             </div>
 
             <div className="menu-foot">La Oficina{appVersion ? ` · v${appVersion}` : ''}</div>
+          </div>
+        )}
+
+        {diagOpen && (
+          <div className="drawer over">
+            <div className="drawer-head">
+              <b>🔧 Diagnóstico</b>
+              <button onClick={() => setDiagOpen(false)} title="Volver a Configuración">✕</button>
+            </div>
+            <div className="diag-actions">
+              <button
+                type="button"
+                className="skill-manual"
+                onClick={() => {
+                  navigator.clipboard.writeText(diagText())
+                  showToast('Log copiado 📋')
+                }}
+              >
+                📋 Copiar todo
+              </button>
+              <button
+                type="button"
+                className="skill-manual"
+                onClick={() => {
+                  const a = document.createElement('a')
+                  a.href = URL.createObjectURL(new Blob([diagText()], { type: 'text/plain' }))
+                  a.download = `la-oficina-diagnostico-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.log`
+                  a.click()
+                  URL.revokeObjectURL(a.href)
+                  showToast('⬇ Log exportado a Descargas')
+                }}
+              >
+                ⬇ Exportar
+              </button>
+              <button type="button" className="skill-manual" onClick={openDiag}>🔄 Refrescar</button>
+            </div>
+            {diagRows.length === 0 && <div className="hist-empty">Sin eventos aún — se registran init, tools, entregas y errores</div>}
+            {diagRows.map((r, i) => (
+              <div key={i} className={`diag-row ${r.kind}`}>
+                <span className="diag-time">{new Date(r.t).toLocaleTimeString('es')}</span>
+                <span className="diag-role">{memberOf(r.role).name || r.role}</span>
+                <span className="diag-kind">{r.kind}</span>
+                <span className="diag-info">{r.info}</span>
+              </div>
+            ))}
           </div>
         )}
 
