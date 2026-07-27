@@ -590,6 +590,8 @@ export default function App() {
   useEffect(() => {
     if (standupIds.length && standupIds.every((id) => !roleStates[id])) {
       setStandupIds([])
+      // cierre del standup: ofrecer compartir el resumen a Slack
+      setMessages((ms) => [...ms, { role: 'system', text: '📋 Standup completo — reportes arriba', standupShare: true }])
       // si fue el programado, avisar aunque estés en otra app
       if (scheduledStandupRef.current) {
         scheduledStandupRef.current = false
@@ -1423,6 +1425,41 @@ export default function App() {
               ? 'dl file'
               : 'dl'
 
+  // ── Compartir el resumen del standup a Slack (vía conector MCP de la cuenta)
+  const [slackChannel, setSlackChannel] = useState(() => localStorage.getItem('oficina-slack-channel') || '')
+  const saveSlackChannel = (v) => {
+    setSlackChannel(v)
+    localStorage.setItem('oficina-slack-channel', v.trim())
+  }
+  const shareStandup = (idx) => {
+    const chan = (localStorage.getItem('oficina-slack-channel') || '').trim().replace(/^#/, '')
+    if (!chan) {
+      showToast('⚠️ Configura el canal de Slack en ⚙️ Preferencias primero')
+      openPrefs()
+      return
+    }
+    // los reportes: mensajes del squad entre el arranque del standup y su cierre
+    const start = messages.slice(0, idx).findLastIndex((m) => m.role === 'system' && /Standup diario/.test(m.text || ''))
+    const reports = messages.slice(Math.max(start, 0), idx).filter((m) => m.role === 'assistant' && !m.error)
+    if (!reports.length) {
+      showToast('No encontré reportes de este standup')
+      return
+    }
+    const body = reports.map((m) => `### ${memberOf(m.who).name} (${memberOf(m.who).label})\n${(m.text || '').slice(0, 700)}`).join('\n\n')
+    const target = squad.find((m) => m.id === 'pr')?.id || principal
+    routeJob({
+      id: crypto.randomUUID(),
+      target,
+      text: 'Compartir standup a Slack',
+      display: `📤 Comparte el resumen del standup en #${chan}`,
+      prompt:
+        `Toma estos reportes del standup de hoy y compón un resumen breve y claro (una viñeta por persona, sin inventar nada). ` +
+        `Luego publícalo en el canal #${chan} de Slack usando el conector MCP de Slack disponible. ` +
+        `IMPORTANTE: antes de publicar, muéstrame el resumen y pregúntame si lo publico — NO publiques sin mi confirmación explícita en el siguiente mensaje.\n\n${body}`,
+      atts: [],
+    })
+  }
+
   // ── Standup programado: /standup solo a la hora configurada (días hábiles)
   const [standupAt, setStandupAt] = useState(() => localStorage.getItem('oficina-standup') || '')
   const saveStandupAt = (v) => {
@@ -1977,6 +2014,15 @@ export default function App() {
                   </option>
                 ))}
               </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Slack:</span>
+              <input
+                className="sel pref-sel"
+                placeholder="canal para el standup (ej: equipo-dev)"
+                value={slackChannel}
+                onChange={(e) => saveSlackChannel(e.target.value)}
+              />
             </div>
             <div className="pref-row">
               <span className="pref-label">Standup:</span>
@@ -3082,6 +3128,11 @@ export default function App() {
                 {m.edited && (
                   <button className="artifact-btn" onClick={openDiff}>
                     🔀 Ver cambios
+                  </button>
+                )}
+                {m.role === 'system' && m.standupShare && (
+                  <button className="artifact-btn" onClick={() => shareStandup(i)}>
+                    📤 Compartir resumen a Slack
                   </button>
                 )}
                 {m.error && lastJobRef.current[m.who] && i === messages.findLastIndex((x) => x.who === m.who) && (
