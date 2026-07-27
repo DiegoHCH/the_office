@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import Office, { THEMES } from './Office.jsx'
+import { THEMES } from './Office.jsx'
+// la escena y la intro son lo más pesado del bundle: van en diferido (#105)
+const Office = lazy(() => import('./Office.jsx'))
 import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 import {
@@ -14,7 +16,7 @@ import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS } from '
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
 import Tour from './components/Tour.jsx'
-import Intro from './scene/Intro.jsx'
+const Intro = lazy(() => import('./scene/Intro.jsx'))
 import { AvatarThumb, AttThumb } from './components/thumbs.jsx'
 
 const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
@@ -2024,6 +2026,7 @@ export default function App() {
 
       <div className="stage">
         <SysMonitor profile={profile} modelLabel={modelLabelOf(model)} tokens={convTokens} />
+        <Suspense fallback={null}>
         <Office
           roleStates={roleStates}
           status={status}
@@ -2054,6 +2057,7 @@ export default function App() {
             })
           }}
         />
+        </Suspense>
 
         {prefsOpen && (
           <div className="drawer">
@@ -3348,6 +3352,7 @@ export default function App() {
       )}
 
       {introOpen && (
+        <Suspense fallback={<div className="intro" />}>
         <Intro
           onDone={() => {
             setIntroOpen(false)
@@ -3355,6 +3360,7 @@ export default function App() {
             setTimeout(() => setIntroFade(false), 1700) // hasta que el velo termine
           }}
         />
+        </Suspense>
       )}
       {introFade && <div className="intro-veil" />}
       {quote && (
