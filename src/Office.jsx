@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { MathUtils, Shape, ExtrudeGeometry, DoubleSide, TextureLoader, RepeatWrapping, ACESFilmicToneMapping } from 'three'
+import { MathUtils, Shape, ExtrudeGeometry, DoubleSide, TextureLoader, RepeatWrapping, ACESFilmicToneMapping, Vector3 } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette, DepthOfField } from '@react-three/postprocessing'
