@@ -1007,7 +1007,16 @@ export default function App() {
 
   // El standup termina cuando todos sus participantes vuelven a estar libres.
   useEffect(() => {
-    if (standupIds.length && standupIds.every((id) => !roleStates[id])) setStandupIds([])
+    if (standupIds.length && standupIds.every((id) => !roleStates[id])) {
+      setStandupIds([])
+      // si fue el programado, avisar aunque estés en otra app
+      if (scheduledStandupRef.current) {
+        scheduledStandupRef.current = false
+        try {
+          new Notification('La Oficina', { body: '📋 Standup del día listo — los reportes del squad te esperan en el chat' })
+        } catch {}
+      }
+    }
   }, [roleStates, standupIds])
 
   // Watchdog: una entrega normal (caminar, entregar, volver) toma <20s. Si la
@@ -1787,6 +1796,48 @@ export default function App() {
               ? 'dl file'
               : 'dl'
 
+  // ── Standup programado: /standup solo a la hora configurada (días hábiles)
+  const [standupAt, setStandupAt] = useState(() => localStorage.getItem('oficina-standup') || '')
+  const saveStandupAt = (v) => {
+    setStandupAt(v)
+    localStorage.setItem('oficina-standup', v)
+    showToast(v ? `📋 Standup programado a las ${v} (días hábiles)` : 'Standup programado apagado')
+  }
+  const standupCmdRef = useRef(() => {})
+  useEffect(() => {
+    standupCmdRef.current = () => handleLocalCommand('/standup')
+  })
+  const scheduledStandupRef = useRef(false) // ¿el standup en curso fue automático?
+  useEffect(() => {
+    const check = (offerCatchUp) => {
+      const at = localStorage.getItem('oficina-standup')
+      if (!at) return
+      const now = new Date()
+      if (now.getDay() === 0 || now.getDay() === 6) return // solo hábiles
+      const today = now.toISOString().slice(0, 10)
+      if (localStorage.getItem('oficina-standup-last') === today) return
+      const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      if (hhmm >= at && hhmm <= at.replace(/:\d\d$/, (m) => `:${String(Math.min(Number(m.slice(1)) + 1, 59)).padStart(2, '0')}`)) {
+        localStorage.setItem('oficina-standup-last', today)
+        scheduledStandupRef.current = true
+        standupCmdRef.current()
+      } else if (offerCatchUp && hhmm > at) {
+        // la app no estaba abierta a esa hora: ofrecer ponerse al día
+        localStorage.setItem('oficina-standup-last', today)
+        if (window.confirm(`El standup programado de las ${at} no corrió (la app estaba cerrada). ¿Lo corro ahora?`)) {
+          scheduledStandupRef.current = true
+          standupCmdRef.current()
+        }
+      }
+    }
+    const t = setTimeout(() => check(true), 4000)
+    const iv = setInterval(() => check(false), 30000)
+    return () => {
+      clearTimeout(t)
+      clearInterval(iv)
+    }
+  }, [])
+
   // ── Comandos locales ─────────────────────────────────────────────────────
   const handleLocalCommand = (text) => {
     const [cmd, ...rest] = text.split(/\s+/)
@@ -2238,6 +2289,17 @@ export default function App() {
                 {[...new Set([model, ...Object.keys(MODEL_OPTIONS)])].map((id) => (
                   <option key={id} value={id}>
                     {modelLabelOf(id)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Standup:</span>
+              <select className="sel pref-sel" value={standupAt} onChange={(e) => saveStandupAt(e.target.value)}>
+                <option value="">Apagado</option>
+                {['08:00', '08:30', '09:00', '09:30', '10:00', '11:00', '12:00'].map((h) => (
+                  <option key={h} value={h}>
+                    📋 {h} · días hábiles
                   </option>
                 ))}
               </select>
