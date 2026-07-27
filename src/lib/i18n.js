@@ -22,6 +22,7 @@ const ES = {
 
   // — composer —
   'composer.send': 'Enviar',
+  'composer.attach': 'Adjuntar imágenes o archivos',
   'composer.placeholder': 'Escríbele al squad… (ej: "{name}, ayúdame con…" · ⌘1-{n})',
   'composer.placeholderSolo': 'Escríbele a tu asistente…',
   'composer.busy': '{names} trabajando… (puedes pedirle algo a otro)',
@@ -512,6 +513,7 @@ const EN = {
   'ctx.addProject': 'Add project…',
 
   'composer.send': 'Send',
+  'composer.attach': 'Attach images or files',
   'composer.placeholder': 'Message the squad… (e.g. "{name}, help me with…" · ⌘1-{n})',
   'composer.placeholderSolo': 'Message your assistant…',
   'composer.busy': '{names} working… (you can ask someone else)',

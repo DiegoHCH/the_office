@@ -1047,7 +1047,14 @@ select.squad-model {
 .composer textarea::-webkit-scrollbar { display: none; }
 /* chip de permiso: edición (ámbar) / lectura (gris) — siempre a la vista.
    OJO con la cascada: `.composer button` (el estilo de Enviar) le gana a
-   `.perm-chip` en especificidad, así que todo va prefijado con .composer. */
+   `.attach-btn {
+  flex: none; width: 40px; height: 40px; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  background: var(--surface-2); color: var(--muted);
+  border: 1px solid var(--line); transition: color 0.15s, border-color 0.15s;
+}
+.attach-btn:hover { color: var(--accent); border-color: var(--accent); }
+.perm-chip` en especificidad, así que todo va prefijado con .composer. */
 .composer .perm-chip {
   flex: none; width: 47px; height: 47px; padding: 0;
   display: inline-flex; align-items: center; justify-content: center;

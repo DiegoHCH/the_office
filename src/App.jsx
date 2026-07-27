@@ -24,7 +24,7 @@ import {
   IconTerminal, IconExport, IconImport, IconTune, IconChevron,
   IconWork, IconPrivate, IconPerson, IconFolder, IconPin, IconAdd,
   IconClose, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
-  IconCheck, IconWarn, IconSpinner, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
+  IconCheck, IconWarn, IconSpinner, IconClip, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
   IconCopy, IconRetry, IconShare, IconDiff, IconChat, IconBoard, IconBell, IconBellOff, IconRestore, IconCoin, IconClock,
 } from './components/icons.jsx'
 
@@ -864,9 +864,9 @@ export default function App() {
       }
     }
   }
-  const handleDrop = async (e) => {
-    e.preventDefault()
-    for (const f of e.dataTransfer?.files || []) {
+  // mismo camino para lo que llega arrastrado y para lo que elige el botón 📎
+  const addFiles = async (files) => {
+    for (const f of files || []) {
       if (f.type?.startsWith('image/')) {
         addImageFile(f)
         continue
@@ -880,6 +880,11 @@ export default function App() {
       popSound()
     }
   }
+  const handleDrop = (e) => {
+    e.preventDefault()
+    addFiles(e.dataTransfer?.files)
+  }
+  const fileInputRef = useRef(null)
 
   // aviso transitorio: aparece y se desvanece solo (no ensucia el chat)
   const showToast = (text, ms = 3500) => {
@@ -3735,6 +3740,26 @@ export default function App() {
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
           )}
+        </button>
+        {/* adjuntar: arrastrar y ⌘V seguían funcionando, pero no se descubrían */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            addFiles(e.target.files)
+            e.target.value = '' // permite volver a elegir el mismo archivo
+          }}
+        />
+        <button
+          type="button"
+          className="attach-btn"
+          onClick={() => fileInputRef.current?.click()}
+          title={t('composer.attach')}
+          aria-label={t('composer.attach')}
+        >
+          <IconClip size={18} />
         </button>
         <textarea
           ref={inputRef}
