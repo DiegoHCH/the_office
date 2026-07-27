@@ -1,6 +1,6 @@
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { MathUtils, Shape, ExtrudeGeometry, DoubleSide } from 'three'
+import { MathUtils, Shape, ExtrudeGeometry, DoubleSide, TextureLoader, RepeatWrapping } from 'three'
 import { SVGLoader } from 'three/examples/jsm/loaders/SVGLoader.js'
 import { OrbitControls, OrthographicCamera, ContactShadows, RoundedBox, Html } from '@react-three/drei'
 import GltfProp from './scene/GltfProp.jsx'
@@ -12,26 +12,26 @@ import Pet from './scene/Pet.jsx'
 export const THEMES = {
   clasico: {
     label: '🏢 Clásico',
-    floor: '#c9917b', wallBack: '#3d5866', wallLeft: '#35505d', base: '#2f434e',
+    floor: '#e6c6a4', wallBack: '#c08a72', wallLeft: '#e8e2d8', base: '#8a6a52',
     desk: '#cf9b7e', matColor: '#3c6b82', bg: '#b9ccd3',
     ambient: 0.9, hemi: ['#dbe8ec', '#4a3b2f', 0.7], dir: 2.1,
   },
   noche: {
     label: '🌙 Noche',
-    floor: '#5a4a44', wallBack: '#2a4058', wallLeft: '#22364a', base: '#182838',
+    floor: '#8a7060', wallBack: '#6e5048', wallLeft: '#3a4a58', base: '#2a2018',
     desk: '#6b4a3a', matColor: '#1f4650', bg: '#080d14',
     ambient: 0.4, hemi: ['#3b5566', '#1a1410', 0.45], dir: 0.9,
     lampsOn: true, // las lámparas de piso se encienden
   },
   playa: {
     label: '🏖 Playa',
-    floor: '#e2c290', wallBack: '#6ba8bb', wallLeft: '#5d99ad', base: '#4a7f92',
+    floor: '#f2dcbe', wallBack: '#e0b8a2', wallLeft: '#9fd0dc', base: '#b08a68',
     desk: '#c98a5a', matColor: '#d96a4f', bg: '#cfe9f0',
     ambient: 1.05, hemi: ['#eaf6fa', '#8a6a45', 0.8], dir: 2.4,
   },
   sakura: {
     label: '🌸 Sakura',
-    floor: '#d9b8b0', wallBack: '#6b4d61', wallLeft: '#5d4255', base: '#4a3545',
+    floor: '#e8cfc6', wallBack: '#c0909a', wallLeft: '#e6d2da', base: '#8a6270',
     desk: '#c9909a', matColor: '#8a5a6e', bg: '#ecd6dc',
     ambient: 0.95, hemi: ['#f5e4ea', '#5a3b45', 0.7], dir: 2.0,
   },
@@ -63,21 +63,49 @@ function RB({ args, r = 0.02, children, ...props }) {
   )
 }
 
+// ── Materiales con textura (glow-up #111): ladrillo en la pared del fondo y
+// madera en el piso, tintados con el color del tema para que Noche/Playa/Sakura
+// mantengan su identidad. Los mapas son CC0 de ambientCG, 512px (~235KB total).
+function useRoomTextures() {
+  const [brickC, brickN, brickR, woodC, woodN, woodR] = useLoader(TextureLoader, [
+    '/textures/brick-color.jpg',
+    '/textures/brick-normal.jpg',
+    '/textures/brick-rough.jpg',
+    '/textures/wood-color.jpg',
+    '/textures/wood-normal.jpg',
+    '/textures/wood-rough.jpg',
+  ])
+  return useMemo(() => {
+    const tile = (t, x, y) => {
+      const c = t.clone()
+      c.wrapS = c.wrapT = RepeatWrapping
+      c.repeat.set(x, y)
+      c.needsUpdate = true
+      return c
+    }
+    return {
+      brick: { map: tile(brickC, 4, 1.2), normalMap: tile(brickN, 4, 1.2), roughnessMap: tile(brickR, 4, 1.2) },
+      wood: { map: tile(woodC, 3, 3), normalMap: tile(woodN, 3, 3), roughnessMap: tile(woodR, 3, 3) },
+    }
+  }, [brickC, brickN, brickR, woodC, woodN, woodR])
+}
+
 // ── Sala ─────────────────────────────────────────────────────────────────────
 function Room() {
+  const tex = useRoomTextures()
   return (
     <group>
       <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
         <planeGeometry args={[ROOM, ROOM]} />
-        {mat(T.floor)}
+        <meshStandardMaterial {...tex.wood} color={T.floor} roughness={0.72} />
       </mesh>
       <mesh position={[0, 1, -HALF]} receiveShadow castShadow>
         <boxGeometry args={[ROOM, 2, 0.08]} />
-        {mat(T.wallBack)}
+        <meshStandardMaterial {...tex.brick} color={T.wallBack} roughness={0.95} normalScale={[0.7, 0.7]} />
       </mesh>
       <mesh position={[-HALF, 1, 0]} receiveShadow castShadow>
         <boxGeometry args={[0.08, 2, ROOM]} />
-        {mat(T.wallLeft)}
+        {mat(T.wallLeft, { rough: 0.9 })}
       </mesh>
       <mesh position={[0, 0.05, -HALF + 0.05]}>
         <boxGeometry args={[ROOM, 0.1, 0.03]} />
