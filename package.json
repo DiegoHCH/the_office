@@ -25,6 +25,7 @@
     "files": [
       "electron/**/*",
       "dist/**/*",
+      "build/trayTemplate*.png",
       "package.json",
       "!node_modules/**/*"
     ],

@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useLoader } from '@react-three/fiber'
-import { PerspectiveCamera, RoundedBox, ContactShadows } from '@react-three/drei'
+import { PerspectiveCamera, RoundedBox, ContactShadows, Text } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import { DoubleSide, BackSide, MathUtils, TextureLoader, RepeatWrapping, ACESFilmicToneMapping, CanvasTexture } from 'three'
 import GltfProp from './GltfProp.jsx'
@@ -423,10 +423,23 @@ function Building({ doorOpen, tex }) {
           </group>
         ))}
       </group>
-      {/* letrero iluminado sobre la puerta */}
-      <RB args={[0.95, 0.17, 0.06]} r={0.03} position={[-0.55, 1.68, 1.3]}>
-        <meshStandardMaterial color="#e8dcc4" emissive="#d9a86a" emissiveIntensity={0.55} />
-      </RB>
+      {/* letrero de la entrada: caja clara retroiluminada con el nombre */}
+      <group position={[-0.55, 1.72, 1.31]}>
+        <RB args={[1.24, 0.26, 0.07]} r={0.035}>
+          <meshStandardMaterial color="#f2ece0" emissive="#e0c398" emissiveIntensity={0.5} roughness={0.6} />
+        </RB>
+        <Text
+          position={[0, 0, 0.038]}
+          fontSize={0.135}
+          letterSpacing={0.09}
+          color="#3a2c22"
+          anchorX="center"
+          anchorY="middle"
+          outlineWidth={0}
+        >
+          LA OFICINA
+        </Text>
+      </group>
       {/* apliques a los lados de la entrada (como los de adentro) */}
       {[-1.35, 0.25].map((x) => (
         <group key={x} position={[x, 1.15, 1.24]}>
@@ -512,6 +525,7 @@ function Scene({ doorOpen }) {
  * Intro: ~3.6s. Fases: acercarse · abrir puertas · destello → onDone().
  */
 export default function Intro({ onDone, bg = '#e8b98a' }) {
+  const [opened, setOpened] = useState(false) // fundido de entrada desde negro
   const progress = useRef(0)
   const doorOpen = useRef(0)
   const [flash, setFlash] = useState(0)
@@ -543,10 +557,13 @@ export default function Intro({ onDone, bg = '#e8b98a' }) {
       raf = requestAnimationFrame(tick)
     }
     raf = requestAnimationFrame(tick)
+    // el cielo aparece desde negro en el primer instante (nada de flash durazno)
+    const opener = setTimeout(() => setOpened(true), 60)
     const esc = (e) => e.key === 'Escape' && finish()
     window.addEventListener('keydown', esc)
     return () => {
       cancelAnimationFrame(raf)
+      clearTimeout(opener)
       window.removeEventListener('keydown', esc)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -589,7 +606,7 @@ export default function Intro({ onDone, bg = '#e8b98a' }) {
           <Vignette offset={0.3} darkness={0.45} />
         </EffectComposer>
       </Canvas>
-      <div className="intro-flash" style={{ opacity: flash }} />
+      <div className="intro-flash" style={{ opacity: opened ? flash : 1 }} />
       <button type="button" className="intro-skip" onClick={finish}>
         Saltar intro
       </button>

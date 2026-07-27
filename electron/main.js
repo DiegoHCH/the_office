@@ -201,7 +201,7 @@ ipcMain.handle('dock:badge', (_e, n) => {
     app.dock?.setBadge(n > 0 ? String(n) : '')
   } catch {}
   try {
-    tray?.setTitle(n > 0 ? `🏢 ${n}` : '🏢')
+    tray?.setTitle(n > 0 ? ` ${n}` : '') // solo el contador junto al icono
     tray?.setToolTip(n > 0 ? `La Oficina — ${n} agente${n > 1 ? 's' : ''} trabajando` : 'La Oficina — squad libre')
   } catch {}
   try {
@@ -218,8 +218,13 @@ ipcMain.handle('dock:badge', (_e, n) => {
 let tray = null
 function createTray() {
   try {
-    tray = new Tray(nativeImage.createEmpty())
-    tray.setTitle('🏢')
+    // icono «template» monocromo: macOS lo tiñe según el tema, como el resto
+    // de la barra de menús (el emoji a color desentonaba)
+    const iconPath = path.join(__dirname, '..', 'build', 'trayTemplate.png')
+    let icon = nativeImage.createFromPath(iconPath)
+    if (icon.isEmpty()) icon = nativeImage.createEmpty()
+    icon.setTemplateImage(true)
+    tray = new Tray(icon)
     tray.setToolTip('La Oficina')
     tray.setContextMenu(
       Menu.buildFromTemplate([

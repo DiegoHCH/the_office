@@ -925,7 +925,7 @@ select.squad-model {
 /* al cruzar la puerta la pantalla funde a NEGRO y de ahí aparece la oficina */
 .intro-flash {
   position: absolute; inset: 0; background: #000000; pointer-events: none;
-  transition: opacity 0.1s linear;
+  transition: opacity 0.9s ease-out; /* abre desde negro y cierra a negro */
 }
 .intro-skip {
   position: absolute; right: 20px; bottom: 20px; z-index: 21;
