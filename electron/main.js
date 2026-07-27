@@ -1432,12 +1432,9 @@ ipcMain.handle('plugins:uninstall', async (_e, { profile, id }) => {
 
 // ── Exportar/importar configuración (squad + personas + proyectos + extras) ──
 const CONFIG_PROFILES = ['work', 'private', 'default']
-ipcMain.handle('config:export', async (_e, extras) => {
-  const res = await dialog.showSaveDialog(win, {
-    defaultPath: 'la-oficina-config.json',
-    filters: [{ name: 'JSON', extensions: ['json'] }],
-  })
-  if (res.canceled || !res.filePath) return { ok: false, canceled: true }
+// Arma el objeto de configuración completo (perfiles, personas, proyectos,
+// skills y MCP sin credenciales). Lo usan el export manual y el respaldo auto.
+function buildConfigSnapshot(extras) {
   const data = { app: 'la-oficina', version: app.getVersion(), profiles: {}, extras: extras || null }
   try {
     data.artifactsDir = fs.readFileSync(artifactsDirFile(), 'utf8').trim() || null
@@ -1457,7 +1454,6 @@ ipcMain.handle('config:export', async (_e, extras) => {
         entry.personas[f.replace(/\.md$/, '')] = fs.readFileSync(path.join(dir, f), 'utf8')
       }
     } catch {}
-    // skills instaladas (solo los ids: el import reinstala las del catálogo)
     try {
       const sdir = skillsDirFor(prof)
       entry.skills = fs
@@ -1465,17 +1461,15 @@ ipcMain.handle('config:export', async (_e, extras) => {
         .filter((d) => d.isDirectory() && fs.existsSync(path.join(sdir, d.name, 'SKILL.md')))
         .map((d) => d.name)
     } catch {}
-    // servidores MCP del perfil (del .claude.json) — SIN los que llevan
-    // credenciales (headers/env): un respaldo no debe contener tokens
     try {
       const cdir = PROFILE_DIRS[prof] ? PROFILE_DIRS[prof]() : path.join(app.getPath('home'), '.claude')
       const cj = JSON.parse(fs.readFileSync(path.join(cdir, '.claude.json'), 'utf8'))
       const safe = {}
       const skipped = []
-      for (const [name, s] of Object.entries(cj.mcpServers || {})) {
-        const hasSecrets = Object.keys(s?.headers || {}).length > 0 || Object.keys(s?.env || {}).length > 0
+      for (const [name, srv] of Object.entries(cj.mcpServers || {})) {
+        const hasSecrets = Object.keys(srv?.headers || {}).length > 0 || Object.keys(srv?.env || {}).length > 0
         if (hasSecrets) skipped.push(name)
-        else safe[name] = s
+        else safe[name] = srv
       }
       if (Object.keys(safe).length) entry.mcp = safe
       if (skipped.length) entry.mcpSkipped = skipped
@@ -1483,6 +1477,52 @@ ipcMain.handle('config:export', async (_e, extras) => {
     if (entry.squad || entry.projects?.length || Object.keys(entry.personas).length || entry.skills?.length || entry.mcp)
       data.profiles[prof] = entry
   }
+  return data
+}
+
+// Respaldo automático semanal en userData/backups (rota, máx 8) — red de
+// seguridad silenciosa contra pérdidas de squad, personas y plantillas.
+ipcMain.handle('config:autoBackup', (_e, extras) => {
+  try {
+    const dir = path.join(app.getPath('userData'), 'backups')
+    fs.mkdirSync(dir, { recursive: true })
+    const files = fs.readdirSync(dir).filter((f) => f.endsWith('.json')).sort()
+    const last = files.length ? fs.statSync(path.join(dir, files[files.length - 1])).mtimeMs : 0
+    if (Date.now() - last < 7 * 24 * 3600 * 1000) return { ok: true, skipped: true }
+    const name = `config-${new Date().toISOString().slice(0, 10)}.json`
+    fs.writeFileSync(path.join(dir, name), JSON.stringify(buildConfigSnapshot(extras), null, 2))
+    for (const old of files.slice(0, Math.max(0, files.length - 7))) {
+      try {
+        fs.unlinkSync(path.join(dir, old))
+      } catch {}
+    }
+    return { ok: true, saved: name }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
+// Lista de respaldos automáticos disponibles (para restaurar).
+ipcMain.handle('config:backups', () => {
+  try {
+    const dir = path.join(app.getPath('userData'), 'backups')
+    return fs
+      .readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => ({ file: f, at: fs.statSync(path.join(dir, f)).mtimeMs }))
+      .sort((a, b) => b.at - a.at)
+  } catch {
+    return []
+  }
+})
+
+ipcMain.handle('config:export', async (_e, extras) => {
+  const res = await dialog.showSaveDialog(win, {
+    defaultPath: 'la-oficina-config.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }],
+  })
+  if (res.canceled || !res.filePath) return { ok: false, canceled: true }
+  const data = buildConfigSnapshot(extras)
   try {
     fs.writeFileSync(res.filePath, JSON.stringify(data, null, 2))
     return { ok: true, path: res.filePath }

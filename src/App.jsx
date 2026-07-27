@@ -335,6 +335,18 @@ export default function App() {
     setRoster(r)
   }
 
+  // respaldo automático semanal de la configuración (#101), silencioso
+  useEffect(() => {
+    const t = setTimeout(() => {
+      const extras = {}
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith('oficina-') && k !== 'oficina-pending-queue' && k !== 'oficina-camera') extras[k] = localStorage.getItem(k)
+      }
+      window.oficina?.config?.autoBackup?.(extras)
+    }, 8000) // sin estorbar el arranque
+    return () => clearTimeout(t)
+  }, [])
+
   useEffect(() => {
     window.oficina?.artifacts?.getDir?.().then(setArtsDir)
     window.oficina?.getVersion?.().then((v) => setAppVersion(v || ''))
@@ -1100,6 +1112,16 @@ export default function App() {
     else if (!res?.canceled) showToast(`⚠️ ${res?.error || 'No se pudo exportar'}`)
   }
   const importConfig = async () => {
+    // si hay respaldos automáticos, ofrecerlos antes del selector de archivo
+    const bks = (await window.oficina?.config?.backups?.()) || []
+    if (bks.length) {
+      const ultimo = new Date(bks[0].at).toLocaleDateString('es', { day: '2-digit', month: 'short' })
+      const usarBackup = window.confirm(
+        `Hay ${bks.length} respaldo${bks.length > 1 ? 's' : ''} automático${bks.length > 1 ? 's' : ''} (el más reciente del ${ultimo}).\n\n` +
+          'Aceptar: elegir un archivo (los respaldos están en la carpeta «backups» de la app)\nCancelar: no hacer nada'
+      )
+      if (!usarBackup) return
+    }
     const res = await window.oficina?.config?.import()
     if (!res?.ok) {
       if (!res?.canceled) showToast(`⚠️ ${res?.error || 'No se pudo importar'}`, 6000)
@@ -2107,6 +2129,7 @@ export default function App() {
               <button type="button" className="menu-item" onClick={importConfig}>
                 <span className="mi-icon">📥</span>
                 <span className="mi-label">Importar configuración</span>
+                <span className="mi-hint">o restaurar un respaldo</span>
                 <span className="mi-chev">›</span>
               </button>
             </div>

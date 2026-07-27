@@ -77,6 +77,8 @@ contextBridge.exposeInMainWorld('oficina', {
   config: {
     export: (extras) => ipcRenderer.invoke('config:export', extras),
     import: () => ipcRenderer.invoke('config:import'),
+    autoBackup: (extras) => ipcRenderer.invoke('config:autoBackup', extras),
+    backups: () => ipcRenderer.invoke('config:backups'),
   },
   // Servidores MCP por perfil.
   mcp: {
