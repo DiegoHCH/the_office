@@ -295,6 +295,22 @@ const prettyArtifact = (f = '') => {
 const avatarLabel = (f) =>
   f.replace('.gltf', '').replace(/_/g, ' ').replace('Female', '♀').replace('Male', '♂')
 
+// Miniatura de una imagen adjunta (data URL vía IPC); click → lightbox.
+function AttThumb({ att, onZoom }) {
+  const [src, setSrc] = useState(null)
+  useEffect(() => {
+    let on = true
+    window.oficina?.imageData?.(att.path).then((r) => {
+      if (on && r?.ok) setSrc(r.data)
+    })
+    return () => {
+      on = false
+    }
+  }, [att.path])
+  if (!src) return <span>🖼 {att.name}</span>
+  return <img className="att-thumb" src={src} alt={att.name} title={`${att.name} — click para ampliar`} onClick={() => onZoom(src)} />
+}
+
 // Bloque de código del markdown con botón de copiar (visible al hover).
 function CodePre({ children, ...props }) {
   const ref = useRef(null)
@@ -536,6 +552,7 @@ export default function App() {
   // vista de diff: qué roles editaron archivos en su tarea actual
   const editedRef = useRef({})
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
+  const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
   const [status, setStatus] = useState('Esperándote')
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
@@ -1027,6 +1044,10 @@ export default function App() {
     const onKey = (e) => {
       if (e.key === 'Escape') {
         // por capas: primero el submenu de Agentes; Configuración queda debajo
+        if (lightbox) {
+          setLightbox(null)
+          return
+        }
         if (findOpen) {
           setFindOpen(false)
           return
@@ -1075,8 +1096,8 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen: Esc por capas
-  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen])
+    // histOpen/prefsOpen: sus toggles los leen · agentsOpen/findOpen/diffView/skillsOpen/mcpOpen/lightbox: Esc por capas
+  }, [squad, histOpen, agentsOpen, prefsOpen, findOpen, diffView, skillsOpen, mcpOpen, lightbox])
 
   // ── Imágenes adjuntas (pegar ⌘V o arrastrar) ─────────────────────────────
   const addImageFile = async (file) => {
@@ -1944,7 +1965,8 @@ export default function App() {
       display: text || (rfs.length ? '📁' : '🖼'),
       prompt,
       handoffTo,
-      atts: [...atts.map((a) => a.name), ...rfs.map((r) => r.name)],
+      // imágenes con su path (para miniatura); refs solo por nombre
+      atts: [...atts.map((a) => ({ name: a.name, path: a.path })), ...rfs.map((r) => r.name)],
     })
     setInput('')
     setAttachments([])
@@ -3045,7 +3067,11 @@ export default function App() {
                   </div>
                 )}
                 {m.role === 'user' && m.atts?.length > 0 && (
-                  <div className="msg-atts">{m.atts.map((n, j) => <span key={j}>🖼 {n}</span>)}</div>
+                  <div className="msg-atts">
+                    {m.atts.map((a, j) =>
+                      typeof a === 'string' ? <span key={j}>🖼 {a}</span> : <AttThumb key={j} att={a} onZoom={setLightbox} />
+                    )}
+                  </div>
                 )}
                 {m.role === 'assistant' ? (
                   <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
@@ -3121,11 +3147,17 @@ export default function App() {
         )}
       </div>
 
+      {lightbox && (
+        <div className="lightbox" onClick={() => setLightbox(null)} title="Click o Esc para cerrar">
+          <img src={lightbox} alt="" />
+        </div>
+      )}
+
       {(attachments.length > 0 || refs.length > 0) && (
         <div className="attachbar">
           {attachments.map((a, i) => (
             <span key={a.path} className="attachchip">
-              🖼 {a.name}
+              <AttThumb att={a} onZoom={setLightbox} />
               <button type="button" onClick={() => setAttachments((arr) => arr.filter((_, j) => j !== i))}>✕</button>
             </span>
           ))}

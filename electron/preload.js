@@ -21,6 +21,8 @@ contextBridge.exposeInMainWorld('oficina', {
   dockBadge: (n) => ipcRenderer.invoke('dock:badge', n),
   // Guarda una imagen adjunta y devuelve su ruta local.
   saveImage: (name, data) => ipcRenderer.invoke('image:save', { name, data }),
+  // Data URL de una imagen adjunta (miniaturas del chat).
+  imageData: (p) => ipcRenderer.invoke('image:data', p),
   // Ruta absoluta de un File arrastrado (Electron 32+: vía webUtils).
   pathForFile: (file) => {
     try {

@@ -186,6 +186,20 @@ body {
 .find-bar button:hover { background: #16222a; color: #7fd8c8; }
 .msg.find-hit { outline: 1px solid rgba(45, 212, 191, 0.35); }
 .msg.find-current { outline: 2px solid #2dd4bf; }
+/* miniaturas de imágenes adjuntas + visor */
+.att-thumb {
+  height: 72px; max-width: 160px; object-fit: cover; border-radius: 10px;
+  border: 1px solid #28353a; cursor: zoom-in; display: block;
+}
+.attachchip .att-thumb { height: 40px; max-width: 80px; }
+.msg-atts { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.lightbox {
+  position: fixed; inset: 0; z-index: 9; background: rgba(4, 10, 13, 0.82);
+  display: flex; align-items: center; justify-content: center; cursor: zoom-out;
+  backdrop-filter: blur(4px);
+}
+.lightbox img { max-width: 92vw; max-height: 92vh; border-radius: 14px; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6); }
+
 /* tokens consumidos por la tarea (desglose en el tooltip) */
 .msg-tokens {
   margin-top: 6px; font-size: 10.5px; color: #93a6a1;

@@ -1568,6 +1568,23 @@ ipcMain.handle('git:diff', async (_e, cwd) => {
   })
 })
 
+// Data URL de una imagen adjunta (miniaturas del chat). Solo sirve archivos
+// del directorio de adjuntos de la app — nunca rutas arbitrarias.
+ipcMain.handle('image:data', (_e, p) => {
+  try {
+    const attDir = path.join(app.getPath('userData'), 'attachments')
+    const real = fs.realpathSync(p)
+    if (!real.startsWith(attDir + path.sep)) return { ok: false, error: 'Fuera del directorio de adjuntos' }
+    const st = fs.statSync(real)
+    if (st.size > 12 * 1024 * 1024) return { ok: false, error: 'Imagen muy grande' }
+    const ext = path.extname(real).toLowerCase().replace('.', '') || 'png'
+    const mime = ext === 'jpg' ? 'jpeg' : ext
+    return { ok: true, data: `data:image/${mime};base64,${fs.readFileSync(real).toString('base64')}` }
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+})
+
 // Info de una ruta arrastrada (archivo vs carpeta).
 ipcMain.handle('path:info', (_e, p) => {
   try {
