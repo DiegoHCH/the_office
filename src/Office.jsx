@@ -359,30 +359,35 @@ function Shelf() {
   )
 }
 
-function FiddlePlant({ position, scale = 0.5 }) {
-  const leaves = [
-    [0.0, 1.55, 0.0, 0, 0],
-    [0.28, 1.25, 0.05, 0.5, 0.4],
-    [-0.26, 1.3, -0.05, -0.5, -0.4],
-    [0.1, 1.0, 0.26, 0.3, 0.9],
-    [-0.12, 1.05, -0.24, -0.3, -0.9],
-  ]
+// Planta de piso con hojas de verdad (glow-up #111): monstera de Quaternius
+// en maceta blanca hecha en código — como la referencia loft.
+function FloorPlant({ position, height = 0.55, rotation = 0 }) {
   return (
-    <group position={position} scale={scale}>
-      <mesh position={[0, 0.35, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.34, 0.26, 0.7, 16]} />
-        {mat(POT)}
+    <group position={position} rotation={[0, rotation, 0]}>
+      <mesh position={[0, 0.11, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.13, 0.1, 0.22, 20]} />
+        {mat('#f0ece4')}
       </mesh>
-      <mesh position={[0, 1.05, 0]} castShadow>
-        <cylinderGeometry args={[0.05, 0.06, 0.9, 8]} />
-        {mat('#6b7d4a')}
+      <GltfProp url="/models/props/Monstera.glb" position={[0, 0.2, 0]} fitHeight={height} />
+    </group>
+  )
+}
+
+// Árbol protagonista de la referencia: helecho frondoso texturizado (Quaternius)
+// plantado alto en una maceta blanca — el punto verde grande del loft.
+function PottedTree({ position, height = 1.15 }) {
+  return (
+    <group position={position}>
+      <mesh position={[0, 0.16, 0]} castShadow receiveShadow>
+        <cylinderGeometry args={[0.17, 0.13, 0.32, 20]} />
+        {mat('#f0ece4')}
       </mesh>
-      {leaves.map(([x, y, z, rz, ry], i) => (
-        <mesh key={i} position={[x, y, z]} rotation={[0.2, ry, rz]} scale={[0.42, 0.6, 0.14]} castShadow>
-          <sphereGeometry args={[1, 16, 16]} />
-          {mat(i % 2 ? GREEN1 : GREEN2, { extra: { flatShading: true } })}
-        </mesh>
-      ))}
+      {/* tronco corto hasta el follaje */}
+      <mesh position={[0, 0.5, 0]} castShadow>
+        <cylinderGeometry args={[0.035, 0.05, 0.45, 10]} />
+        {mat('#7a5c3e')}
+      </mesh>
+      <GltfProp url="/models/props/Fern.glb" position={[0, 0.62, 0]} fitHeight={height * 0.55} />
     </group>
   )
 }
@@ -393,21 +398,21 @@ function FiddlePlant({ position, scale = 0.5 }) {
 // en el render (KbMouse) para caer siempre sobre el brazo.
 const PROPS = [
   // ── principal: rincón tras-izq, mira -z ──
-  { url: '/models/furniture/plantSmall3.glb', position: [-3.0, TOP, -2.0] },
+  { url: '/models/props/PottedPlant.glb', position: [-3.0, TOP, -2.0], fitHeight: 0.24 },
   { url: '/models/furniture/books.glb', position: [-3.05, TOP, -2.55], scale: 1.0 },
   // ── SLOTS[0]: rincón tras-der, mira -z ──
-  { url: '/models/furniture/plantSmall1.glb', position: [3.0, TOP, -2.0] },
+  { url: '/models/props/HousePlant.glb', position: [3.0, TOP, -2.0], fitHeight: 0.26 },
   { url: '/models/furniture/radio.glb', position: [3.0, TOP, -1.55] },
   // ── SLOTS[1]: rincón frontal-izq, mira -x ──
   { url: '/models/furniture/books.glb', position: [-3.0, TOP, 1.9] },
-  { url: '/models/furniture/plantSmall2.glb', position: [-1.9, TOP, 2.95] },
+  { url: '/models/props/PottedPlant.glb', position: [-1.9, TOP, 2.95], fitHeight: 0.24 },
   // ── SLOTS[2]: rincón frontal-der (isla), mira +z ──
   { url: '/models/furniture/speakerSmall.glb', position: [3.0, TOP, 1.9] },
-  { url: '/models/furniture/plantSmall3.glb', position: [1.9, TOP, 2.95] },
+  { url: '/models/props/HousePlant.glb', position: [1.9, TOP, 2.95], fitHeight: 0.26 },
   // ── SLOTS[3]: pared izquierda (medio, bajo ventana), mira -x ──
-  { url: '/models/furniture/plantSmall2.glb', position: [-3.0, TOP, 0.4] },
+  { url: '/models/props/Monstera.glb', position: [-3.0, TOP, 0.4], fitHeight: 0.22 },
   // ── SLOTS[4]: lado derecho (medio), mira +x ──
-  { url: '/models/furniture/plantSmall1.glb', position: [3.0, TOP, -0.8] },
+  { url: '/models/props/Monstera.glb', position: [3.0, TOP, -0.8], fitHeight: 0.22 },
 ]
 
 // Teclado + mouse derivados del monitor: se apoyan sobre el brazo de la L (media
@@ -949,10 +954,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       ))}
       {/* alfombra del principal (bajo su silla) */}
       <RB args={[1.05, 0.02, 0.95]} r={0.03} position={[-2.3, 0.012, -2.35]} receiveShadow>{mat(T.matColor)}</RB>
-      {/* plantas en los pasillos frente/fondo (verificado: fuera de las huellas) */}
-      <FiddlePlant position={[0.6, 0, -HALF + 0.45]} scale={0.4} />
-      <FiddlePlant position={[0, 0, HALF - 0.45]} scale={0.46} />
-      <FiddlePlant position={[-0.7, 0, -HALF + 0.45]} scale={0.38} />
+      {/* plantas en los pasillos frente/fondo (verificado: fuera de las huellas):
+          hojas de verdad (glow-up #111) — el árbol frondoso es el protagonista */}
+      <FloorPlant position={[0.6, 0, -HALF + 0.45]} height={0.5} rotation={0.7} />
+      <PottedTree position={[0, 0, HALF - 0.45]} height={1.15} />
+      <FloorPlant position={[-0.7, 0, -HALF + 0.45]} height={0.44} rotation={-1.9} />
       {/* lámparas de piso grandes en los extremos de la franja central, pegadas a
           la pared del fondo y al borde frontal (los lados los ocupan los escritorios) */}
       <FloorLamp position={[-1.1, 0, -HALF + 0.45]} on={!!T.lampsOn} />
