@@ -682,7 +682,26 @@ function TodoCard({ items }) {
   )
 }
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], onTourDone, onPickMember }) {
+// Ayudante temporal: aparece junto al escritorio cuando el agente delega
+// trabajo a un subagente (tool Task). Parado entre la silla y el centro,
+// mirando a su "jefe".
+function HelperGhost({ chair }) {
+  const dx = -chair[0]
+  const dz = -chair[2]
+  const len = Math.hypot(dx, dz) || 1
+  const pos = [chair[0] + (dx / len) * 0.62, 0, chair[2] + (dz / len) * 0.62]
+  const yaw = Math.atan2(chair[0] - pos[0], chair[2] - pos[2])
+  return (
+    <group position={pos} rotation={[0, yaw, 0]}>
+      <GltfProp url="/models/pj/BaseCharacter.gltf" scale={0.19} />
+      <Html position={[0, 0.62, 0]} center zIndexRange={[1, 0]} style={{ pointerEvents: 'none' }}>
+        <div className="helper-tag">🤖 ayudante</div>
+      </Html>
+    </group>
+  )
+}
+
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], onTourDone, onPickMember }) {
   T = THEMES[theme] || THEMES.clasico // fija la paleta antes de renderizar los hijos
   const main = squad[0] // miembro principal (escritorio grande)
   const devState = (main && roleStates[main.id]) || 'idle'
@@ -995,6 +1014,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                 </Html>
               )}
             </Character3D>
+            {devState === 'working' && subagents.includes(main.id) && <HelperGhost chair={CHAIR_POS} />}
           </>
         )}
 
@@ -1076,6 +1096,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
                   )}
                 </Character3D>
               )}
+              {m && st === 'working' && subagents.includes(m.id) && <HelperGhost chair={s.chair} />}
             </group>
           )
         })}

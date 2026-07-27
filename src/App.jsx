@@ -539,6 +539,7 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [convTokens, setConvTokens] = useState({ in: 0, out: 0, cache: 0 }) // tokens de la conversación
   const [agentTodos, setAgentTodos] = useState({}) // rol → checklist (TodoWrite) mientras trabaja
+  const [agentTool, setAgentTool] = useState({}) // rol → su última tool (para el ayudante 👻 de Task)
   const [standupIds, setStandupIds] = useState([]) // participantes del standup (se reúnen en la escena)
   // buscar dentro de la conversación (⌘F)
   const [findOpen, setFindOpen] = useState(false)
@@ -841,6 +842,7 @@ export default function App() {
         setAgentTodos((t) => ({ ...t, [who]: e.todos }))
       } else if (e.kind === 'tool') {
         setTool({ role: who, name: e.name, detail: e.detail || null })
+        setAgentTool((t) => ({ ...t, [who]: e.name }))
         // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
         if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name)) editedRef.current[who] = true
         // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
@@ -852,6 +854,12 @@ export default function App() {
         if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
       } else if (e.kind === 'text') {
         setTool((t) => (t?.role === who ? null : t))
+        setAgentTool((t) => {
+          if (!t[who]) return t
+          const copy = { ...t }
+          delete copy[who]
+          return copy
+        })
         setRS(who, 'talking')
         if (isP) setStatus('Respondiendo…')
         setMessages((ms) => {
@@ -903,6 +911,12 @@ export default function App() {
         // si entrega a un compañero, camina hacia ÉL (no hacia el principal)
         if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
         setTool((t) => (t?.role === who ? null : t))
+        setAgentTool((t) => {
+          if (!t[who]) return t
+          const copy = { ...t }
+          delete copy[who]
+          return copy
+        })
         setAgentTodos((t) => {
           if (!t[who]) return t
           const copy = { ...t }
@@ -933,6 +947,12 @@ export default function App() {
         handoffsRef.current = handoffsRef.current.filter((h) => !(h.from === who && h.result == null))
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
+        setAgentTool((t) => {
+          if (!t[who]) return t
+          const copy = { ...t }
+          delete copy[who]
+          return copy
+        })
         setAgentTodos((t) => {
           if (!t[who]) return t
           const copy = { ...t }
@@ -952,6 +972,12 @@ export default function App() {
         setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
         setRS(who, 'idle')
         setTool((t) => (t?.role === who ? null : t))
+        setAgentTool((t) => {
+          if (!t[who]) return t
+          const copy = { ...t }
+          delete copy[who]
+          return copy
+        })
         setAgentTodos((t) => {
           if (!t[who]) return t
           const copy = { ...t }
@@ -2083,6 +2109,7 @@ export default function App() {
           tool={tool}
           todos={agentTodos}
           standup={standupIds}
+          subagents={Object.keys(agentTool).filter((r) => agentTool[r] === 'Task')}
           elapsed={elapsed}
           queued={queuedCounts}
           deliverTargets={deliverTargets}

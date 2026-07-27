@@ -294,6 +294,14 @@ body {
 .todo-row.completed { color: #6b7f79; text-decoration: line-through; }
 .todo-row.in_progress { color: #e9f1ee; font-weight: 600; }
 
+/* etiqueta del ayudante (subagente Task) */
+.helper-tag {
+  background: rgba(139, 92, 246, 0.16); color: #c4b5fd;
+  border: 1px dashed rgba(139, 92, 246, 0.7); border-radius: 999px;
+  padding: 1px 8px; font-size: 9.5px; font-weight: 700; white-space: nowrap;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
 /* etiqueta de nombre bajo cada personaje */
 .nametag {
   background: rgba(14, 20, 23, 0.85); color: #e9f1ee;
