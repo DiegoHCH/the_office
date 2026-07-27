@@ -78,77 +78,144 @@ function WarmWindow({ position, rotation = [0, 0, 0], w = 0.52, h = 0.62, lit = 
 }
 
 
-// Ciudad alrededor: bloques low-poly con ventanas cálidas. Se ven desde la
-// altura al inicio del vuelo y quedan fuera de cuadro al llegar a la puerta.
-function CityBlock({ position, w, d, h, rot = 0, warm = 0.5 }) {
-  const rows = Math.max(1, Math.round(h / 0.55))
-  const cols = Math.max(1, Math.round(w / 0.5))
-  const panes = []
-  for (let r = 0; r < rows; r++)
-    for (let c = 0; c < cols; c++) panes.push([-w / 2 + (w / cols) * (c + 0.5), 0.35 + r * 0.55, Math.random() < warm])
+// Torre moderna: núcleo oscuro con muro cortina de vidrio y remate.
+function GlassTower({ position, w, d, h, rot = 0, lit = 0.5 }) {
+  const floors = Math.max(2, Math.round(h / 0.52))
   return (
     <group position={position} rotation={[0, rot, 0]}>
+      {/* núcleo */}
       <mesh position={[0, h / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color="#8d7a6c" roughness={0.95} />
+        <meshStandardMaterial color="#39434c" roughness={0.55} metalness={0.35} />
       </mesh>
-      <mesh position={[0, h + 0.06, 0]} castShadow>
-        <boxGeometry args={[w + 0.12, 0.12, d + 0.12]} />
-        <meshStandardMaterial color="#6b5847" roughness={0.85} />
+      {/* muro cortina: bandas de vidrio por piso en las 4 caras */}
+      {Array.from({ length: floors }, (_, f) => {
+        const y = 0.34 + f * 0.52
+        if (y > h - 0.22) return null
+        const warm = Math.random() < lit
+        const glass = (
+          <meshStandardMaterial
+            color={warm ? '#ffd6a0' : '#8fc4e8'}
+            emissive={warm ? '#ffa94d' : '#4a90c4'}
+            emissiveIntensity={warm ? 1.2 : 0.55}
+            roughness={0.12}
+            metalness={0.55}
+          />
+        )
+        return (
+          <group key={f} position={[0, y, 0]}>
+            <mesh position={[0, 0, d / 2 + 0.012]}>
+              <planeGeometry args={[w * 0.88, 0.34]} />
+              {glass}
+            </mesh>
+            <mesh position={[0, 0, -d / 2 - 0.012]} rotation={[0, Math.PI, 0]}>
+              <planeGeometry args={[w * 0.88, 0.34]} />
+              {glass}
+            </mesh>
+            <mesh position={[w / 2 + 0.012, 0, 0]} rotation={[0, Math.PI / 2, 0]}>
+              <planeGeometry args={[d * 0.88, 0.34]} />
+              {glass}
+            </mesh>
+            <mesh position={[-w / 2 - 0.012, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+              <planeGeometry args={[d * 0.88, 0.34]} />
+              {glass}
+            </mesh>
+          </group>
+        )
+      })}
+      {/* remate y antena */}
+      <mesh position={[0, h + 0.07, 0]} castShadow>
+        <boxGeometry args={[w + 0.14, 0.14, d + 0.14]} />
+        <meshStandardMaterial color="#2b333a" roughness={0.5} metalness={0.5} />
       </mesh>
-      {panes.map(([x, y, lit], i) =>
-        y < h - 0.15 ? (
-          <mesh key={i} position={[x, y, d / 2 + 0.01]}>
-            <planeGeometry args={[0.26, 0.32]} />
-            <meshStandardMaterial
-              color={lit ? '#ffd9a0' : '#4a5a66'}
-              emissive={lit ? '#ffb267' : '#1a242c'}
-              emissiveIntensity={lit ? 1.1 : 0.1}
-            />
-          </mesh>
-        ) : null
+      {h > 3.5 && (
+        <mesh position={[0, h + 0.5, 0]}>
+          <cylinderGeometry args={[0.015, 0.02, 0.8, 6]} />
+          <meshStandardMaterial color="#5b6770" metalness={0.7} roughness={0.3} />
+        </mesh>
       )}
     </group>
   )
 }
 
-function City() {
-  // manzanas a los lados y al fondo; el frente queda libre para la entrada
-  const blocks = useMemo(
-    () => [
-      [-8.5, -6, 2.6, 2.4, 3.2, 0.1, 0.6],
-      [-5.2, -8.5, 3.0, 2.6, 4.4, -0.05, 0.5],
-      [-1.0, -9.5, 2.8, 2.6, 2.6, 0.08, 0.7],
-      [3.2, -8.8, 3.2, 2.8, 5.0, 0, 0.45],
-      [7.6, -6.5, 2.6, 2.6, 3.6, -0.12, 0.6],
-      [9.2, -1.5, 2.8, 3.0, 4.2, 0.05, 0.5],
-      [-9.5, -1.0, 2.4, 3.2, 2.8, 0, 0.65],
-      [-9.8, 3.6, 2.6, 2.8, 3.8, 0.1, 0.5],
-      [9.6, 3.4, 2.6, 2.8, 3.0, -0.08, 0.6],
-      [-6.0, 7.5, 3.0, 2.4, 2.4, 0.04, 0.7],
-      [4.6, 8.0, 3.2, 2.6, 3.4, -0.06, 0.55],
-    ],
-    []
+// Arbolito de acera (mismo lenguaje low-poly de la escena)
+function StreetTree({ position, scale = 1 }) {
+  return (
+    <group position={position} scale={scale}>
+      <mesh position={[0, 0.28, 0]} castShadow>
+        <cylinderGeometry args={[0.045, 0.06, 0.56, 7]} />
+        <meshStandardMaterial color="#6b4a30" roughness={0.95} />
+      </mesh>
+      {[
+        [0, 0.78, 0, 0.28],
+        [0.14, 0.66, 0.06, 0.2],
+        [-0.12, 0.68, -0.05, 0.18],
+      ].map(([x, y, z, r], i) => (
+        <mesh key={i} position={[x, y, z]} castShadow>
+          <icosahedronGeometry args={[r, 0]} />
+          <meshStandardMaterial color={['#4a8f3c', '#5aa346', '#3f7d34'][i]} roughness={0.9} flatShading />
+        </mesh>
+      ))}
+    </group>
   )
+}
+
+function City() {
+  // Manzanas en cuadrícula: las avenidas cruzan en x=0 y z=0 (semiancho 1.9),
+  // así que cada bloque vive dentro de un cuadrante y NUNCA pisa la calzada.
+  // El cuadrante frontal-izquierdo se deja libre: ahí está nuestro edificio.
+  const { blocks, trees } = useMemo(() => {
+    const AV = 1.9 // semiancho de avenida
+    const b = []
+    const t = []
+    const quadrants = [
+      [-1, -1],
+      [1, -1],
+      [1, 1],
+      [-1, 1],
+    ]
+    let seed = 7
+    const rnd = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648)
+    for (const [sx, sz] of quadrants) {
+      for (let i = 0; i < 3; i++) {
+        for (let j = 0; j < 3; j++) {
+          const cx = sx * (AV + 1.6 + i * 3.4)
+          const cz = sz * (AV + 1.6 + j * 3.4)
+          // el cuadrante del edificio propio (frente-izquierda cercano) libre
+          if (Math.abs(cx) < 6 && cz > 0 && Math.abs(cz) < 6) continue
+          const w = 1.7 + rnd() * 1.1
+          const d = 1.7 + rnd() * 1.1
+          const h = 2.2 + rnd() * 3.6
+          b.push([cx, cz, w, d, h, 0.3 + rnd() * 0.4])
+          // arbolitos en la acera que da a la avenida
+          t.push([cx - sx * (w / 2 + 0.55), cz + (rnd() - 0.5) * 1.2, 0.85 + rnd() * 0.4])
+          if (rnd() > 0.5) t.push([cx + (rnd() - 0.5) * 1.4, cz - sz * (d / 2 + 0.55), 0.8 + rnd() * 0.4])
+        }
+      }
+    }
+    return { blocks: b, trees: t }
+  }, [])
   return (
     <group>
-      {/* suelo urbano: asfalto oscuro bajo todo */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.32, 0]} receiveShadow>
-        <planeGeometry args={[46, 46]} />
-        <meshStandardMaterial color="#4b4741" roughness={1} />
+        <planeGeometry args={[52, 52]} />
+        <meshStandardMaterial color="#3f4a52" roughness={1} />
       </mesh>
-      {/* avenidas claras cruzando */}
+      {/* avenidas en cruz, con línea central */}
       {[
-        [0, 0, 46, 3.4],
-        [0, 0, 3.4, 46],
-      ].map(([x, z, w, d], i) => (
-        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[x, -0.31, z]} receiveShadow>
+        [52, 3.8, 0, 0],
+        [3.8, 52, 0, 0],
+      ].map(([w, d], i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.31, 0]} receiveShadow>
           <planeGeometry args={[w, d]} />
-          <meshStandardMaterial color="#5c574f" roughness={1} />
+          <meshStandardMaterial color="#565f66" roughness={1} />
         </mesh>
       ))}
       {blocks.map((b, i) => (
-        <CityBlock key={i} position={[b[0], -0.3, b[1]]} w={b[2]} d={b[3]} h={b[4]} rot={b[5]} warm={b[6]} />
+        <GlassTower key={i} position={[b[0], -0.3, b[1]]} w={b[2]} d={b[3]} h={b[4]} lit={b[5]} />
+      ))}
+      {trees.map((t, i) => (
+        <StreetTree key={i} position={[t[0], -0.3, t[1]]} scale={t[2]} />
       ))}
     </group>
   )
@@ -213,10 +280,16 @@ function Building({ doorOpen, tex }) {
       <RB args={[1.45, 1.55, 0.28]} r={0.05} position={[-0.55, 0.78, 1.16]} castShadow>
         <meshStandardMaterial color={WOOD_TRIM} roughness={0.7} />
       </RB>
-      {/* el resplandor del interior se cuela por la puerta */}
-      <mesh position={[-0.55, 0.66, 1.2]}>
-        <planeGeometry args={[1.0, 1.25]} />
-        <meshStandardMaterial color="#ffe0b8" emissive="#ffb267" emissiveIntensity={1.8} />
+      {/* zaguán: hueco oscuro hacia adentro para que al cruzar la puerta la
+          cámara entre en negro (antes era un plano claro pegado a la fachada) */}
+      <mesh position={[-0.55, 0.68, 0.35]}>
+        <boxGeometry args={[1.05, 1.3, 1.7]} />
+        <meshStandardMaterial color="#0b0f12" roughness={1} side={DoubleSide} />
+      </mesh>
+      {/* una lengua de luz cálida en el piso del zaguán (se ve al abrir) */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[-0.55, 0.045, 0.95]}>
+        <planeGeometry args={[0.9, 0.9]} />
+        <meshStandardMaterial color="#3a2a1c" emissive="#c98a4a" emissiveIntensity={0.5} />
       </mesh>
       <group position={[-0.55, 0.64, 1.33]}>
         {[
