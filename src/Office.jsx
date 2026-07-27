@@ -843,6 +843,26 @@ function TodoCard({ items }) {
   )
 }
 
+// Modo director (#98): la cámara hace paneo suave hacia quien está trabajando
+// (y al centro cuando hay standup). Tocar los controles lo pausa unos segundos.
+function Director({ controls, target, enabled }) {
+  const pausedUntil = useRef(0)
+  useEffect(() => {
+    const ctl = controls.current
+    if (!ctl) return
+    const onStart = () => (pausedUntil.current = performance.now() + 6000)
+    ctl.addEventListener('start', onStart)
+    return () => ctl.removeEventListener('start', onStart)
+  }, [controls])
+  useFrame(() => {
+    const ctl = controls.current
+    if (!ctl || !enabled || !target || performance.now() < pausedUntil.current) return
+    ctl.target.lerp(target, 0.035) // suave: nada de tirones
+    ctl.update()
+  })
+  return null
+}
+
 // Ayudante temporal: aparece junto al escritorio cuando el agente delega
 // trabajo a un subagente (tool Task). Parado entre la silla y el centro,
 // mirando a su "jefe".
@@ -862,7 +882,7 @@ function HelperGhost({ chair }) {
   )
 }
 
-export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', quality = 'normal', onTourDone, onPickMember }) {
+export default function Office({ roleStates = {}, status = '', squad = [], deliverTargets = {}, theme = 'clasico', tool = null, elapsed = {}, queued = {}, todos = {}, standup = [], subagents = [], pet = '', quality = 'normal', director = false, onTourDone, onPickMember }) {
   // Accesibilidad (#104): con «reducir movimiento» activo en el sistema, la
   // escena se queda quieta — nada de paseos, visitas, mascota ni partículas.
   // El trabajo real (entregas, estados) sigue viéndose.
@@ -1021,6 +1041,17 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           ? ambient[main.id]?.tour || null
           : null
 
+  // Modo director: a quién sigue la cámara — el círculo del standup, o el
+  // último agente que se puso a trabajar (su silla).
+  const camTarget = useMemo(() => {
+    if (!director) return null
+    if (standup.length) return new Vector3(0, 0.9, 0.15)
+    const activo = squad.find((m) => m && ['working', 'listening', 'talking'].includes(roleStates[m.id]))
+    if (!activo) return new Vector3(0, 0.35, 0) // sin trabajo: encuadre general
+    const c = activo.id === squad[0]?.id ? CHAIR_POS : SLOTS[squad.findIndex((m) => m?.id === activo.id) - 1]?.chair
+    return c ? new Vector3(c[0] * 0.75, 0.8, c[2] * 0.75) : null
+  }, [director, standup, squad, roleStates])
+
   // ¿hay movimiento en curso? (agentes activos o paseos de la vida ambiental)
   // Oculta, la escena solo sigue pintando para que eso termine limpio.
   const anyMotion = Object.keys(roleStates).length > 0 || Object.values(ambient).some((a) => a && a.tour)
@@ -1088,6 +1119,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       <color attach="background" args={[T.bg]} />
 
       <OrthographicCamera makeDefault position={[11, 9.5, 11]} zoom={80} near={0.1} far={100} />
+      <Director controls={controlsRef} target={camTarget} enabled={director && !reduceMotion} />
       <OrbitControls ref={controlsRef} target={[0, 0.35, 0]} enablePan={false} minZoom={45} maxZoom={280} onEnd={saveCamera} />
 
       <ambientLight intensity={T.ambient} />

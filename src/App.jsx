@@ -301,9 +301,16 @@ export default function App() {
     showToast(v === 'cine' ? '🎬 Calidad Cine — profundidad de campo y bloom' : v === 'ligera' ? '🔋 Calidad Ligera — sin efectos' : '✨ Calidad Normal')
   }
   const [pet, setPet] = useState('')
+  const [director, setDirector] = useState(false)
+  const saveDirector = (v) => {
+    setDirector(v)
+    localStorage.setItem(`oficina-director-${profile}`, v ? '1' : '0')
+    showToast(v ? '🎬 Modo director — la cámara sigue a quien trabaja' : 'Modo director apagado')
+  }
   useEffect(() => {
     setPet(localStorage.getItem(`oficina-pet-${profile}`) || '')
     setQuality(localStorage.getItem(`oficina-quality-${profile}`) || 'normal')
+    setDirector(localStorage.getItem(`oficina-director-${profile}`) === '1')
   }, [profile])
   const savePet = (v) => {
     setPet(v)
@@ -2038,6 +2045,7 @@ export default function App() {
           subagents={Object.keys(agentTool).filter((r) => agentTool[r] === 'Task')}
           pet={pet}
           quality={quality}
+          director={director}
           elapsed={elapsed}
           queued={queuedCounts}
           deliverTargets={deliverTargets}
@@ -2181,6 +2189,13 @@ export default function App() {
                 <option value="cine">🎬 Cine — todos los efectos</option>
                 <option value="normal">✨ Normal (recomendado)</option>
                 <option value="ligera">🔋 Ligera — ahorra batería</option>
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">Cámara:</span>
+              <select className="sel pref-sel" value={director ? '1' : '0'} onChange={(e) => saveDirector(e.target.value === '1')}>
+                <option value="0">Fija (tú la mueves)</option>
+                <option value="1">🎬 Director — sigue a quien trabaja</option>
               </select>
             </div>
             <div className="pref-row">
