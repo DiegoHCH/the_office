@@ -9,6 +9,7 @@ import {
   MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, modelLabelOf,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
+import { routeMessage, detectHandoff } from './lib/routing.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS } from './data/catalogs.js'
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -21,31 +22,6 @@ const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5
 2) ¿Quedó algo pendiente o bloqueado?
 3) ¿Qué sugieres hacer hoy?
 Si no tienes contexto previo conmigo en este proyecto, dilo en una línea y sugiere en qué puedes ayudar según tu rol. No uses herramientas salvo que sea imprescindible.`
-
-// A qué miembro va el mensaje: nombre al inicio / @nombre / keywords / principal.
-function routeMessage(text, squad, principal) {
-  const t = norm(text)
-  for (const m of squad) {
-    const n = escRe(norm(m.name))
-    if (new RegExp(`^${n}\\b`).test(t) || t.includes(`@${norm(m.name)}`)) return m.id
-  }
-  for (const m of squad) if (m.id !== principal && m.kw?.test(t)) return m.id
-  return principal
-}
-
-// ¿El mensaje pide pasarle el resultado a otro miembro? ("...y pásaselo al Dev",
-// "Research -> Dev: ...", "para que el QA lo pruebe")
-function detectHandoff(text, squad, fromId) {
-  const t = norm(text)
-  const verb = /(pasal|pasasel|pasa el resultado|entregal|entregasel|entrega el resultado|dasel|dale el resultado|para que|y que)/.test(t)
-  for (const m of squad) {
-    if (m.id === fromId) continue
-    const n = escRe(norm(m.name))
-    if (new RegExp(`(?:->|→)\\s*${n}\\b`).test(t)) return m.id
-    if (verb && new RegExp(`\\b(?:a|para(?:\\s+que)?|que)\\s+${n}\\b`).test(t)) return m.id
-  }
-  return null
-}
 
 export default function App() {
   const [messages, setMessages] = useState([])

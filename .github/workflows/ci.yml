@@ -23,6 +23,8 @@ jobs:
       - run: npm ci
       - name: Sintaxis del main process
         run: node --check electron/main.js && node --check electron/preload.js
+      - name: Tests del núcleo (ruteo y helpers)
+        run: npm test
       - name: Build del renderer
         run: npx vite build
       - name: Smoke test del renderer
