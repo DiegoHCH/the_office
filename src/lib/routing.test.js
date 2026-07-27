@@ -56,6 +56,24 @@ describe('routeMessage', () => {
     expect(routeMessage('buenas tardes Sanji: mira esto', SQUAD, P)).toBe('design')
   })
 
+  it('saludar sin coma también interpela — casi nadie la escribe', () => {
+    // el arreglo anterior solo cubría la versión con coma: «Hola Nami» a secas
+    // seguía yendo al principal
+    expect(routeMessage('Hola Nami', SQUAD, P)).toBe('research')
+    expect(routeMessage('hola nami como estas?', SQUAD, P)).toBe('research')
+    expect(routeMessage('Hola Nami cuál es tu cargo en la oficina?', SQUAD, P)).toBe('research')
+    expect(routeMessage('buenas Zoro', SQUAD, P)).toBe('qa')
+    expect(routeMessage('buenos días Sanji', SQUAD, P)).toBe('design')
+    expect(routeMessage('hey nami que tal', SQUAD, P)).toBe('research')
+    expect(routeMessage('por favor Nami investiga esto', SQUAD, P)).toBe('research')
+  })
+
+  it('sin saludo, un nombre a media frase sigue sin rutear', () => {
+    // la lista de saludos es cerrada justamente para esto
+    expect(routeMessage('mañana Nami lo revisa', SQUAD, P)).toBe('dev')
+    expect(routeMessage('creo que Zoro ya lo probó', SQUAD, P)).toBe('dev')
+  })
+
   it('el nombre al final tras coma también interpela', () => {
     expect(routeMessage('revisa el login, Zoro', SQUAD, P)).toBe('qa')
     expect(routeMessage('¿puedes con esto, Nami?', SQUAD, P)).toBe('research')
