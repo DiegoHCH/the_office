@@ -284,6 +284,14 @@ const WRITE_TOOLS = `${READ_TOOLS},Edit,Write,NotebookEdit,Bash`
 const PR_MCP_TOOLS = 'mcp__claude_ai_Atlassian_Rovo,mcp__claude_ai_Atlassian,mcp__claude_ai_Slack'
 const PR_TOOLS = `${WRITE_TOOLS},${PR_MCP_TOOLS}`
 
+// Idioma de la interfaz (#103): el squad contesta en el mismo idioma que ve
+// el usuario, aunque las plantillas de persona estén escritas en español.
+let answerLang = 'Spanish'
+ipcMain.handle('prefs:lang', (_e, v) => {
+  answerLang = v === 'English' ? 'English' : 'Spanish'
+  return { ok: true }
+})
+
 // Pizarra compartida: memoria común del squad en la raíz del proyecto.
 let boardEnabled = true
 ipcMain.handle('prefs:board', (_e, v) => {
@@ -699,6 +707,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   const customMd = readPersonaMd(profile, role)
   if (customMd) persona += `\n\nInstrucciones personalizadas de ${displayName}:\n${customMd}`
   if (boardEnabled) persona += `\n\n${SQUAD_BOARD_NOTE}`
+  persona += `\n\nIDIOMA: responde SIEMPRE en ${answerLang}, sin importar el idioma de estas instrucciones.`
 
   // El Revisor PR ejecuta skills que llaman conectores MCP (Jira/Slack). En
   // headless no hay prompt para aprobarlos y el conector OAuth puede aparecer con
@@ -1090,9 +1099,11 @@ ipcMain.handle('stats:get', async (_e, profile = 'work') => {
   }
 })
 
-// Ventana de la guía de uso (ayuda.html empaquetada con la app).
+// Ventana de la guía de uso (ayuda.html / ayuda.en.html, empaquetadas).
 let helpWin = null
-function openHelp() {
+function openHelp(lang) {
+  const en = (lang || (answerLang === 'English' ? 'en' : 'es')) === 'en'
+  const file = en ? 'ayuda.en.html' : 'ayuda.html'
   if (helpWin && !helpWin.isDestroyed()) {
     helpWin.focus()
     return { ok: true }
@@ -1101,9 +1112,9 @@ function openHelp() {
     width: 860,
     height: 760,
     backgroundColor: '#0e1417',
-    title: 'La Oficina · Guía de uso',
+    title: en ? 'La Oficina · User guide' : 'La Oficina · Guía de uso',
   })
-  helpWin.loadURL(isDev ? 'http://localhost:5173/ayuda.html' : 'app://bundle/ayuda.html')
+  helpWin.loadURL(isDev ? `http://localhost:5173/${file}` : `app://bundle/${file}`)
   helpWin.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }
@@ -1119,7 +1130,7 @@ function openHelp() {
   })
   return { ok: true }
 }
-ipcMain.handle('help:open', () => openHelp())
+ipcMain.handle('help:open', (_e, lang) => openHelp(lang))
 
 // ── Artifacts locales ────────────────────────────────────────────────────────
 // Carpeta donde el squad guarda los artifacts HTML (configurable desde ⚙️).

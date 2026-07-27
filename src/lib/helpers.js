@@ -1,10 +1,11 @@
 // Helpers puros: formato, modelos, composer y extracción de opciones.
 // Extraído de App.jsx (refactor #94) sin cambios de comportamiento.
+import { t } from './i18n.js'
 
 // ── Monitor: cuándo resetea la cuota ────────────────────────────────────────
 export const fmtReset = (iso) => {
   const ms = new Date(iso) - Date.now()
-  if (!iso || ms <= 0) return 'ya'
+  if (!iso || ms <= 0) return t('fmt.now')
   const m = Math.floor(ms / 60000)
   const d = Math.floor(m / 1440)
   const h = Math.floor((m % 1440) / 60)

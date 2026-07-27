@@ -1,4 +1,5 @@
 // Catálogo de roles, avatares y su meta visual/ruteo (refactor #94).
+import { t } from '../lib/i18n.js'
 
 // ── Catálogo de roles (visual + keywords). Nombres/activos vienen de la config ⚙️ ──
 export const ROLE_META = {
@@ -35,7 +36,7 @@ export const ROLE_META = {
     kw: /\btest\b|\btests\b|prueba|regresion|\bqa\b|coverage|e2e|unitari/,
   },
   pr: {
-    label: 'Revisor PR',
+    get label() { return t('role.pr') },
     emoji: '🔎',
     color: '#8b5cf6',
     hair: '#16181d', // pelo negro
@@ -51,7 +52,7 @@ export const ROLE_META = {
     kw: /\bdocs?\b|documentacion|readme|guia|manual|\badr\b/,
   },
   publish: {
-    label: 'Publicador',
+    get label() { return t('role.publish') },
     emoji: '🚀',
     color: '#0ea5e9',
     hair: '#38bdf8', // pelo azul

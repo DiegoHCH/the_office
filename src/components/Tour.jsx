@@ -1,14 +1,16 @@
 // Tour de bienvenida con spotlight (refactor #94).
 import { useEffect, useState } from 'react'
+import { t } from '../lib/i18n.js'
 
-// Tour de bienvenida: spotlight sobre la UI real, paso a paso.
+// Tour de bienvenida: spotlight sobre la UI real, paso a paso. Los textos
+// salen del diccionario, así que el tour sigue al idioma elegido (#103).
 const TOUR_STEPS = [
-  { sel: '.ctxbtn', title: 'Tu contexto', text: 'Perfil y proyecto activos. Aquí cambias entre work/private, eliges el repo donde trabaja el squad y agregas carpetas externas.' },
-  { sel: '.hud', title: 'La barra', text: 'Documentos que genera el squad, historial de conversaciones (⌘Y), conversación nueva (⌘K) y Configuración (⌘,) — ahí viven Agentes, Skills y MCP.' },
-  { sel: '.sysmon-stack', title: 'Monitores', text: 'CPU y RAM reales del Mac, y tu cuota de Claude: modelo en uso, tokens de la conversación y % de la sesión de 5h y la semana.' },
-  { sel: 'canvas', title: 'La oficina', text: 'Cada personaje es una sesión real de Claude Code. Click en uno para dirigirle el mensaje; arrastra para rotar la cámara y doble click la restablece.' },
-  { sel: '.perm-chip', title: 'Permisos a la vista', text: 'Ámbar = edición (puede modificar archivos y correr comandos, auto-aceptado — úsalo en repos con git). Gris = solo lectura. Un click lo alterna.' },
-  { sel: '.composer textarea', title: 'El composer', text: 'Enter envía · Shift+Enter salto de línea · / abre tus plantillas · @ lista los agentes (@todos = a todos los libres) · ⌘F busca en la conversación.' },
+  { sel: '.ctxbtn', k: 'ctx' },
+  { sel: '.hud', k: 'hud' },
+  { sel: '.sysmon-stack', k: 'mon' },
+  { sel: 'canvas', k: 'office' },
+  { sel: '.perm-chip', k: 'perm' },
+  { sel: '.composer textarea', k: 'composer' },
 ]
 export default function Tour({ onDone }) {
   const [i, setI] = useState(0)
@@ -44,12 +46,12 @@ export default function Tour({ onDone }) {
         <div className="tour-step">
           {i + 1} / {TOUR_STEPS.length}
         </div>
-        <b>{s.title}</b>
-        <p>{s.text}</p>
+        <b>{t(`tour.${s.k}.title`)}</b>
+        <p>{t(`tour.${s.k}.text`)}</p>
         <div className="tour-actions">
-          <button type="button" onClick={onDone}>Saltar</button>
+          <button type="button" onClick={onDone}>{t('tour.skip')}</button>
           <button type="button" className="tour-next" onClick={() => (i < TOUR_STEPS.length - 1 ? setI(i + 1) : onDone())}>
-            {i < TOUR_STEPS.length - 1 ? 'Siguiente →' : '¡Listo! 🎉'}
+            {i < TOUR_STEPS.length - 1 ? t('tour.next') : t('tour.done')}
           </button>
         </div>
       </div>

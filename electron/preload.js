@@ -44,8 +44,10 @@ contextBridge.exposeInMainWorld('oficina', {
     reveal: (file) => ipcRenderer.invoke('artifacts:reveal', file),
     zip: (file) => ipcRenderer.invoke('artifacts:zip', file),
   },
-  // Abre la guía de uso en su propia ventana.
-  openHelp: () => ipcRenderer.invoke('help:open'),
+  // Abre la guía de uso en su propia ventana (en el idioma de la interfaz).
+  openHelp: (lang) => ipcRenderer.invoke('help:open', lang),
+  // Idioma elegido: los agentes responden en él.
+  setLang: (v) => ipcRenderer.invoke('prefs:lang', v),
   // Monitor: recursos del sistema + % de uso de la suscripción de Claude.
   stats: (profile) => ipcRenderer.invoke('stats:get', profile),
   refreshUsage: () => ipcRenderer.invoke('stats:refreshUsage'),

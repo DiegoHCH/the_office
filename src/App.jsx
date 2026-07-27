@@ -12,7 +12,8 @@ import {
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
-import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, SEED_SNIPPETS, PETS } from './data/catalogs.js'
+import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n.js'
+import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
 import Tour from './components/Tour.jsx'
@@ -27,11 +28,7 @@ import {
   IconCopy, IconRetry, IconShare, IconDiff, IconChat, IconBoard, IconBell, IconBellOff, IconRestore, IconCoin, IconClock,
 } from './components/icons.jsx'
 
-const STANDUP_PROMPT = `Reunión de standup del squad. Responde BREVE (máximo 5 líneas, con viñetas), en tu personaje:
-1) ¿En qué trabajamos la última vez?
-2) ¿Quedó algo pendiente o bloqueado?
-3) ¿Qué sugieres hacer hoy?
-Si no tienes contexto previo conmigo en este proyecto, dilo en una línea y sugiere en qué puedes ayudar según tu rol. No uses herramientas salvo que sea imprescindible.`
+const standupPrompt = () => t('prompt.standup')
 
 export default function App() {
   const [messages, setMessages] = useState([])
@@ -97,7 +94,7 @@ export default function App() {
   const saveIntro = (v) => {
     setIntroOn(v)
     localStorage.setItem('oficina-intro', v ? '1' : '0')
-    showToast(v ? '🎬 La intro se verá al abrir la app' : 'Intro desactivada')
+    showToast(v ? t('toast.introOn') : t('toast.introOff'))
   }
 
   // Tour de bienvenida: espera a que la intro termine (si no, se dispara
@@ -121,7 +118,7 @@ export default function App() {
     } catch {}
     setTourOpen(false)
   }
-  const [status, setStatus] = useState('Esperándote')
+  const [status, setStatus] = useState(t('status.waiting'))
   const [roleStates, setRoleStates] = useState({})
   const [tool, setTool] = useState(null)
   const [input, setInput] = useState('')
@@ -151,6 +148,15 @@ export default function App() {
   const hourNow = new Date().getHours()
   const effectiveTheme = theme === 'auto' ? (hourNow >= 19 || hourNow < 7 ? 'noche' : 'clasico') : theme
   const [board, setBoard] = useState(() => localStorage.getItem('oficina-board') !== '0')
+  // Idioma de la interfaz (#103): arranca en el del sistema. Cambiarlo repinta
+  // todo (el diccionario es un módulo, así que basta con forzar el re-render).
+  const [lang, setLangState] = useState(getLang)
+  const changeLang = (l) => {
+    setLang(l)
+    setLangState(l)
+    window.oficina?.setLang?.(langName())
+    showToast(t('toast.langChanged'))
+  }
   const [roster, setRoster] = useState([]) // config completa (6 roles)
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
   const [skillsOpen, setSkillsOpen] = useState(false) // panel 🧩 Skills (catálogo por perfil)
@@ -224,7 +230,8 @@ export default function App() {
             human: !NONHUMAN_AVATARS.has(url.split('/').pop()),
           }
         }),
-    [roster]
+    // lang: las etiquetas de rol vienen del diccionario, hay que rehacerlas
+    [roster, lang]
   )
   const principal = squad[0]?.id || 'dev'
   const principalRef = useRef(principal)
@@ -307,14 +314,14 @@ export default function App() {
   const saveQuality = (v) => {
     setQuality(v)
     localStorage.setItem(`oficina-quality-${profile}`, v)
-    showToast(v === 'cine' ? '🎬 Calidad Cine — profundidad de campo y bloom' : v === 'ligera' ? '🔋 Calidad Ligera — sin efectos' : '✨ Calidad Normal')
+    showToast(v === 'cine' ? t('toast.qCine') : v === 'ligera' ? t('toast.qLight') : t('toast.qNormal'))
   }
   const [pet, setPet] = useState('')
   const [director, setDirector] = useState(false)
   const saveDirector = (v) => {
     setDirector(v)
     localStorage.setItem(`oficina-director-${profile}`, v ? '1' : '0')
-    showToast(v ? '🎬 Modo director — la cámara sigue a quien trabaja' : 'Modo director apagado')
+    showToast(v ? t('toast.dirOn') : t('toast.dirOff'))
   }
   useEffect(() => {
     setPet(localStorage.getItem(`oficina-pet-${profile}`) || '')
@@ -324,13 +331,18 @@ export default function App() {
   const savePet = (v) => {
     setPet(v)
     localStorage.setItem(`oficina-pet-${profile}`, v)
-    showToast(v ? `¡${PETS.find((p2) => p2.id === v)?.label || 'La mascota'} llegó a la oficina!` : 'La mascota se fue a casa')
+    showToast(v ? t('toast.petIn', { pet: PETS.find((p2) => p2.id === v)?.label || t('toast.thePet') }) : t('toast.petOut'))
   }
 
   useEffect(() => {
     localStorage.setItem('oficina-board', board ? '1' : '0')
     window.oficina?.setBoard?.(board)
   }, [board])
+
+  // el idioma elegido viaja al proceso principal: los agentes contestan en él
+  useEffect(() => {
+    window.oficina?.setLang?.(langName())
+  }, [lang])
 
   const loadSquad = async (p) => {
     const r = (await window.oficina?.squad?.get(p)) || []
@@ -391,7 +403,7 @@ export default function App() {
     const res = await window.oficina?.artifacts?.pickDir?.()
     if (res?.ok) {
       setArtsDir(res.dir)
-      showToast('📁 Carpeta de documentos actualizada')
+      showToast(t('toast.docsDir'))
     }
   }
 
@@ -423,7 +435,7 @@ export default function App() {
       const followingDefault = oldDefault ? model === oldDefault : model === FALLBACK_MODEL
       if (newDefault && newDefault !== oldDefault && followingDefault) {
         setModel(newDefault)
-        showToast(`Modelo → ${modelLabelOf(newDefault)} (cambiado desde la terminal)`)
+        showToast(t('toast.modelFromCli', { label: modelLabelOf(newDefault) }))
       }
     }
     window.addEventListener('focus', onFocus)
@@ -466,7 +478,7 @@ export default function App() {
       if (e.kind === 'system-resumed') {
         // el Mac durmió: los streams en curso murieron — avisar si había trabajo
         if (runningRef.current.length) {
-          showToast('😴 El Mac se suspendió a media tarea — usa ⏹ y 🔁 Reintentar si algún agente quedó colgado', 8000)
+          showToast(t('toast.suspended'), 8000)
         }
         window.oficina?.refreshUsage?.()
         return
@@ -475,7 +487,7 @@ export default function App() {
       const isP = who === principalRef.current
       if (e.kind === 'init') {
         if (e.sessionId) sessionsRef.current[who] = e.sessionId
-        if (isP) setStatus('Pensando…')
+        if (isP) setStatus(t('status.thinking'))
       } else if (e.kind === 'todos') {
         setAgentTodos((t) => ({ ...t, [who]: e.todos }))
       } else if (e.kind === 'tool') {
@@ -499,7 +511,7 @@ export default function App() {
           return copy
         })
         setRS(who, 'talking')
-        if (isP) setStatus('Respondiendo…')
+        if (isP) setStatus(t('status.answering'))
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
@@ -572,7 +584,7 @@ export default function App() {
         )
         clearTimeout(doneChipTimer.current)
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
-        if (isP) setStatus('Esperándote')
+        if (isP) setStatus(t('status.waiting'))
       } else if (e.kind === 'stopped') {
         delete editedRef.current[who]
         // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
@@ -603,7 +615,7 @@ export default function App() {
         setToast(`⏹ ${name}: tarea cancelada`)
         clearTimeout(toastTimer.current)
         toastTimer.current = setTimeout(() => setToast(null), 3500)
-        if (isP) setStatus('Esperándote')
+        if (isP) setStatus(t('status.waiting'))
       } else if (e.kind === 'error') {
         delete editedRef.current[who]
         // ¿error transitorio (rate limit, red, timeout)? un reintento
@@ -631,7 +643,7 @@ export default function App() {
           clearTimeout(toastTimer.current)
           toastTimer.current = setTimeout(() => setToast(null), 5000)
           setTimeout(() => autoRetryRef.current(who), 5000)
-          if (isP) setStatus('Reintentando…')
+          if (isP) setStatus(t('status.retrying'))
           return
         }
         // el stderr (si vino) se muestra como bloque de código en el mensaje
@@ -652,7 +664,7 @@ export default function App() {
           return copy
         })
         buzzSound()
-        if (isP) setStatus('Esperándote')
+        if (isP) setStatus(t('status.waiting'))
       }
     })
   }, [])
@@ -678,7 +690,7 @@ export default function App() {
       if (scheduledStandupRef.current) {
         scheduledStandupRef.current = false
         try {
-          new Notification('La Oficina', { body: '📋 Standup del día listo — los reportes del squad te esperan en el chat' })
+          new Notification('La Oficina', { body: t('notif.standupReady') })
         } catch {}
       }
     }
@@ -725,7 +737,7 @@ export default function App() {
         .then((res) => {
           if (!res?.ok) {
             setRS(h.to, 'idle')
-            showToast(`⚠️ ${res?.error || 'No se pudo entregar'}`)
+            showToast(`⚠️ ${res?.error || t('toast.noDeliver')}`)
           }
         })
     }
@@ -881,7 +893,7 @@ export default function App() {
 
   const newChat = () => {
     clearConversation()
-    showToast('Conversación nueva ✨')
+    showToast(t('toast.newChat'))
   }
 
   // ── Pestañas de conversación (#96) ───────────────────────────────────────
@@ -915,26 +927,26 @@ export default function App() {
   }
   const switchTab = async (id) => {
     if (id === activeTab) return
-    if (busy) return showToast('Espera a que terminen las tareas para cambiar de pestaña')
+    if (busy) return showToast(t('toast.busyTab'))
     snapshotTab()
     setActiveTab(id)
     await restoreTab(id)
   }
   const addTab = async () => {
-    if (tabs.length >= MAX_TABS) return showToast(`Máximo ${MAX_TABS} pestañas abiertas`)
-    if (busy) return showToast('Espera a que terminen las tareas para abrir otra pestaña')
+    if (tabs.length >= MAX_TABS) return showToast(t('toast.maxTabs', { n: MAX_TABS }))
+    if (busy) return showToast(t('toast.busyNewTab'))
     snapshotTab()
     const id = `tab-${Date.now()}`
-    setTabs((t) => [...t, { id, title: 'Nueva' }])
+    setTabs((prev) => [...prev, { id, title: t('hud.new') }])
     setActiveTab(id)
     clearConversation()
   }
   const closeTab = async (e, id) => {
     e.stopPropagation()
     if (tabs.length === 1) return newChat() // la última no se cierra: se vacía
-    if (busy && id === activeTab) return showToast('Espera a que terminen las tareas')
+    if (busy && id === activeTab) return showToast(t('toast.busy'))
     delete tabStateRef.current[id] // el hilo ya está guardado en el historial
-    const resto = tabs.filter((t) => t.id !== id)
+    const resto = tabs.filter((x) => x.id !== id)
     setTabs(resto)
     if (id === activeTab) {
       const siguiente = resto[resto.length - 1].id
@@ -944,8 +956,8 @@ export default function App() {
   }
   // el título de la pestaña sigue al primer mensaje del hilo
   useEffect(() => {
-    const t = messages.find((m) => m.role === 'user')?.text?.slice(0, 22)
-    setTabs((prev) => prev.map((x) => (x.id === activeTab ? { ...x, title: t || 'Nueva' } : x)))
+    const primero = messages.find((m) => m.role === 'user')?.text?.slice(0, 22)
+    setTabs((prev) => prev.map((x) => (x.id === activeTab ? { ...x, title: primero || t('hud.new') } : x)))
   }, [messages, activeTab])
 
   // ¿El proyecto tiene repo git? (red de seguridad del modo edición)
@@ -958,13 +970,13 @@ export default function App() {
   const setWritePermission = async (next) => {
     setWriteMode(next)
     if (!next) {
-      showToast('🔒 Modo lectura — solo investigar')
+      showToast(t('toast.readMode'))
       return
     }
     if (await hasGit(project)) {
-      showToast('✏️ Modo edición — puede modificar y correr comandos')
+      showToast(t('toast.writeMode'))
     } else {
-      showToast('⚠️ Modo edición SIN git en este proyecto — los cambios no tendrán red de seguridad', 6000)
+      showToast(t('toast.noGitWrite'), 6000)
     }
   }
 
@@ -985,7 +997,7 @@ export default function App() {
     clearConversation()
     // edición activa + proyecto sin git = sin red de seguridad
     if (writeMode && !(await hasGit(v))) {
-      showToast('⚠️ Este proyecto no tiene git y el modo edición está activo — sin red de seguridad', 6000)
+      showToast(t('toast.noGitOpen'), 6000)
     }
   }
   // "➕ Agregar proyecto…": picker de carpeta; se persiste por perfil
@@ -996,7 +1008,7 @@ export default function App() {
       setProject(res.path)
       clearConversation()
       const git = !writeMode || (await hasGit(res.path))
-      showToast(git ? `📌 Proyecto añadido: ${res.name}` : `📌 Proyecto añadido: ${res.name} · ⚠️ sin git (edición sin red de seguridad)`, git ? 3500 : 6000)
+      showToast(git ? t('toast.projAdded', { name: res.name }) : t('toast.projAddedNoGit', { name: res.name }), git ? 3500 : 6000)
     }
   }
 
@@ -1031,15 +1043,15 @@ export default function App() {
     if (!scanUrl.trim()) return
     setScanResult({ loading: true })
     const res = await window.oficina?.skills?.scan(scanUrl)
-    setScanResult(res?.ok ? { repo: res.repo, skills: res.skills } : { error: res?.error || 'No se pudo leer el repo' })
+    setScanResult(res?.ok ? { repo: res.repo, skills: res.skills } : { error: res?.error || t('err.noReadRepo') })
   }
   const createSkill = async () => {
     const res = await window.oficina?.skills?.create(profile, skillForm.name, skillForm.desc)
     if (res?.ok) {
-      showToast(`🧩 Skill /${res.id} creada — se abrió en el editor`)
+      showToast(t('toast.skillCreated', { id: res.id }))
       setSkillForm(null)
       refreshSkills()
-    } else showToast(`⚠️ ${res?.error || 'No se pudo crear'}`)
+    } else showToast(`⚠️ ${res?.error || t('toast.noCreate')}`)
   }
 
   // ── Plugins del perfil (claude plugin CLI) ────────────────────────────────
@@ -1050,7 +1062,7 @@ export default function App() {
   const refreshPlugins = async () => {
     setPluginData({ loading: true })
     const [lst, mkts] = await Promise.all([window.oficina?.plugins?.list(profile), window.oficina?.plugins?.marketplaces(profile)])
-    if (!lst?.ok) setPluginData({ error: lst?.error?.slice(0, 200) || 'No se pudo consultar el CLI de plugins' })
+    if (!lst?.ok) setPluginData({ error: lst?.error?.slice(0, 200) || t('err.noPluginCli') })
     else setPluginData({ installed: lst.installed, available: lst.available, marketplaces: mkts?.ok ? mkts.marketplaces : [] })
   }
   const addMkt = async () => {
@@ -1059,39 +1071,39 @@ export default function App() {
     const res = await window.oficina?.plugins?.addMarketplace(profile, mktUrl)
     setPluginBusy(null)
     if (res?.ok) {
-      showToast('📦 Fuente añadida')
+      showToast(t('toast.srcAdded'))
       setMktUrl('')
       refreshPlugins()
-    } else showToast(`⚠️ ${res?.error?.slice(0, 160) || 'No se pudo añadir'}`, 6000)
+    } else showToast(`⚠️ ${res?.error?.slice(0, 160) || t('toast.noAdd')}`, 6000)
   }
   const removeMkt = async (name) => {
     setPluginBusy(name)
     const res = await window.oficina?.plugins?.removeMarketplace(profile, name)
     setPluginBusy(null)
-    showToast(res?.ok ? 'Fuente quitada' : `⚠️ ${res?.error?.slice(0, 160) || 'No se pudo quitar'}`)
+    showToast(res?.ok ? t('toast.srcRemoved') : `⚠️ ${res?.error?.slice(0, 160) || t('toast.noRemove')}`)
     refreshPlugins()
   }
   const installPlugin = async (id) => {
     setPluginBusy(id)
     const res = await window.oficina?.plugins?.install(profile, id)
     setPluginBusy(null)
-    if (res?.ok) showToast(`🔌 ${id.split('@')[0]} instalado — tus agentes ya lo tienen`)
-    else showToast(`⚠️ ${res?.error?.slice(0, 160) || 'No se pudo instalar'}`, 6000)
+    if (res?.ok) showToast(t('toast.plugInstalled', { name: id.split('@')[0] }))
+    else showToast(`⚠️ ${res?.error?.slice(0, 160) || t('toast.noInstall')}`, 6000)
     refreshPlugins()
   }
   const uninstallPlugin = async (id) => {
     setPluginBusy(id)
     const res = await window.oficina?.plugins?.uninstall(profile, id)
     setPluginBusy(null)
-    showToast(res?.ok ? 'Plugin desinstalado' : `⚠️ ${res?.error?.slice(0, 160) || 'No se pudo desinstalar'}`)
+    showToast(res?.ok ? t('toast.plugRemoved') : `⚠️ ${res?.error?.slice(0, 160) || t('toast.noUninstall')}`)
     refreshPlugins()
   }
   const installSkill = async (s) => {
     setSkillBusy(s.id)
     const res = await window.oficina?.skills?.install(profile, s.id, s.repo)
     setSkillBusy(null)
-    if (res?.ok) showToast(`🧩 ${s.name} instalada — tus agentes ya pueden usarla`)
-    else showToast(`⚠️ ${res?.error || 'No se pudo instalar'}`, 6000)
+    if (res?.ok) showToast(t('toast.skillInstalled', { name: s.name }))
+    else showToast(`⚠️ ${res?.error || t('toast.noInstall')}`, 6000)
     refreshSkills()
   }
   // «🔄 Actualizar todo»: re-instala (git pull + copia) las del catálogo
@@ -1100,18 +1112,18 @@ export default function App() {
     const known = (installedSkills || []).map((x) => SKILL_CATALOG.find((s) => s.id === x.id)).filter(Boolean)
     const propias = (installedSkills || []).length - known.length
     if (!known.length) {
-      showToast(propias ? `Solo tienes skills propias (${propias}) — esas se actualizan a mano` : 'No hay skills del catálogo instaladas')
+      showToast(propias ? t('toast.onlyOwnSkills', { n: propias }) : t('toast.noCatalogSkills'))
       return
     }
     setSkillsUpdating(true)
     let ok = 0
     for (const [i, s] of known.entries()) {
-      showToast(`🔄 Actualizando ${s.name} (${i + 1}/${known.length})…`, 20000)
+      showToast(t('toast.updatingSkill', { name: s.name, i: i + 1, total: known.length }), 20000)
       const res = await window.oficina?.skills?.install(profile, s.id, s.repo)
       if (res?.ok) ok++
     }
     setSkillsUpdating(false)
-    showToast(`✅ ${ok} actualizada${ok !== 1 ? 's' : ''}${propias ? ` · ${propias} propia${propias !== 1 ? 's' : ''} sin tocar` : ''}`, 6000)
+    showToast(`${t('toast.updatedSkills', { ok, s: plural(ok) })}${propias ? t('toast.updatedSkillsOwn', { n: propias, s: plural(propias) }) : ''}`, 6000)
     refreshSkills()
   }
 
@@ -1119,7 +1131,7 @@ export default function App() {
     setSkillBusy(id)
     const res = await window.oficina?.skills?.remove(profile, id)
     setSkillBusy(null)
-    showToast(res?.ok ? 'Skill quitada' : `⚠️ ${res?.error || 'No se pudo quitar'}`)
+    showToast(res?.ok ? t('toast.skillRemoved') : `⚠️ ${res?.error || t('toast.noRemove')}`)
     refreshSkills()
   }
 
@@ -1149,15 +1161,15 @@ export default function App() {
       entry.url ? { url: entry.url } : { cmd: entry.cmd, env: entry.env || [] }
     )
     setMcpBusy(null)
-    if (res?.ok) showToast(`🌐 ${entry.name} conectado — tus agentes ya lo pueden usar`)
-    else showToast(`⚠️ ${res?.error?.slice(0, 160) || 'No se pudo agregar'}`, 6000)
+    if (res?.ok) showToast(t('toast.mcpConnected', { name: entry.name }))
+    else showToast(`⚠️ ${res?.error?.slice(0, 160) || t('toast.noAdd')}`, 6000)
     refreshMcp()
   }
   const removeMcp = async (name) => {
     setMcpBusy(name)
     const res = await window.oficina?.mcp?.remove(profile, name)
     setMcpBusy(null)
-    showToast(res?.ok ? 'Servidor quitado' : `⚠️ ${res?.error?.slice(0, 160) || 'No se pudo quitar'}`)
+    showToast(res?.ok ? t('toast.serverRemoved') : `⚠️ ${res?.error?.slice(0, 160) || t('toast.noRemove')}`)
     refreshMcp()
   }
   const addMcpCustom = async () => {
@@ -1170,7 +1182,7 @@ export default function App() {
       .filter(Boolean)
     const bad = env.find((l) => !/^[A-Za-z_][A-Za-z0-9_]*=.+$/.test(l))
     if (bad) {
-      showToast(`⚠️ Variable inválida: «${bad}» — formato CLAVE=valor`)
+      showToast(t('toast.badEnv', { bad }))
       return
     }
     const entry = /^https?:\/\//.test(target) ? { name, id: name, url: target } : { name, id: name, cmd: target.split(/\s+/), env }
@@ -1187,23 +1199,20 @@ export default function App() {
       if (k.startsWith('oficina-') && k !== 'oficina-pending-queue' && k !== 'oficina-camera') extras[k] = localStorage.getItem(k)
     }
     const res = await window.oficina?.config?.export(extras)
-    if (res?.ok) showToast(`💾 Configuración exportada a ${res.path.split('/').pop()}`)
-    else if (!res?.canceled) showToast(`⚠️ ${res?.error || 'No se pudo exportar'}`)
+    if (res?.ok) showToast(t('toast.exported', { file: res.path.split('/').pop() }))
+    else if (!res?.canceled) showToast(`⚠️ ${res?.error || t('toast.noExport')}`)
   }
   const importConfig = async () => {
     // si hay respaldos automáticos, ofrecerlos antes del selector de archivo
     const bks = (await window.oficina?.config?.backups?.()) || []
     if (bks.length) {
-      const ultimo = new Date(bks[0].at).toLocaleDateString('es', { day: '2-digit', month: 'short' })
-      const usarBackup = window.confirm(
-        `Hay ${bks.length} respaldo${bks.length > 1 ? 's' : ''} automático${bks.length > 1 ? 's' : ''} (el más reciente del ${ultimo}).\n\n` +
-          'Aceptar: elegir un archivo (los respaldos están en la carpeta «backups» de la app)\nCancelar: no hacer nada'
-      )
+      const ultimo = new Date(bks[0].at).toLocaleDateString(locale(), { day: '2-digit', month: 'short' })
+      const usarBackup = window.confirm(t('confirm.backups', { n: bks.length, s: plural(bks.length), last: ultimo }))
       if (!usarBackup) return
     }
     const res = await window.oficina?.config?.import()
     if (!res?.ok) {
-      if (!res?.canceled) showToast(`⚠️ ${res?.error || 'No se pudo importar'}`, 6000)
+      if (!res?.canceled) showToast(`⚠️ ${res?.error || t('toast.noImport')}`, 6000)
       return
     }
     // extras de localStorage: tema, modelo, permiso, sonido, pizarra, plantillas…
@@ -1223,14 +1232,13 @@ export default function App() {
           missing.push(id)
           continue
         }
-        showToast(`🧩 Instalando ${cat.name} (${prof})…`, 10000)
+        showToast(t('toast.installingSkill', { name: cat.name, profile: prof }), 10000)
         await window.oficina?.skills?.install(prof, cat.id, cat.repo)
       }
     }
     const notes = []
-    if (missing.length) notes.push(`Skills fuera del catálogo que no se migraron solas: ${[...new Set(missing)].join(', ')}`)
-    if (res.mcpSkipped?.length)
-      notes.push(`Servidores MCP con credenciales que debes reconectar a mano: ${res.mcpSkipped.join(', ')}`)
+    if (missing.length) notes.push(t('note.skillsNotMigrated', { list: [...new Set(missing)].join(', ') }))
+    if (res.mcpSkipped?.length) notes.push(t('note.mcpReconnect', { list: res.mcpSkipped.join(', ') }))
     if (notes.length) {
       try {
         localStorage.setItem('oficina-import-note', notes.join(' · '))
@@ -1238,7 +1246,7 @@ export default function App() {
     }
     // recarga completa: tema, modelo, squad de ambos perfiles, plantillas y
     // preferencias se releen desde cero — importar de verdad importa TODO
-    showToast('📥 Configuración importada — recargando la oficina…')
+    showToast(t('toast.imported'))
     setTimeout(() => window.location.reload(), 900)
   }
 
@@ -1253,11 +1261,11 @@ export default function App() {
     const target = draft.find((r) => r.id === id)
     if (!target) return
     if (target.enabled && draftEnabled <= 1) {
-      showToast('⚠️ Debe quedar al menos un agente activo')
+      showToast(t('toast.needOneAgent'))
       return
     }
     if (!target.enabled && draftEnabled >= MAX_ACTIVE) {
-      showToast(`👥 Squad completo (${MAX_ACTIVE}/${MAX_ACTIVE}) — desactiva uno para poder activar otro`)
+      showToast(t('toast.squadFull', { max: MAX_ACTIVE }))
       return
     }
     setDraft((d) => d.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)))
@@ -1294,7 +1302,7 @@ export default function App() {
     const updated = roster.map((r) => (r.id === id ? { ...r, avatar: avatar || null } : r))
     setRoster(updated) // la escena cambia ya
     await window.oficina?.squad?.save(profile, updated)
-    showToast('🧍 Personaje actualizado')
+    showToast(t('toast.avatarSet'))
   }
   // Modelo propio de un agente: aplica y persiste al instante (como el avatar).
   const setMemberModel = async (id, mdl) => {
@@ -1304,7 +1312,7 @@ export default function App() {
     setRoster(updated)
     await window.oficina?.squad?.save(profile, updated)
     const name = updated.find((r) => r.id === id)?.name || id
-    showToast(mdl ? `🧠 ${name} usará ${modelLabelOf(mdl)}` : `🧠 ${name} vuelve al modelo global`)
+    showToast(mdl ? t('toast.memberModel', { name, label: modelLabelOf(mdl) }) : t('toast.memberModelGlobal', { name }))
   }
   // avatar efectivo de un miembro (elegido o el default de su rol)
   const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
@@ -1330,7 +1338,7 @@ export default function App() {
   const addRole = () => {
     const name = nr.name.trim()
     if (!name) {
-      showToast('⚠️ Ponle un nombre al rol')
+      showToast(t('toast.needRoleName'))
       return
     }
     if (editingId) {
@@ -1353,7 +1361,7 @@ export default function App() {
       setEditingId(null)
       setNr(NEW_ROLE)
       setAddingRole(false)
-      showToast(`Rol "${name}" actualizado — guardá para aplicar`)
+      showToast(t('toast.roleUpdated', { name }))
       return
     }
     const avatar = nr.avatar || AVATARS.find((a) => !draft.some((r) => effectiveAvatar(r) === a)) || AVATARS[0]
@@ -1373,7 +1381,7 @@ export default function App() {
     setDraft((d) => [...d, role])
     setNr(NEW_ROLE)
     setAddingRole(false)
-    showToast(`Rol "${name}" creado — actívalo y guardá`)
+    showToast(t('toast.roleCreated', { name }))
   }
   const deleteRole = (id) => setDraft((d) => d.filter((r) => !(r.id === id && canDelete(r))))
 
@@ -1385,7 +1393,7 @@ export default function App() {
       // el orden importa: el 1º activo es el principal → los del preset primero
       return conEstado.sort((a, b) => preset.roles.indexOf(a.id) - preset.roles.indexOf(b.id))
     })
-    showToast(`${preset.label} — revisa y guarda para aplicar`)
+    showToast(t('toast.presetApplied', { label: preset.label }))
   }
 
   // Built-ins borrables que faltan en el draft = fueron eliminados (tombstones).
@@ -1397,7 +1405,7 @@ export default function App() {
       ...d,
       ...missingBuiltins.map((id) => ({ id, name: ROLE_META[id].label, enabled: false, avatar: null, custom: false })),
     ])
-    showToast('Roles predeterminados restaurados — guardá para aplicar')
+    showToast(t('toast.rolesRestored'))
   }
 
   const saveSquad = async () => {
@@ -1405,25 +1413,27 @@ export default function App() {
     // sin personajes duplicados entre los activos
     const active = clean.filter((r) => r.enabled)
     if (new Set(active.map(effectiveAvatar)).size !== active.length) {
-      showToast('⚠️ Dos miembros tienen el mismo personaje — elige otro')
+      showToast(t('toast.dupAvatar'))
       return
     }
     // sin nombres duplicados entre los activos: el ruteo por nombre ("Ana, haz X")
     // sería ambiguo — siempre ganaría el primero
     const names = active.map((r) => norm(r.name))
     if (new Set(names).size !== names.length) {
-      showToast('⚠️ Dos agentes activos tienen el mismo nombre — renombra uno')
+      showToast(t('toast.dupName'))
       return
     }
     await window.oficina?.squad?.save(profile, clean)
     setRoster(clean)
     setAgentsOpen(false)
     showToast(
-      `Squad actualizado: ${clean
-        .filter((r) => r.enabled)
-        .slice(0, MAX_ACTIVE)
-        .map((r) => `${metaOf(r).emoji} ${r.name}`)
-        .join(' · ')}`
+      t('toast.squadSaved', {
+        list: clean
+          .filter((r) => r.enabled)
+          .slice(0, MAX_ACTIVE)
+          .map((r) => `${metaOf(r).emoji} ${r.name}`)
+          .join(' · '),
+      })
     )
   }
 
@@ -1486,7 +1496,7 @@ export default function App() {
     e.stopPropagation()
     await window.oficina?.history?.pin(h.id, !h.pinned)
     setHistList((await window.oficina?.history?.list()) || [])
-    showToast(h.pinned ? 'Conversación desfijada' : '📌 Fijada — no se purga del historial')
+    showToast(h.pinned ? t('toast.unpinned') : t('toast.pinned'))
   }
 
   const loadConvo = async (id) => {
@@ -1506,7 +1516,7 @@ export default function App() {
     await window.oficina?.setSession?.({ sessions: saved, profile: c.profile, cwd: c.project })
     setHistOpen(false)
     tabStateRef.current[activeTab] = null // el hilo de esta pestaña se reemplaza
-    showToast(Object.keys(saved).length ? 'Retomada — recordamos todo 🧠' : 'Conversación cargada')
+    showToast(Object.keys(saved).length ? t('toast.resumed') : t('toast.loaded'))
   }
 
   const deleteConvo = async (e, id) => {
@@ -1519,8 +1529,8 @@ export default function App() {
   const exportConvo = async (e, id) => {
     e.stopPropagation()
     const res = await window.oficina?.history?.export(id)
-    if (res?.ok) showToast(`⬇ Exportada a ${res.path.split('/').pop()}`)
-    else if (!res?.canceled) showToast('⚠️ No se pudo exportar la conversación')
+    if (res?.ok) showToast(t('toast.convExported', { file: res.path.split('/').pop() }))
+    else if (!res?.canceled) showToast(t('toast.noConvExport'))
   }
 
   // ── Plantillas de prompts: snippets por perfil, accesibles con / ─────────
@@ -1531,7 +1541,7 @@ export default function App() {
     if (raw === null) {
       // perfil sin plantillas guardadas nunca: sembrar los ejemplos (borrables);
       // si el usuario las borra todas queda '[]' y no se re-siembran
-      const seed = SEED_SNIPPETS.map((s) => ({ ...s, id: crypto.randomUUID() }))
+      const seed = seedSnippets().map((s) => ({ ...s, id: crypto.randomUUID() }))
       try {
         localStorage.setItem(`oficina-snippets-${profile}`, JSON.stringify(seed))
       } catch {}
@@ -1617,7 +1627,7 @@ export default function App() {
   const openDiff = async () => {
     setDiffView({ loading: true })
     const res = await window.oficina?.gitDiff?.(project)
-    if (!res?.ok) setDiffView({ error: res?.error || 'No se pudo leer el diff' })
+    if (!res?.ok) setDiffView({ error: res?.error || t('err.noDiff') })
     else setDiffView({ diff: res.diff, untracked: res.untracked || [] })
   }
   const diffLineClass = (l) =>
@@ -1642,7 +1652,7 @@ export default function App() {
   const shareStandup = (idx) => {
     const chan = (localStorage.getItem('oficina-slack-channel') || '').trim().replace(/^#/, '')
     if (!chan) {
-      showToast('⚠️ Configura el canal de Slack en ⚙️ Preferencias primero')
+      showToast(t('toast.needSlack'))
       openPrefs()
       return
     }
@@ -1650,7 +1660,7 @@ export default function App() {
     const start = messages.slice(0, idx).findLastIndex((m) => m.role === 'system' && /Standup diario/.test(m.text || ''))
     const reports = messages.slice(Math.max(start, 0), idx).filter((m) => m.role === 'assistant' && !m.error)
     if (!reports.length) {
-      showToast('No encontré reportes de este standup')
+      showToast(t('toast.noStandup'))
       return
     }
     const body = reports.map((m) => `### ${memberOf(m.who).name} (${memberOf(m.who).label})\n${(m.text || '').slice(0, 700)}`).join('\n\n')
@@ -1658,12 +1668,9 @@ export default function App() {
     routeJob({
       id: crypto.randomUUID(),
       target,
-      text: 'Compartir standup a Slack',
-      display: `📤 Comparte el resumen del standup en #${chan}`,
-      prompt:
-        `Toma estos reportes del standup de hoy y compón un resumen breve y claro (una viñeta por persona, sin inventar nada). ` +
-        `Luego publícalo en el canal #${chan} de Slack usando el conector MCP de Slack disponible. ` +
-        `IMPORTANTE: antes de publicar, muéstrame el resumen y pregúntame si lo publico — NO publiques sin mi confirmación explícita en el siguiente mensaje.\n\n${body}`,
+      text: t('slack.shareStandup'),
+      display: t('slack.shareDisplay', { chan }),
+      prompt: t('prompt.shareStandup', { chan, body }),
       atts: [],
     })
   }
@@ -1673,7 +1680,7 @@ export default function App() {
   const saveStandupAt = (v) => {
     setStandupAt(v)
     localStorage.setItem('oficina-standup', v)
-    showToast(v ? `📋 Standup programado a las ${v} (días hábiles)` : 'Standup programado apagado')
+    showToast(v ? t('toast.standupOn', { h: v }) : t('toast.standupOff'))
   }
   const standupCmdRef = useRef(() => {})
   useEffect(() => {
@@ -1706,7 +1713,7 @@ export default function App() {
           ? squad.find((m) => m.id === d.role || norm(m.name) === norm(d.role))?.id || principal
           : routeMessage(text, squad, principal)
         routeJob({ id: crypto.randomUUID(), target, text, display: `🔗 ${text}`, prompt: text, atts: [] })
-        showToast(`🔗 Deep link → ${memberOf(target).name}`)
+        showToast(t('toast.deepLink', { name: memberOf(target).name }))
       }
     }
   })
@@ -1727,7 +1734,7 @@ export default function App() {
       } else if (offerCatchUp && hhmm > at) {
         // la app no estaba abierta a esa hora: ofrecer ponerse al día
         localStorage.setItem('oficina-standup-last', today)
-        if (window.confirm(`El standup programado de las ${at} no corrió (la app estaba cerrada). ¿Lo corro ahora?`)) {
+        if (window.confirm(t('confirm.standupCatchUp', { at }))) {
           scheduledStandupRef.current = true
           standupCmdRef.current()
         }
@@ -1747,12 +1754,12 @@ export default function App() {
     if (cmd === '/model') {
       const arg = rest[0]?.toLowerCase()
       if (!arg) {
-        showToast(`Modelo actual: ${modelLabelOf(model)} · usa /model opus | fable | sonnet | haiku`)
+        showToast(t('toast.currentModel', { label: modelLabelOf(model) }))
         return true
       }
       const resolved = MODEL_ALIASES[arg] ?? arg
       setModel(resolved)
-      showToast(`Modelo → ${modelLabelOf(resolved)}`)
+      showToast(t('toast.modelSet', { label: modelLabelOf(resolved) }))
       return true
     }
     if (cmd === '/clear' || cmd === '/nueva') {
@@ -1766,7 +1773,7 @@ export default function App() {
     if (cmd === '/standup') {
       const free = squad.filter((m) => !roleStates[m.id])
       if (!free.length) {
-        showToast('Todo el squad está ocupado — intenta en un momento')
+        showToast(t('toast.allBusy'))
         return true
       }
       if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
@@ -1779,7 +1786,7 @@ export default function App() {
         setTimeout(() => {
           setRS(m.id, 'listening')
           window.oficina
-            ?.ask({ prompt: STANDUP_PROMPT, profile, cwd: project, writeMode: false, model: memberModel(m.id), role: m.id, standup: true })
+            ?.ask({ prompt: standupPrompt(), profile, cwd: project, writeMode: false, model: memberModel(m.id), role: m.id, standup: true })
             .then((res) => {
               if (!res?.ok) setRS(m.id, 'idle')
             })
@@ -1795,7 +1802,7 @@ export default function App() {
     setMessages((ms) => [...ms, { role: 'user', text: job.display, to: job.target, atts: job.atts, jobId: job.id, queued: true }])
     ;(queuesRef.current[job.target] ||= []).push(job)
     syncQueues()
-    showToast(`⏳ En cola para ${memberOf(job.target).name}`)
+    showToast(t('toast.queuedFor', { name: memberOf(job.target).name }))
   }
   const dispatchJob = async (job) => {
     lastJobRef.current[job.target] = job // para el botón Reintentar tras un error
@@ -1807,7 +1814,7 @@ export default function App() {
     })
     setRS(job.target, 'listening')
     popSound()
-    if (job.target === principal) setStatus('Pensando…')
+    if (job.target === principal) setStatus(t('status.thinking'))
     const res = await window.oficina.ask({
       prompt: job.prompt,
       profile,
@@ -1820,7 +1827,7 @@ export default function App() {
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'Error desconocido'}` }])
       setRS(job.target, 'idle')
-      if (job.target === principal) setStatus('Esperándote')
+      if (job.target === principal) setStatus(t('status.waiting'))
     }
   }
   // ── Cola persistente: al arrancar, ofrecer retomar lo que quedó sin enviar ─
@@ -1834,7 +1841,7 @@ export default function App() {
     if (!saved?.jobs?.length) return
     localStorage.removeItem('oficina-pending-queue')
     const n = saved.jobs.length
-    if (!window.confirm(`Tenías ${n} mensaje${n > 1 ? 's' : ''} en cola cuando se cerró la app. ¿Los envío ahora?`)) return
+    if (!window.confirm(t('confirm.resumeQueue', { n, s: plural(n) }))) return
     if (saved.profile && cfg.profiles?.includes(saved.profile)) setProfile(saved.profile)
     if (saved.project) setProject(saved.project)
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
@@ -1846,7 +1853,7 @@ export default function App() {
     const jobs = pendingRestore
     setPendingRestore(null)
     jobs.forEach((j, i) => setTimeout(() => routeJob({ ...j, id: crypto.randomUUID() }), 300 + i * 500))
-    showToast(`⏳ Retomando ${jobs.length} mensaje${jobs.length > 1 ? 's' : ''} de la cola`)
+    showToast(t('toast.resumingQueue', { n: jobs.length, s: plural(jobs.length) }))
   }, [pendingRestore])
 
   // ── Estadísticas: acumulado diario por agente (tareas, tokens, tiempo) ───
@@ -1874,7 +1881,7 @@ export default function App() {
   }
   const diagText = () =>
     [...diagRef.current]
-      .map((r) => `${new Date(r.t).toLocaleTimeString('es')} · ${r.role} · ${r.kind}${r.info ? ` · ${r.info}` : ''}`)
+      .map((r) => `${new Date(r.t).toLocaleTimeString(locale())} · ${r.role} · ${r.kind}${r.info ? ` · ${r.info}` : ''}`)
       .join('\n')
 
   const openStats = () => {
@@ -1895,7 +1902,7 @@ export default function App() {
       const pct = s?.claude?.session?.pct
       if (pct >= 90) {
         quotaWarnAtRef.current = Date.now()
-        showToast(`⚠️ Vas ${Math.round(pct)}% de la cuota de 5h — resetea en ${fmtReset(s.claude.session.resetsAt)}`, 6000)
+        showToast(t('toast.quota', { pct: Math.round(pct), reset: fmtReset(s.claude.session.resetsAt) }), 6000)
       }
     })
   }
@@ -1908,7 +1915,7 @@ export default function App() {
     const otros = running.filter((r) => r !== target && roleStates[r] && roleStates[r] !== 'delivering')
     if (!otros.length) return
     const quien = otros.map((r) => memberOf(r).name).join(', ')
-    showToast(`⚠️ ${quien} ya está editando ${project.split('/').pop()} — cuidado con pisarse`, 6000)
+    showToast(t('toast.collision', { who: quien, project: project.split('/').pop() }), 6000)
   }
 
   // sitúa un job: si el agente está libre y sin cola → va; si no → encola
@@ -1933,7 +1940,7 @@ export default function App() {
     if (q) queuesRef.current[m.to] = q.filter((j) => j.id !== m.jobId)
     syncQueues()
     setMessages((ms) => ms.map((x) => (x.jobId === m.jobId ? { ...x, queued: false, cancelled: true } : x)))
-    showToast('Mensaje sacado de la cola')
+    showToast(t('toast.dequeued'))
   }
 
   // Respuesta rápida: envía una opción elegida al agente (encola si ocupado).
@@ -1951,7 +1958,7 @@ export default function App() {
       return
     }
     if (!window.oficina?.ask) {
-      showToast('Sin Electron — corre npm run dev')
+      showToast(t('toast.noElectron'))
       return
     }
     // "@todos <mensaje>": el mismo prompt a todos los agentes libres a la vez
@@ -1959,12 +1966,12 @@ export default function App() {
     if (bcast) {
       const rest = text.slice(bcast[0].length).trim()
       if (!rest) {
-        showToast('⚠️ @todos necesita un mensaje')
+        showToast(t('toast.needBcastText'))
         return
       }
       const free = squad.filter((m) => !roleStates[m.id] && !(queuesRef.current[m.id]?.length > 0))
       if (!free.length) {
-        showToast('Todo el squad está ocupado — intenta en un momento')
+        showToast(t('toast.allBusy'))
         return
       }
       if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
@@ -1972,9 +1979,9 @@ export default function App() {
       checkQuota()
       const sharedId = crypto.randomUUID()
       free.forEach((m, i) =>
-        setTimeout(() => dispatchJob({ id: sharedId, target: m.id, text: rest, display: `📢 @todos — ${rest}`, prompt: rest, atts: [] }), i * 400)
+        setTimeout(() => dispatchJob({ id: sharedId, target: m.id, text: rest, display: t('toast.bcastPrefix', { text: rest }), prompt: rest, atts: [] }), i * 400)
       )
-      showToast(`📢 Enviado a ${free.length} agente${free.length > 1 ? 's' : ''}`)
+      showToast(t('toast.bcastSent', { n: free.length, s: plural(free.length) }))
       setInput('')
       setAttachments([])
       setRefs([])
@@ -2023,7 +2030,7 @@ export default function App() {
             className="ctxbtn"
             onClick={() => setCtxOpen((o) => !o)}
             disabled={busy}
-            title="Perfil y proyecto"
+            title={t('ctx.title')}
           >
             <span className="ctx-ico">{profile === 'work' ? <IconWork size={16} /> : profile === 'private' ? <IconPrivate size={16} /> : <IconPerson size={16} />}</span> {profile}
             <span className="ctx-sep">/</span>
@@ -2077,7 +2084,7 @@ export default function App() {
                   }}
                 >
                   <span className="ctx-ico"><IconAdd size={15} /></span>
-                  Agregar proyecto…
+                  {t('ctx.addProject')}
                 </button>
               </div>
             </>
@@ -2085,7 +2092,7 @@ export default function App() {
         </div>
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
-          <button type="button" className="iconbtn" aria-label="Documentos" onClick={toggleArts} title="Documentos creados por el squad">
+          <button type="button" className="iconbtn" aria-label={t('hud.docsLabel')} onClick={toggleArts} title={t('hud.docs')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
               <polyline points="14 2 14 8 20 8" />
@@ -2093,20 +2100,20 @@ export default function App() {
           </button>
           {/* Historial y Configuración se pueden abrir mientras el squad trabaja:
               sus controles internos ya se deshabilitan solos cuando aplica */}
-          <button type="button" className="iconbtn" aria-label="Historial" onClick={toggleHist} title="Historial (⌘Y)">
+          <button type="button" className="iconbtn" aria-label={t('hud.history')} onClick={toggleHist} title={t('hud.historyKey')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </button>
-          <button type="button" className="primarybtn" aria-label="Conversación nueva" onClick={newChat} disabled={busy} title="Conversación nueva (⌘K)">
+          <button type="button" className="primarybtn" aria-label={t('hud.newChat')} onClick={newChat} disabled={busy} title={t('hud.newChatKey')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            <span>Nueva</span>
+            <span>{t('hud.new')}</span>
           </button>
-          <button type="button" className="iconbtn gearspin" aria-label="Configuración" onClick={openPrefs} title="Configuración (⌘,)">
+          <button type="button" className="iconbtn gearspin" aria-label={t('hud.settings')} onClick={openPrefs} title={t('hud.settingsKey')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -2155,7 +2162,7 @@ export default function App() {
         {prefsOpen && (
           <div className="drawer">
             <div className="drawer-head">
-              <b>Configuración</b>
+              <b>{t('panel.settings')}</b>
               <button onClick={() => setPrefsOpen(false)}><IconClose size={16} /></button>
             </div>
 
@@ -2163,7 +2170,7 @@ export default function App() {
             <div className="menu-group">
               <button type="button" className="menu-item" onClick={openAgents}>
                 <span className="mi-icon"><IconAgents /></span>
-                <span className="mi-label">Agentes</span>
+                <span className="mi-label">{t('menu.agents')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button
@@ -2171,37 +2178,37 @@ export default function App() {
                 className="menu-item"
                 onClick={async () => {
                   const r = await window.oficina?.openClaudeMd?.(project)
-                  showToast(r?.ok ? '📘 CLAUDE.md abierto — lo leen todos los agentes' : '⚠️ No pude abrirlo')
+                  showToast(r?.ok ? t('toast.claudeMdOpen') : t('toast.noClaudeMd'))
                   setHasClaudeMd(true)
                 }}
               >
                 <span className="mi-icon"><IconBook /></span>
-                <span className="mi-label">CLAUDE.md del proyecto</span>
+                <span className="mi-label">{t('menu.claudeMd')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openSkills}>
                 <span className="mi-icon"><IconSkills /></span>
-                <span className="mi-label">Skills</span>
+                <span className="mi-label">{t('menu.skills')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openMcp}>
                 <span className="mi-icon"><IconMcp /></span>
-                <span className="mi-label">Servidores MCP</span>
+                <span className="mi-label">{t('menu.mcp')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openStats}>
                 <span className="mi-icon"><IconStats /></span>
-                <span className="mi-label">Estadísticas</span>
+                <span className="mi-label">{t('menu.stats')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={openDiag}>
                 <span className="mi-icon"><IconDiag /></span>
-                <span className="mi-label">Diagnóstico</span>
+                <span className="mi-label">{t('menu.diag')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
-              <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.()}>
+              <button type="button" className="menu-item" onClick={() => window.oficina?.openHelp?.(getLang())}>
                 <span className="mi-icon"><IconBook /></span>
-                <span className="mi-label">Guía de uso</span>
+                <span className="mi-label">{t('menu.guide')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button
@@ -2213,7 +2220,7 @@ export default function App() {
                 }}
               >
                 <span className="mi-icon"><IconTour /></span>
-                <span className="mi-label">Tour de bienvenida</span>
+                <span className="mi-label">{t('menu.tour')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button
@@ -2221,26 +2228,26 @@ export default function App() {
                 className="menu-item"
                 onClick={async () => {
                   const res = await window.oficina?.openTerminal?.(project)
-                  showToast(res?.ok ? `🖥 Abriendo ${res.app}…` : '⚠️ No pude abrir la terminal')
+                  showToast(res?.ok ? t('toast.openingTerm', { app: res.app }) : t('toast.noTerm'))
                 }}
               >
                 <span className="mi-icon"><IconTerminal /></span>
-                <span className="mi-label">Abrir terminal en el proyecto</span>
+                <span className="mi-label">{t('menu.terminal')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={exportConfig}>
                 <span className="mi-icon"><IconExport /></span>
-                <span className="mi-label">Exportar configuración</span>
+                <span className="mi-label">{t('menu.export')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={importConfig}>
                 <span className="mi-icon"><IconImport /></span>
-                <span className="mi-label">Importar configuración</span>
+                <span className="mi-label">{t('menu.import')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={() => setPrefsPanelOpen(true)}>
                 <span className="mi-icon"><IconTune /></span>
-                <span className="mi-label">Preferencias</span>
+                <span className="mi-label">{t('menu.prefs')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
             </div>
@@ -2253,8 +2260,8 @@ export default function App() {
         {diagOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>Diagnóstico</b>
-              <button onClick={() => setDiagOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
+              <b>{t('panel.diag')}</b>
+              <button onClick={() => setDiagOpen(false)} title={t('panel.back')}><IconClose size={16} /></button>
             </div>
             <div className="diag-actions">
               <button
@@ -2262,10 +2269,10 @@ export default function App() {
                 className="skill-manual"
                 onClick={() => {
                   navigator.clipboard.writeText(diagText())
-                  showToast('Log copiado 📋')
+                  showToast(t('toast.logCopied'))
                 }}
               >
-                <IconCopy size={13} /> Copiar todo
+                <IconCopy size={13} /> {t('diag.copyAll')}
               </button>
               <button
                 type="button"
@@ -2276,17 +2283,17 @@ export default function App() {
                   a.download = `la-oficina-diagnostico-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.log`
                   a.click()
                   URL.revokeObjectURL(a.href)
-                  showToast('⬇ Log exportado a Descargas')
+                  showToast(t('toast.logExported'))
                 }}
               >
-                ⬇ Exportar
+                ⬇ {t('diag.export')}
               </button>
-              <button type="button" className="skill-manual" onClick={openDiag}><IconRefresh size={13} /> Refrescar</button>
+              <button type="button" className="skill-manual" onClick={openDiag}><IconRefresh size={13} /> {t('diag.refresh')}</button>
             </div>
-            {diagRows.length === 0 && <div className="hist-empty">Sin eventos aún — se registran init, tools, entregas y errores</div>}
+            {diagRows.length === 0 && <div className="hist-empty">{t('diag.empty')}</div>}
             {diagRows.map((r, i) => (
               <div key={i} className={`diag-row ${r.kind}`}>
-                <span className="diag-time">{new Date(r.t).toLocaleTimeString('es')}</span>
+                <span className="diag-time">{new Date(r.t).toLocaleTimeString(locale())}</span>
                 <span className="diag-role">{memberOf(r.role).name || r.role}</span>
                 <span className="diag-kind">{r.kind}</span>
                 <span className="diag-info">{r.info}</span>
@@ -2298,12 +2305,22 @@ export default function App() {
         {prefsPanelOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>Preferencias</b>
-              <button onClick={() => setPrefsPanelOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
+              <b>{t('panel.prefs')}</b>
+              <button onClick={() => setPrefsPanelOpen(false)} title={t('panel.back')}><IconClose size={16} /></button>
             </div>
             <div className="menu-group">
             <div className="pref-row">
-              <span className="pref-label">Modelo:</span>
+              <span className="pref-label">{t('pref.lang')}</span>
+              <select className="sel pref-sel" value={lang} onChange={(e) => changeLang(e.target.value)}>
+                {LANGS.map(([id, label]) => (
+                  <option key={id} value={id}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">{t('pref.model')}</span>
               <select className="sel pref-sel" value={model} onChange={(e) => setModel(e.target.value)} disabled={busy}>
                 {[...new Set([model, ...Object.keys(MODEL_OPTIONS)])].map((id) => (
                   <option key={id} value={id}>
@@ -2313,31 +2330,31 @@ export default function App() {
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Intro:</span>
+              <span className="pref-label">{t('pref.intro')}</span>
               <select className="sel pref-sel" value={introOn ? '1' : '0'} onChange={(e) => saveIntro(e.target.value === '1')}>
-                <option value="1">Mostrar al abrir la app</option>
-                <option value="0">Sin intro</option>
+                <option value="1">{t('pref.introOn')}</option>
+                <option value="0">{t('pref.introOff')}</option>
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Calidad:</span>
+              <span className="pref-label">{t('pref.quality')}</span>
               <select className="sel pref-sel" value={quality} onChange={(e) => saveQuality(e.target.value)}>
-                <option value="cine">Cine — todos los efectos</option>
-                <option value="normal">Normal (recomendado)</option>
-                <option value="ligera">Ligera — ahorra batería</option>
+                <option value="cine">{t('pref.qCine')}</option>
+                <option value="normal">{t('pref.qNormal')}</option>
+                <option value="ligera">{t('pref.qLight')}</option>
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Cámara:</span>
+              <span className="pref-label">{t('pref.camera')}</span>
               <select className="sel pref-sel" value={director ? '1' : '0'} onChange={(e) => saveDirector(e.target.value === '1')}>
-                <option value="0">Fija (tú la mueves)</option>
-                <option value="1">Director — sigue a quien trabaja</option>
+                <option value="0">{t('pref.camFixed')}</option>
+                <option value="1">{t('pref.camDirector')}</option>
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Mascota:</span>
+              <span className="pref-label">{t('pref.pet')}</span>
               <select className="sel pref-sel" value={pet} onChange={(e) => savePet(e.target.value)}>
-                <option value="">Sin mascota</option>
+                <option value="">{t('pref.noPet')}</option>
                 {PETS.map((p2) => (
                   <option key={p2.id} value={p2.id}>
                     {p2.label}
@@ -2346,64 +2363,64 @@ export default function App() {
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Slack:</span>
+              <span className="pref-label">{t('pref.slack')}</span>
               <input
                 className="sel pref-sel"
-                placeholder="canal para el standup (ej: equipo-dev)"
+                placeholder={t('pref.slackPh')}
                 value={slackChannel}
                 onChange={(e) => saveSlackChannel(e.target.value)}
               />
             </div>
             <div className="pref-row">
-              <span className="pref-label">Standup:</span>
+              <span className="pref-label">{t('pref.standup')}</span>
               <select className="sel pref-sel" value={standupAt} onChange={(e) => saveStandupAt(e.target.value)}>
-                <option value="">Apagado</option>
+                <option value="">{t('pref.standupOff')}</option>
                 {['08:00', '08:30', '09:00', '09:30', '10:00', '11:00', '12:00'].map((h) => (
                   <option key={h} value={h}>
-                    {h} · días hábiles
+                    {t('pref.weekdays', { h })}
                   </option>
                 ))}
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Permiso:</span>
+              <span className="pref-label">{t('pref.perm')}</span>
               <select
                 className="sel pref-sel"
                 value={writeMode ? 'write' : 'read'}
                 onChange={(e) => setWritePermission(e.target.value === 'write')}
                 disabled={busy}
               >
-                <option value="write">Edición — puede modificar y correr comandos</option>
-                <option value="read">Lectura — solo investigar</option>
+                <option value="write">{t('pref.permWrite')}</option>
+                <option value="read">{t('pref.permRead')}</option>
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Tema:</span>
+              <span className="pref-label">{t('pref.theme')}</span>
               <select className="sel pref-sel" value={theme} onChange={(e) => setTheme(e.target.value)}>
-                <option value="auto">Auto — Noche al atardecer</option>
-                {Object.entries(THEMES).map(([id, t]) => (
+                <option value="auto">{t('pref.themeAuto')}</option>
+                {Object.entries(THEMES).map(([id, th]) => (
                   <option key={id} value={id}>
-                    {t.label}
+                    {th.label}
                   </option>
                 ))}
               </select>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Documentos:</span>
+              <span className="pref-label">{t('pref.docs')}</span>
               <button type="button" className="pref-toggle" onClick={pickArtsDir} title={artsDir}>
-                <IconFolder size={13} /> …{artsDir.slice(-30) || 'Carpeta por defecto'}
+                <IconFolder size={13} /> …{artsDir.slice(-30) || t('pref.defaultFolder')}
               </button>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Pizarra:</span>
+              <span className="pref-label">{t('pref.board')}</span>
               <button
                 type="button"
                 className={board ? 'pref-toggle on' : 'pref-toggle'}
                 onClick={() => setBoard((b) => !b)}
-                title="Memoria común del squad en SQUAD.md (leen y anotan lo importante)"
+                title={t('pref.boardTitle')}
               >
                 <>
-                <IconBoard size={13} /> {board ? 'Activada' : 'Desactivada'}
+                <IconBoard size={13} /> {board ? t('pref.boardOn') : t('pref.boardOff')}
               </>
               </button>
               <button
@@ -2412,23 +2429,23 @@ export default function App() {
                 style={{ flex: 'none' }}
                 onClick={async () => {
                   const res = await window.oficina?.openBoard?.(project)
-                  showToast(res?.ok ? '🧠 Abriendo SQUAD.md…' : '⚠️ Reinicia la app (npm run dev)')
+                  showToast(res?.ok ? t('toast.openingBoard') : t('toast.restartApp'))
                 }}
-                title="Ver/editar SQUAD.md del proyecto"
+                title={t('pref.boardOpenTitle')}
               >
-                Abrir
+                {t('pref.boardOpen')}
               </button>
             </div>
             <div className="pref-row">
-              <span className="pref-label">Notificaciones:</span>
+              <span className="pref-label">{t('pref.notif')}</span>
               <button
                 type="button"
                 className={sound ? 'pref-toggle on' : 'pref-toggle'}
                 onClick={() => setSound((s) => !s)}
-                title={sound ? 'Apagar sonidos y avisos' : 'Encender sonidos y avisos'}
+                title={sound ? t('pref.notifOnTitle') : t('pref.notifOffTitle')}
               >
                 <>
-                {sound ? <IconBell size={13} /> : <IconBellOff size={13} />} {sound ? 'Encendidas' : 'Apagadas'}
+                {sound ? <IconBell size={13} /> : <IconBellOff size={13} />} {sound ? t('pref.notifOn') : t('pref.notifOff')}
               </>
               </button>
             </div>
@@ -2439,8 +2456,8 @@ export default function App() {
         {statsOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>Estadísticas de la oficina</b>
-              <button onClick={() => setStatsOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
+              <b>{t('panel.stats')}</b>
+              <button onClick={() => setStatsOpen(false)} title={t('panel.back')}><IconClose size={16} /></button>
             </div>
             {(() => {
               const days = [...Array(14)].map((_, i) => {
@@ -2448,7 +2465,7 @@ export default function App() {
                 const key = d.toISOString().slice(0, 10)
                 return {
                   key,
-                  label: d.toLocaleDateString('es', { weekday: 'narrow' }),
+                  label: d.toLocaleDateString(locale(), { weekday: 'narrow' }),
                   dia: d.getDate(),
                   ...(statsData[key] || { tasks: 0, tokens: 0, ms: 0, agents: {} }),
                 }
@@ -2459,16 +2476,16 @@ export default function App() {
               const agents = {}
               for (const d of days)
                 for (const [id, a] of Object.entries(d.agents || {})) {
-                  const t = (agents[id] ||= { tasks: 0, tokens: 0, ms: 0 })
-                  t.tasks += a.tasks
-                  t.tokens += a.tokens
-                  t.ms += a.ms
+                  const acc = (agents[id] ||= { tasks: 0, tokens: 0, ms: 0 })
+                  acc.tasks += a.tasks
+                  acc.tokens += a.tokens
+                  acc.ms += a.ms
                 }
               const rows = Object.entries(agents).sort((a, b) => b[1].tokens - a[1].tokens)
               const totTasks = days.reduce((s2, d) => s2 + d.tasks, 0)
               const totTok = days.reduce((s2, d) => s2 + d.tokens, 0)
               const totMs = days.reduce((s2, d) => s2 + d.ms, 0)
-              if (!totTasks) return <div className="hist-empty">Aún no hay datos — se acumulan con cada tarea terminada</div>
+              if (!totTasks) return <div className="hist-empty">{t('stats.empty')}</div>
               const maxAgente = Math.max(...rows.map(([, a]) => a.tokens), 1)
               // sparkline de tokens: polilínea suave sobre los 14 días
               const W = 320
@@ -2481,9 +2498,9 @@ export default function App() {
                   {/* tarjetas de resumen */}
                   <div className="stat-cards">
                     {[
-                      ['Tareas', totTasks, <IconStats key="t" size={14} />],
-                      ['Tokens', fmtTokens(totTok), <IconCoin key="k" size={14} />],
-                      ['Tiempo', fmtElapsed(totMs), <IconClock key="c" size={14} />],
+                      [t('stats.tasks'), totTasks, <IconStats key="t" size={14} />],
+                      [t('stats.tokens'), fmtTokens(totTok), <IconCoin key="k" size={14} />],
+                      [t('stats.time'), fmtElapsed(totMs), <IconClock key="c" size={14} />],
                     ].map(([k, v, ico]) => (
                       <div key={k} className="stat-card">
                         <span className="stat-ico">{ico}</span>
@@ -2493,7 +2510,7 @@ export default function App() {
                     ))}
                   </div>
 
-                  <div className="menu-sec">Tokens · 14 días</div>
+                  <div className="menu-sec">{t('stats.tokens14')}</div>
                   <svg className="stat-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
                     <defs>
                       <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
@@ -2511,12 +2528,12 @@ export default function App() {
                     ))}
                   </svg>
 
-                  <div className="menu-sec">Tareas por día · esta semana</div>
+                  <div className="menu-sec">{t('stats.tasksWeek')}</div>
                   <div className="stats-bars">
                     {semana.map((d) => {
                       const maxT = Math.max(...semana.map((x) => x.tasks), 1)
                       return (
-                        <div key={d.key} className="stats-col" title={`${d.key} · ${d.tasks} tareas · ${fmtTokens(d.tokens)} tokens`}>
+                        <div key={d.key} className="stats-col" title={t('stats.colTitle', { day: d.key, n: d.tasks, tok: fmtTokens(d.tokens) })}>
                           <span className="stats-val">{d.tasks || ''}</span>
                           <div className="stats-bar" style={{ height: `${Math.max((d.tasks / maxT) * 100, 2)}%` }} />
                           <span className="stats-day">{d.label}</span>
@@ -2525,24 +2542,24 @@ export default function App() {
                     })}
                   </div>
 
-                  <div className="menu-sec">Por agente</div>
+                  <div className="menu-sec">{t('stats.byAgent')}</div>
                   {rows.map(([id, a]) => (
                     <div key={id} className="stat-agent">
                       <div className="stat-agent-top">
                         <span>
                           {memberOf(id).emoji} {memberOf(id).name}
                         </span>
-                        <span className="stat-agent-num">{fmtTokens(a.tokens)} tokens</span>
+                        <span className="stat-agent-num">{t('stats.tokensSuffix', { n: fmtTokens(a.tokens) })}</span>
                       </div>
                       <div className="stat-agent-bar">
                         <div style={{ width: `${(a.tokens / maxAgente) * 100}%`, background: memberOf(id).color || '#2dd4bf' }} />
                       </div>
                       <div className="stat-agent-sub">
-                        {a.tasks} tarea{a.tasks !== 1 ? 's' : ''} · ⏱ {fmtElapsed(a.ms / Math.max(a.tasks, 1))} promedio
+                        {t('stats.avg', { n: a.tasks, s: plural(a.tasks), avg: fmtElapsed(a.ms / Math.max(a.tasks, 1)) })}
                       </div>
                     </div>
                   ))}
-                  <div className="skills-note">Se guardan 60 días de historia.</div>
+                  <div className="skills-note">{t('stats.keep')}</div>
                 </>
               )
             })()}
@@ -2552,18 +2569,15 @@ export default function App() {
         {mcpOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>Servidores MCP · {profile}</b>
-              <button onClick={() => setMcpOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
+              <b>{t('panel.mcp')} · {profile}</b>
+              <button onClick={() => setMcpOpen(false)} title={t('panel.back')}><IconClose size={16} /></button>
             </div>
-            <div className="skills-note">
-              Conectan herramientas externas a tus agentes (navegador, documentación, diseño). Se guardan en el perfil y los
-              agentes los usan automáticamente.
-            </div>
-            {mcpList === null && <div className="hist-empty">Leyendo servidores del perfil…</div>}
+            <div className="skills-note">{t('mcp.note')}</div>
+            {mcpList === null && <div className="hist-empty">{t('mcp.loading')}</div>}
             {mcpList !== null && (
               <>
                 {mcpList.length === 0 && (
-                  <div className="hist-empty">Aún no tienes servidores en este perfil — conecta del catálogo</div>
+                  <div className="hist-empty">{t('mcp.empty')}</div>
                 )}
                 {MCP_CATALOG.map((s) => {
                   const inst = mcpList.some((x) => x.name === s.id)
@@ -2571,7 +2585,7 @@ export default function App() {
                     <div key={s.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {s.name} {inst && <span className="skill-ok"><IconCheck size={12} /> conectado</span>}
+                          {s.name} {inst && <span className="skill-ok"><IconCheck size={12} /> {t('mcp.connected')}</span>}
                         </div>
                         <div className="hist-meta">{s.desc}</div>
                         <div className="skill-tags">
@@ -2584,25 +2598,25 @@ export default function App() {
                         {mcpBusy === s.id ? (
                           <span className="skill-busy"><IconSpinner /></span>
                         ) : inst ? (
-                          <button title="Quitar del perfil" onClick={() => removeMcp(s.id)}><IconTrash size={14} /></button>
+                          <button title={t('mcp.remove')} onClick={() => removeMcp(s.id)}><IconTrash size={14} /></button>
                         ) : s.manual ? (
                           <button
                             className="skill-manual"
-                            title="Se configura por fuera de la app — abre la guía oficial"
+                            title={t('mcp.howToTitle')}
                             onClick={() => window.open(s.link)}
                           >
-                            Cómo conectarlo ↗
+                            {t('mcp.howTo')}
                           </button>
                         ) : s.needsEnv ? (
                           <button
                             className="skill-install"
-                            title={`Necesita tu ${s.needsEnv} — se pide en el formulario`}
+                            title={t('mcp.needsEnv', { env: s.needsEnv })}
                             onClick={() => setMcpForm({ name: s.id, target: s.cmd.join(' '), envs: `${s.needsEnv}=` })}
                           >
-                            Conectar…
+                            {t('mcp.connectDots')}
                           </button>
                         ) : (
-                          <button className="skill-install" onClick={() => addMcp(s)}>Conectar</button>
+                          <button className="skill-install" onClick={() => addMcp(s)}>{t('mcp.connect')}</button>
                         )}
                       </div>
                     </div>
@@ -2614,7 +2628,7 @@ export default function App() {
                     <div key={x.name} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {x.name} <span className="skill-ok"><IconCheck size={12} /> conectado</span>
+                          {x.name} <span className="skill-ok"><IconCheck size={12} /> {t('mcp.connected')}</span>
                         </div>
                         <div className="hist-meta">{x.spec}</div>
                       </div>
@@ -2622,27 +2636,27 @@ export default function App() {
                         {mcpBusy === x.name ? (
                           <span className="skill-busy"><IconSpinner /></span>
                         ) : (
-                          <button title="Quitar del perfil" onClick={() => removeMcp(x.name)}><IconTrash size={14} /></button>
+                          <button title={t('mcp.remove')} onClick={() => removeMcp(x.name)}><IconTrash size={14} /></button>
                         )}
                       </div>
                     </div>
                   ))}
                 {/* lo que ve el CLI: conectores de la cuenta claude.ai y servers
                     configurados desde la terminal (solo lectura desde aquí) */}
-                <div className="menu-sec">Desde tu cuenta y terminal</div>
-                {mcpAccount?.loading && <div className="hist-empty">Consultando al CLI (hace health-check, tarda unos segundos)…</div>}
+                <div className="menu-sec">{t('mcp.fromAccount')}</div>
+                {mcpAccount?.loading && <div className="hist-empty">{t('mcp.cliLoading')}</div>}
                 {mcpAccount?.error && <div className="hist-empty"><IconWarn size={13} /> {mcpAccount.error}</div>}
                 {mcpAccount?.servers &&
                   (() => {
                     const extra = mcpAccount.servers.filter((s) => !mcpList.some((x) => x.name === s.name))
-                    if (!extra.length) return <div className="hist-empty">Nada más configurado fuera de la app</div>
+                    if (!extra.length) return <div className="hist-empty">{t('mcp.nothingElse')}</div>
                     return extra.map((s) => (
                       <div key={s.name} className="hist-item skill-item">
                         <div className="skill-info">
                           <div className="hist-title">
                             {s.name}{' '}
                             <span className={s.status.startsWith('✔') ? 'skill-ok' : 'mcp-warn'}>
-                              {s.status.startsWith('✔') ? 'conectado' : s.status.replace(/^!\s*/, 'atención: ')}
+                              {s.status.startsWith('✔') ? t('mcp.connected') : s.status.replace(/^!\s*/, t('mcp.attention'))}
                             </span>
                           </div>
                           <div className="hist-meta">{s.target}</div>
@@ -2653,37 +2667,37 @@ export default function App() {
                 {mcpForm ? (
                   <div className="snip-form">
                     <input
-                      placeholder="Nombre (ej: mi-servidor)"
+                      placeholder={t('mcp.namePh')}
                       value={mcpForm.name}
                       onChange={(e) => setMcpForm({ ...mcpForm, name: e.target.value })}
                       autoFocus
                     />
                     <input
-                      placeholder="Comando (npx paquete…) o URL https://…"
+                      placeholder={t('mcp.targetPh')}
                       value={mcpForm.target}
                       onChange={(e) => setMcpForm({ ...mcpForm, target: e.target.value })}
                     />
                     <textarea
-                      placeholder={'Variables de entorno (opcional, una por línea)\nGEMINI_API_KEY=tu-key'}
+                      placeholder={t('mcp.envsPh')}
                       rows={2}
                       value={mcpForm.envs || ''}
                       onChange={(e) => setMcpForm({ ...mcpForm, envs: e.target.value })}
                     />
                     <div className="snip-form-row">
-                      <button type="button" onClick={() => setMcpForm(null)}>Cancelar</button>
+                      <button type="button" onClick={() => setMcpForm(null)}>{t('common.cancel')}</button>
                       <button
                         type="button"
                         className="snip-save"
                         disabled={!mcpForm.name.trim() || !mcpForm.target.trim()}
                         onClick={addMcpCustom}
                       >
-                        Conectar
+                        {t('mcp.connect')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button type="button" className="snip-new" onClick={() => setMcpForm({ name: '', target: '' })}>
-                    <IconAdd size={14} /> Conectar otro servidor
+                    <IconAdd size={14} /> {t('mcp.other')}
                   </button>
                 )}
               </>
@@ -2694,25 +2708,24 @@ export default function App() {
         {skillsOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>Skills · {profile}</b>
-              <button onClick={() => setSkillsOpen(false)} title="Volver a Configuración"><IconClose size={16} /></button>
+              <b>{t('panel.skills')} · {profile}</b>
+              <button onClick={() => setSkillsOpen(false)} title={t('panel.back')}><IconClose size={16} /></button>
             </div>
             <div className="skills-note">
-              Se instalan en el perfil ({profile === 'work' ? '~/.claude-work' : '~/.claude-private'}) y los agentes las usan
-              automáticamente cuando la tarea lo amerita.
+              {t('skills.note', { dir: profile === 'work' ? '~/.claude-work' : '~/.claude-private' })}
             </div>
             {installedSkills?.length > 0 && (
               <div className="diag-actions">
                 <button type="button" className="skill-manual" onClick={updateAllSkills} disabled={skillsUpdating}>
-                  {skillsUpdating ? 'Actualizando…' : 'Actualizar todo'}
+                  {skillsUpdating ? t('skills.updating') : t('skills.updateAll')}
                 </button>
               </div>
             )}
-            {installedSkills === null && <div className="hist-empty">Leyendo skills instaladas…</div>}
+            {installedSkills === null && <div className="hist-empty">{t('skills.loading')}</div>}
             {installedSkills !== null && (
               <>
                 {installedSkills.length === 0 && (
-                  <div className="hist-empty">Aún no tienes skills en este perfil — instala del catálogo</div>
+                  <div className="hist-empty">{t('skills.empty')}</div>
                 )}
                 {SKILL_CATALOG.map((s) => {
                   const inst = installedSkills.some((x) => x.id === s.id)
@@ -2720,7 +2733,7 @@ export default function App() {
                     <div key={s.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {s.name} {inst && <span className="skill-ok"><IconCheck size={12} /> instalada</span>}
+                          {s.name} {inst && <span className="skill-ok"><IconCheck size={12} /> {t('skills.installed')}</span>}
                         </div>
                         <div className="hist-meta">{s.desc}</div>
                         <div className="skill-tags">
@@ -2734,11 +2747,11 @@ export default function App() {
                           <span className="skill-busy"><IconSpinner /></span>
                         ) : inst ? (
                           <>
-                            <button title="Actualizar a la última versión" onClick={() => installSkill(s)}><IconRefresh size={14} /></button>
-                            <button title="Quitar del perfil" onClick={() => removeSkill(s.id)}><IconTrash size={14} /></button>
+                            <button title={t('skills.updateTitle')} onClick={() => installSkill(s)}><IconRefresh size={14} /></button>
+                            <button title={t('skills.remove')} onClick={() => removeSkill(s.id)}><IconTrash size={14} /></button>
                           </>
                         ) : (
-                          <button className="skill-install" onClick={() => installSkill(s)}>Instalar</button>
+                          <button className="skill-install" onClick={() => installSkill(s)}>{t('skills.install')}</button>
                         )}
                       </div>
                     </div>
@@ -2750,51 +2763,51 @@ export default function App() {
                     <div key={x.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {x.id} <span className="skill-ok"><IconCheck size={12} /> instalada</span>
+                          {x.id} <span className="skill-ok"><IconCheck size={12} /> {t('skills.installed')}</span>
                         </div>
-                        <div className="hist-meta">{x.desc || 'Skill propia (fuera del catálogo)'}</div>
+                        <div className="hist-meta">{x.desc || t('skills.own')}</div>
                       </div>
                       <div className="art-actions">
                         {skillBusy === x.id ? (
                           <span className="skill-busy"><IconSpinner /></span>
                         ) : (
-                          <button title="Quitar del perfil" onClick={() => removeSkill(x.id)}><IconTrash size={14} /></button>
+                          <button title={t('skills.remove')} onClick={() => removeSkill(x.id)}><IconTrash size={14} /></button>
                         )}
                       </div>
                     </div>
                   ))}
 
                 {/* instalar desde cualquier repo de GitHub */}
-                <div className="menu-sec">Desde un repo</div>
+                <div className="menu-sec">{t('skills.fromRepo')}</div>
                 <div className="skill-scan">
                   <input
-                    placeholder="usuario/repo o URL de GitHub…"
+                    placeholder={t('skills.repoPh')}
                     value={scanUrl}
                     onChange={(e) => setScanUrl(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && scanRepo()}
                   />
                   <button type="button" className="skill-install" onClick={scanRepo} disabled={scanResult?.loading}>
-                    {scanResult?.loading ? '⏳' : 'Buscar'}
+                    {scanResult?.loading ? '⏳' : t('skills.search')}
                   </button>
                 </div>
                 {scanResult?.error && <div className="hist-empty"><IconWarn size={13} /> {scanResult.error}</div>}
-                {scanResult?.skills?.length === 0 && <div className="hist-empty">Ese repo no trae carpetas con SKILL.md</div>}
+                {scanResult?.skills?.length === 0 && <div className="hist-empty">{t('skills.noSkillMd')}</div>}
                 {scanResult?.skills?.map((s) => {
                   const inst = installedSkills.some((x) => x.id === s.id)
                   return (
                     <div key={s.id} className="hist-item skill-item">
                       <div className="skill-info">
                         <div className="hist-title">
-                          {s.id} {inst && <span className="skill-ok"><IconCheck size={12} /> instalada</span>}
+                          {s.id} {inst && <span className="skill-ok"><IconCheck size={12} /> {t('skills.installed')}</span>}
                         </div>
-                        <div className="hist-meta">{s.desc || `de ${scanResult.repo}`}</div>
+                        <div className="hist-meta">{s.desc || t('skills.from', { repo: scanResult.repo })}</div>
                       </div>
                       <div className="art-actions">
                         {skillBusy === s.id ? (
                           <span className="skill-busy"><IconSpinner /></span>
                         ) : (
                           <button className="skill-install" onClick={() => installSkill({ id: s.id, repo: scanResult.repo, name: s.id })}>
-                            {inst ? 'Actualizar' : 'Instalar'}
+                            {inst ? t('skills.update') : t('skills.install')}
                           </button>
                         )}
                       </div>
@@ -2806,49 +2819,46 @@ export default function App() {
                 {skillForm ? (
                   <div className="snip-form">
                     <input
-                      placeholder="Nombre (ej: estilo-mis-proyectos)"
+                      placeholder={t('skills.namePh')}
                       value={skillForm.name}
                       onChange={(e) => setSkillForm({ ...skillForm, name: e.target.value })}
                       autoFocus
                     />
                     <textarea
-                      placeholder="¿Cuándo debe usarla el agente? (esto decide su activación)"
+                      placeholder={t('skills.whenPh')}
                       rows={2}
                       value={skillForm.desc}
                       onChange={(e) => setSkillForm({ ...skillForm, desc: e.target.value })}
                     />
                     <div className="snip-form-row">
-                      <button type="button" onClick={() => setSkillForm(null)}>Cancelar</button>
+                      <button type="button" onClick={() => setSkillForm(null)}>{t('common.cancel')}</button>
                       <button type="button" className="snip-save" disabled={!skillForm.name.trim()} onClick={createSkill}>
-                        Crear y abrir
+                        {t('skills.createOpen')}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <button type="button" className="snip-new" onClick={() => setSkillForm({ name: '', desc: '' })}>
-                    <IconAdd size={14} /> Crear skill propia
+                    <IconAdd size={14} /> {t('skills.create')}
                   </button>
                 )}
 
                 {/* plugins: paquetes completos vía claude plugin CLI */}
-                <div className="menu-sec">Plugins</div>
-                <div className="skills-note">
-                  Paquetes completos (skills + comandos + agentes + MCP) instalados con el CLI de Claude Code. Cualquier repo de
-                  GitHub sirve como fuente.
-                </div>
-                {pluginData?.loading && <div className="hist-empty">Consultando plugins del perfil…</div>}
+                <div className="menu-sec">{t('plug.title')}</div>
+                <div className="skills-note">{t('plug.note')}</div>
+                {pluginData?.loading && <div className="hist-empty">{t('plug.loading')}</div>}
                 {pluginData?.error && <div className="hist-empty"><IconWarn size={13} /> {pluginData.error}</div>}
                 {pluginData?.installed && (
                   <>
                     <div className="skill-scan">
                       <input
-                        placeholder="Añadir fuente: usuario/repo o URL…"
+                        placeholder={t('plug.addSourcePh')}
                         value={mktUrl}
                         onChange={(e) => setMktUrl(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && addMkt()}
                       />
                       <button type="button" className="skill-install" onClick={addMkt} disabled={pluginBusy === 'mkt'}>
-                        {pluginBusy === 'mkt' ? '⏳' : 'Añadir'}
+                        {pluginBusy === 'mkt' ? '⏳' : t('plug.add')}
                       </button>
                     </div>
                     {pluginData.marketplaces.map((m) => (
@@ -2862,7 +2872,7 @@ export default function App() {
                             <span className="skill-busy"><IconSpinner /></span>
                           ) : (
                             m.name !== 'claude-plugins-official' && (
-                              <button title="Quitar fuente" onClick={() => removeMkt(m.name)}><IconTrash size={14} /></button>
+                              <button title={t('plug.removeSource')} onClick={() => removeMkt(m.name)}><IconTrash size={14} /></button>
                             )
                           )}
                         </div>
@@ -2872,7 +2882,7 @@ export default function App() {
                       <div key={p.id} className="hist-item skill-item">
                         <div className="skill-info">
                           <div className="hist-title">
-                            {p.name} <span className="skill-ok"><IconCheck size={12} /> instalado</span>
+                            {p.name} <span className="skill-ok"><IconCheck size={12} /> {t('plug.installed')}</span>
                           </div>
                           <div className="hist-meta">{p.desc}</div>
                         </div>
@@ -2880,14 +2890,14 @@ export default function App() {
                           {pluginBusy === p.id ? (
                             <span className="skill-busy"><IconSpinner /></span>
                           ) : (
-                            <button title="Desinstalar" onClick={() => uninstallPlugin(p.id)}><IconTrash size={14} /></button>
+                            <button title={t('plug.uninstall')} onClick={() => uninstallPlugin(p.id)}><IconTrash size={14} /></button>
                           )}
                         </div>
                       </div>
                     ))}
                     <div className="skill-scan">
                       <input
-                        placeholder={`Buscar entre ${pluginData.available.length} plugins disponibles…`}
+                        placeholder={t('plug.searchPh', { n: pluginData.available.length })}
                         value={pluginQuery}
                         onChange={(e) => setPluginQuery(e.target.value)}
                       />
@@ -2904,7 +2914,7 @@ export default function App() {
                               <div className="hist-meta">{p.desc}</div>
                               <div className="skill-tags">
                                 <span className="skill-tag">{p.marketplace}</span>
-                                {p.installs > 0 && <span className="skill-tag">{fmtTokens(p.installs)} instalaciones</span>}
+                                {p.installs > 0 && <span className="skill-tag">{t('plug.installs', { n: fmtTokens(p.installs) })}</span>}
                               </div>
                             </div>
                             <div className="art-actions">
@@ -2913,7 +2923,7 @@ export default function App() {
                               ) : pluginData.installed.some((x) => x.name === p.name) ? (
                                 <span className="skill-ok"><IconCheck size={13} /></span>
                               ) : (
-                                <button className="skill-install" onClick={() => installPlugin(p.id)}>Instalar</button>
+                                <button className="skill-install" onClick={() => installPlugin(p.id)}>{t('skills.install')}</button>
                               )}
                             </div>
                           </div>
@@ -2928,12 +2938,12 @@ export default function App() {
         {agentsOpen && (
           <div className="drawer over">
             <div className="drawer-head">
-              <b>Agentes</b>
-              <button onClick={closeAgents} title="Volver a Configuración"><IconClose size={16} /></button>
+              <b>{t('panel.agents')}</b>
+              <button onClick={closeAgents} title={t('panel.back')}><IconClose size={16} /></button>
             </div>
             <div className="preset-row">
               {SQUAD_PRESETS.map((p) => (
-                <button key={p.id} type="button" className="preset-chip" onClick={() => applyPreset(p)} title={`Activa: ${p.roles.join(', ')}`}>
+                <button key={p.id} type="button" className="preset-chip" onClick={() => applyPreset(p)} title={t('ag.presetTitle', { roles: p.roles.join(', ') })}>
                   {p.label}
                 </button>
               ))}
@@ -2969,7 +2979,7 @@ export default function App() {
                       setDragId(null)
                       setDropId(null)
                     }}
-                    title="Arrastrar para reordenar"
+                    title={t('ag.drag')}
                   >
                     ⠿
                   </span>
@@ -2981,7 +2991,7 @@ export default function App() {
                     onChange={(e) => renameMember(r.id, e.target.value)}
                     style={{ borderColor: metaOf(r).color }}
                   />
-                  <span className="squad-label">{r.custom ? 'personalizado' : metaOf(r).label}</span>
+                  <span className="squad-label">{r.custom ? t('ag.custom') : metaOf(r).label}</span>
                   {/* columna de ancho fijo para ✏️/🗑: así el switch queda
                       alineado verticalmente en todas las filas */}
                   <span className="squad-tools">
@@ -2990,7 +3000,7 @@ export default function App() {
                         type="button"
                         className="squad-del"
                         onClick={() => startEditRole(r)}
-                        title="Editar foco, keywords, emoji y color"
+                        title={t('ag.editRole')}
                       >
                         <IconEdit size={14} />
                       </button>
@@ -3000,14 +3010,14 @@ export default function App() {
                         type="button"
                         className="squad-del"
                         onClick={() => deleteRole(r.id)}
-                        title={r.custom ? 'Eliminar este rol personalizado' : 'Eliminar este rol'}
+                        title={r.custom ? t('ag.delCustom') : t('ag.delRole')}
                       >
                         <IconTrash size={13} />
                       </button>
                     )}
                   </span>
                   {/* switch al borde derecho, misma columna en todas las filas */}
-                  <label className="switch" title={r.enabled ? 'Desactivar' : 'Activar'}>
+                  <label className="switch" title={r.enabled ? t('ag.disable') : t('ag.enable')}>
                     <input type="checkbox" checked={r.enabled} onChange={() => toggleMember(r.id)} />
                     <span className="switch-track" />
                   </label>
@@ -3025,17 +3035,17 @@ export default function App() {
                     type="button"
                     className="squad-avatar-btn"
                     onClick={() => window.oficina?.openPersona?.(profile, r.id, r.name)}
-                    title="Editar la personalidad de este personaje (.md)"
+                    title={t('ag.personaTitle')}
                   >
-                    <IconEdit size={13} /> Personalidad
+                    <IconEdit size={13} /> {t('ag.persona')}
                   </button>
                   <select
                     className="squad-avatar-btn squad-model"
                     value={r.model || ''}
                     onChange={(e) => setMemberModel(r.id, e.target.value)}
-                    title="Modelo propio de este agente (Global = el del selector de arriba)"
+                    title={t('ag.modelTitle')}
                   >
-                    <option value="">Modelo global</option>
+                    <option value="">{t('ag.globalModel')}</option>
                     {Object.keys(MODEL_OPTIONS).map((id) => (
                       <option key={id} value={id}>
                         {modelLabelOf(id)}
@@ -3049,20 +3059,20 @@ export default function App() {
               <div className="add-role">
                 <input
                   className="add-role-in"
-                  placeholder="Nombre (ej: Traductor)"
+                  placeholder={t('ag.newNamePh')}
                   value={nr.name}
                   maxLength={16}
                   onChange={(e) => setNr((v) => ({ ...v, name: e.target.value }))}
                 />
                 <input
                   className="add-role-in"
-                  placeholder="Foco / especialidad (ej: traducir textos ES↔EN)"
+                  placeholder={t('ag.newFocusPh')}
                   value={nr.focus}
                   onChange={(e) => setNr((v) => ({ ...v, focus: e.target.value }))}
                 />
                 <input
                   className="add-role-in"
-                  placeholder="Palabras clave de ruteo (traduce, translate)"
+                  placeholder={t('ag.newKwPh')}
                   value={nr.kw}
                   onChange={(e) => setNr((v) => ({ ...v, kw: e.target.value }))}
                 />
@@ -3079,15 +3089,15 @@ export default function App() {
                     className="add-role-color"
                     value={nr.color}
                     onChange={(e) => setNr((v) => ({ ...v, color: e.target.value }))}
-                    title="Color del nametag/globo"
+                    title={t('ag.colorTitle')}
                   />
                   <select
                     className="add-role-avatar"
                     value={nr.avatar}
                     onChange={(e) => setNr((v) => ({ ...v, avatar: e.target.value }))}
-                    title="Personaje 3D"
+                    title={t('ag.avatar3d')}
                   >
-                    <option value="">Personaje (auto)</option>
+                    <option value="">{t('ag.avatarAuto')}</option>
                     {AVATARS.map((a) => (
                       <option key={a} value={a}>
                         {avatarLabel(a)}
@@ -3099,9 +3109,9 @@ export default function App() {
                   className="add-role-in"
                   value={nr.model}
                   onChange={(e) => setNr((v) => ({ ...v, model: e.target.value }))}
-                  title="Modelo propio de este agente (si no, usa el global)"
+                  title={t('ag.modelOwnTitle')}
                 >
-                  <option value="">Modelo: el global ({modelLabelOf(model)})</option>
+                  <option value="">{t('ag.modelGlobalIs', { label: modelLabelOf(model) })}</option>
                   {Object.keys(MODEL_OPTIONS).map((id) => (
                     <option key={id} value={id}>
                       {modelLabelOf(id)}
@@ -3110,29 +3120,29 @@ export default function App() {
                 </select>
                 <div className="add-role-actions">
                   <button type="button" className="add-role-ok" onClick={addRole}>
-                    {editingId ? 'Guardar cambios' : 'Crear rol'}
+                    {editingId ? t('ag.saveChanges') : t('ag.createRole')}
                   </button>
                   <button
                     type="button"
                     className="add-role-cancel"
                     onClick={() => (setAddingRole(false), setNr(NEW_ROLE), setEditingId(null))}
                   >
-                    Cancelar
+                    {t('common.cancel')}
                   </button>
                 </div>
               </div>
             ) : (
               <button className="squad-add" type="button" onClick={() => setAddingRole(true)}>
-                <IconAdd size={14} /> Agregar rol
+                <IconAdd size={14} /> {t('ag.addRole')}
               </button>
             )}
             {missingBuiltins.length > 0 && (
-              <button className="squad-add" type="button" onClick={restoreDefaults} title="Recupera UI/UX, QA o Docs si los borraste">
-                <IconRestore size={14} /> Restaurar roles predeterminados ({missingBuiltins.length})
+              <button className="squad-add" type="button" onClick={restoreDefaults} title={t('ag.restoreTitle')}>
+                <IconRestore size={14} /> {t('ag.restore', { n: missingBuiltins.length })}
               </button>
             )}
             <button className="squad-save" onClick={saveSquad}>
-              Guardar squad ({draftEnabled}/{MAX_ACTIVE})
+              {t('ag.saveSquad', { n: draftEnabled, max: MAX_ACTIVE })}
             </button>
           </div>
         )}
@@ -3147,7 +3157,7 @@ export default function App() {
             return (
               <div className="drawer right">
                 <div className="drawer-head">
-                  <b>Personaje de {r.name}</b>
+                  <b>{t('panel.avatarOf', { name: r.name })}</b>
                   <button onClick={() => setAvatarPicker(null)}><IconClose size={16} /></button>
                 </div>
                 <div className="avatar-grid">
@@ -3159,12 +3169,12 @@ export default function App() {
                         key={a}
                         className={`avatar-card${sel ? ' sel' : ''}${isTaken ? ' taken' : ''}`}
                         onClick={() => !isTaken && pickAvatar(r.id, a)}
-                        title={isTaken ? 'En uso por otro miembro' : avatarLabel(a)}
+                        title={isTaken ? t('ag.avatarTaken') : avatarLabel(a)}
                       >
                         <AvatarThumb file={a} />
                         <div className="avatar-name">
                           {avatarLabel(a)}
-                          {isTaken ? ' (en uso)' : ''}
+                          {isTaken ? t('ag.inUse') : ''}
                         </div>
                       </div>
                     )
@@ -3177,16 +3187,16 @@ export default function App() {
         {diffView && (
           <div className="drawer diff-drawer">
             <div className="drawer-head">
-              <b>Cambios en {project?.split('/').pop() || 'el proyecto'}</b>
+              <b>{t('panel.changesIn', { project: project?.split('/').pop() || t('panel.theProject') })}</b>
               <button onClick={() => setDiffView(null)}><IconClose size={16} /></button>
             </div>
-            {diffView.loading && <div className="hist-empty">Leyendo el diff…</div>}
+            {diffView.loading && <div className="hist-empty">{t('diff.loading')}</div>}
             {diffView.error && <div className="hist-empty"><IconWarn size={13} /> {diffView.error}</div>}
             {diffView.diff !== undefined && !diffView.diff && !diffView.untracked?.length && (
-              <div className="hist-empty">Sin cambios pendientes en el repo (¿ya fueron commiteados?)</div>
+              <div className="hist-empty">{t('diff.none')}</div>
             )}
             {diffView.untracked?.length > 0 && (
-              <div className="diff-untracked"><IconFile size={13} /> Nuevos sin trackear: {diffView.untracked.join(' · ')}</div>
+              <div className="diff-untracked"><IconFile size={13} /> {t('diff.untracked')} {diffView.untracked.join(' · ')}</div>
             )}
             {diffView.diff && (
               <pre className="diff-pre">
@@ -3203,16 +3213,16 @@ export default function App() {
         {artsOpen && (
           <div className="drawer">
             <div className="drawer-head">
-              <b>Documentos</b>
+              <b>{t('panel.docs')}</b>
               <button onClick={() => setArtsOpen(false)}><IconClose size={16} /></button>
             </div>
-            {artsList.length === 0 && <div className="hist-empty">Aún no hay documentos · pídele uno a un agente</div>}
+            {artsList.length === 0 && <div className="hist-empty">{t('docs.empty')}</div>}
             {artsList.map((a) => (
               <div key={a.path} className="hist-item art-item">
                 <div onClick={() => window.oficina?.artifacts?.open?.(a.path)} style={{ cursor: 'pointer' }}>
                   <div className="hist-title"><IconLink size={13} /> {prettyArtifact(a.name)}</div>
                   <div className="hist-meta">
-                    {a.at ? new Date(a.at).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
+                    {a.at ? new Date(a.at).toLocaleString(locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
                   </div>
                 </div>
                 <div className="art-actions">
@@ -3220,20 +3230,20 @@ export default function App() {
                     onClick={() => {
                       setRefs((r) => (r.some((x) => x.path === a.path) ? r : [...r, { path: a.path, name: a.name, isDir: false }]))
                       setArtsOpen(false)
-                      showToast('💬 Documento en contexto — escribe qué hacer con él')
+                      showToast(t('toast.docInCtx'))
                       inputRef.current?.focus()
                     }}
-                    title="Usar como contexto del próximo mensaje (el agente lo lee)"
+                    title={t('docs.useCtx')}
                   >
                     <IconChat size={13} />
                   </button>
-                  <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title="Revelar en Finder"><IconReveal size={14} /></button>
+                  <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title={t('docs.reveal')}><IconReveal size={14} /></button>
                   <button
                     onClick={async () => {
                       const r = await window.oficina?.artifacts?.zip?.(a.path)
-                      showToast(r?.ok ? '📦 Zip exportado' : '⚠️ Exportación cancelada')
+                      showToast(r?.ok ? t('toast.zipDone') : t('toast.zipCancel'))
                     }}
-                    title="Exportar como .zip (con imágenes) para compartir"
+                    title={t('docs.zip')}
                   >
                     <IconZip size={14} />
                   </button>
@@ -3246,20 +3256,20 @@ export default function App() {
         {histOpen && (
           <div className="drawer">
             <div className="drawer-head">
-              <b>Historial</b>
+              <b>{t('panel.history')}</b>
               <button onClick={() => setHistOpen(false)}><IconClose size={16} /></button>
             </div>
             {histList.length > 0 && (
               <input
                 className="hist-search"
-                placeholder="Buscar por título o proyecto…"
+                placeholder={t('hist.searchPh')}
                 value={histQuery}
                 onChange={(e) => setHistQuery(e.target.value)}
                 autoFocus
               />
             )}
             {histFiltered.length === 0 && (
-              <div className="hist-empty">{histList.length ? 'Sin resultados para esa búsqueda' : 'Sin conversaciones guardadas'}</div>
+              <div className="hist-empty">{histList.length ? t('hist.noResults') : t('hist.empty')}</div>
             )}
             {histFiltered.map((h) => (
               <div key={h.id} className="hist-item" onClick={() => renaming?.id !== h.id && loadConvo(h.id)}>
@@ -3284,15 +3294,15 @@ export default function App() {
                 )}
                 {histContent[h.id] && <div className="hist-meta hist-excerpt"><IconSearchSmall size={12} /> {histContent[h.id]}</div>}
                 <div className="hist-meta">
-                  <span className="ctx-ico">{h.profile === 'work' ? <IconWork size={12} /> : <IconPrivate size={12} />}</span>{h.project?.split('/').pop()} · {h.count} msgs ·{' '}
+                  <span className="ctx-ico">{h.profile === 'work' ? <IconWork size={12} /> : <IconPrivate size={12} />}</span>{h.project?.split('/').pop()} · {h.count} {t('hist.msgs')} ·{' '}
                   {h.updatedAt
-                    ? new Date(h.updatedAt).toLocaleString('es', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                    ? new Date(h.updatedAt).toLocaleString(locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
                     : ''}
                 </div>
                 <button
                   className="hist-export hist-ren"
-                  title="Renombrar"
-                  aria-label="Renombrar conversación"
+                  title={t('hist.rename')}
+                  aria-label={t('hist.renameA')}
                   onClick={(e) => {
                     e.stopPropagation()
                     setRenaming({ id: h.id, val: h.title || '' })
@@ -3302,16 +3312,16 @@ export default function App() {
                 </button>
                 <button
                   className="hist-export hist-pin"
-                  title={h.pinned ? 'Desfijar' : 'Fijar (no se purga)'}
+                  title={h.pinned ? t('hist.unpin') : t('hist.pin')}
                   style={h.pinned ? { opacity: 0.8 } : undefined}
                   onClick={(e) => togglePin(e, h)}
                 >
                   <IconPin size={13} />
                 </button>
-                <button className="hist-export" title="Exportar a Markdown" aria-label="Exportar conversación a Markdown" onClick={(e) => exportConvo(e, h.id)}>
+                <button className="hist-export" title={t('hist.export')} aria-label={t('hist.exportA')} onClick={(e) => exportConvo(e, h.id)}>
                   <IconDownload size={14} />
                 </button>
-                <button className="hist-del" title="Borrar" aria-label="Borrar conversación" onClick={(e) => deleteConvo(e, h.id)}>
+                <button className="hist-del" title={t('hist.delete')} aria-label={t('hist.deleteA')} onClick={(e) => deleteConvo(e, h.id)}>
                   <IconTrash size={14} />
                 </button>
               </div>
@@ -3331,7 +3341,7 @@ export default function App() {
             {running
               .filter((r) => roleStates[r] !== 'delivering')
               .map((r) => (
-                <button key={r} className="stopchip" onClick={() => window.oficina?.stop?.(r)} title={`Detener a ${memberOf(r).name}`}>
+                <button key={r} className="stopchip" onClick={() => window.oficina?.stop?.(r)} title={t('chat.stop', { name: memberOf(r).name })}>
                   ⏹ {memberOf(r).name}
                   {elapsed[r] ? ` · ${elapsed[r]}` : ''}
                 </button>
@@ -3347,22 +3357,22 @@ export default function App() {
 
         {(messages.length > 0 || tabs.length > 1) && (
           <div className="tabbar">
-            {tabs.map((t) => (
+            {tabs.map((tb) => (
               <button
-                key={t.id}
+                key={tb.id}
                 type="button"
-                className={t.id === activeTab ? 'tab on' : 'tab'}
-                onClick={() => switchTab(t.id)}
-                title={t.title}
+                className={tb.id === activeTab ? 'tab on' : 'tab'}
+                onClick={() => switchTab(tb.id)}
+                title={tb.title}
               >
-                <span className="tab-title">{t.title}</span>
-                <span className="tab-x" onClick={(e) => closeTab(e, t.id)} title="Cerrar pestaña">
+                <span className="tab-title">{tb.title}</span>
+                <span className="tab-x" onClick={(e) => closeTab(e, tb.id)} title={t('chat.closeTab')}>
                   <IconClose size={11} />
                 </span>
               </button>
             ))}
             {tabs.length < MAX_TABS && (
-              <button type="button" className="tab tab-add" onClick={addTab} title="Nueva pestaña" aria-label="Nueva pestaña">
+              <button type="button" className="tab tab-add" onClick={addTab} title={t('chat.newTab')} aria-label={t('chat.newTab')}>
                 <IconAdd size={14} />
               </button>
             )}
@@ -3374,7 +3384,7 @@ export default function App() {
               <div className="find-bar">
                 <input
                   ref={findInputRef}
-                  placeholder="Buscar en la conversación…"
+                  placeholder={t('chat.findPh')}
                   value={findQuery}
                   onChange={(e) => {
                     setFindQuery(e.target.value)
@@ -3388,15 +3398,15 @@ export default function App() {
                   }}
                 />
                 <span className="find-count">{findQuery.trim() ? (findHits.length ? `${findIdx + 1}/${findHits.length}` : '0') : ''}</span>
-                <button type="button" onClick={() => gotoHit(findIdx - 1)} title="Anterior (⇧Enter)"><IconArrowUp size={14} /></button>
-                <button type="button" onClick={() => gotoHit(findIdx + 1)} title="Siguiente (Enter)"><IconArrowDown size={14} /></button>
-                <button type="button" onClick={() => setFindOpen(false)} title="Cerrar (Esc)"><IconClose size={16} /></button>
+                <button type="button" onClick={() => gotoHit(findIdx - 1)} title={t('chat.prev')}><IconArrowUp size={14} /></button>
+                <button type="button" onClick={() => gotoHit(findIdx + 1)} title={t('chat.next')}><IconArrowDown size={14} /></button>
+                <button type="button" onClick={() => setFindOpen(false)} title={t('chat.closeEsc')}><IconClose size={16} /></button>
               </div>
             )}
             {chatFilter && (
               <div className="chat-filter">
-                Viendo solo a {memberOf(chatFilter).emoji} {memberOf(chatFilter).name}
-                <button type="button" onClick={() => setChatFilter(null)}><IconClose size={12} /> ver todo</button>
+                {t('chat.onlyAgent')} {memberOf(chatFilter).emoji} {memberOf(chatFilter).name}
+                <button type="button" onClick={() => setChatFilter(null)}><IconClose size={12} /> {t('chat.seeAll')}</button>
               </div>
             )}
             {(chatFilter ? messages.filter((m) => m.who === chatFilter || m.to === chatFilter) : messages).map((m) => {
@@ -3417,7 +3427,7 @@ export default function App() {
                     className="who whobtn"
                     style={{ color: memberOf(m.who).color }}
                     onClick={() => setChatFilter((f) => (f === m.who ? null : m.who))}
-                    title={chatFilter === m.who ? 'Ver todo el chat' : `Ver solo la conversación de ${memberOf(m.who).name}`}
+                    title={chatFilter === m.who ? t('chat.seeAllTitle') : t('chat.onlyOf', { name: memberOf(m.who).name })}
                   >
                     {memberOf(m.who).emoji} {memberOf(m.who).name}
                   </div>
@@ -3425,26 +3435,26 @@ export default function App() {
                 {m.role === 'user' && m.to && m.to !== principal && <div className="who to">→ {memberOf(m.to).name}</div>}
                 {m.role === 'user' && m.queued && (
                   <div className="who to">
-                    <IconClock size={12} /> En cola
-                    <button type="button" className="queue-cancel" onClick={() => cancelQueued(m)} title="Quitar de la cola">
+                    <IconClock size={12} /> {t('chat.queued')}
+                    <button type="button" className="queue-cancel" onClick={() => cancelQueued(m)} title={t('chat.dequeue')}>
                       <IconClose size={12} />
                     </button>
                   </div>
                 )}
                 {m.role === 'user' && m.cancelled && (
                   <div className="who to">
-                    ⏹ Cancelado
+                    ⏹ {t('chat.cancelled')}
                     <button
                       type="button"
                       className="queue-cancel"
-                      title="Editar y reenviar"
+                      title={t('chat.editResend')}
                       onClick={() => {
                         setInput(m.text)
                         inputRef.current?.focus()
                         requestAnimationFrame(() => autoGrow(inputRef.current))
                       }}
                     >
-                      <IconEdit size={13} /> Editar
+                      <IconEdit size={13} /> {t('chat.edit')}
                     </button>
                   </div>
                 )}
@@ -3465,18 +3475,18 @@ export default function App() {
                 {m.streaming ? '▍' : ''}
                 {m.usage && (
                   <div className="msg-tokens" title={usageTitle(m.usage)}>
-                    {fmtTokens(usageTotal(m.usage))} tokens
+                    {t('chat.tokens', { n: fmtTokens(usageTotal(m.usage)) })}
                   </div>
                 )}
                 {m.role === 'assistant' && !m.streaming && !m.error && (
                   <button
                     type="button"
                     className="msg-copy"
-                    title="Copiar respuesta completa"
-                    aria-label="Copiar respuesta completa"
+                    title={t('chat.copy')}
+                    aria-label={t('chat.copy')}
                     onClick={() => {
                       navigator.clipboard.writeText(m.text)
-                      showToast('Respuesta copiada 📋')
+                      showToast(t('toast.answerCopied'))
                     }}
                   >
                     <IconCopy size={12} />
@@ -3486,8 +3496,8 @@ export default function App() {
                   <button
                     type="button"
                     className="msg-copy msg-edit"
-                    title="Editar y reenviar"
-                    aria-label="Editar y reenviar este mensaje"
+                    title={t('chat.editResend')}
+                    aria-label={t('chat.editResendA')}
                     onClick={() => {
                       setInput(m.text)
                       const el = inputRef.current
@@ -3502,22 +3512,22 @@ export default function App() {
                 )}
                 {m.artifact && (
                   <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
-                    <IconLink size={13} /> Abrir · {prettyArtifact(m.artifact.name)}
+                    <IconLink size={13} /> {t('chat.open')} · {prettyArtifact(m.artifact.name)}
                   </button>
                 )}
                 {m.edited && (
                   <button className="artifact-btn" onClick={openDiff}>
-                    <IconDiff size={13} /> Ver cambios
+                    <IconDiff size={13} /> {t('chat.diff')}
                   </button>
                 )}
                 {m.role === 'system' && m.standupShare && (
                   <button className="artifact-btn" onClick={() => shareStandup(i)}>
-                    <IconShare size={13} /> Compartir resumen a Slack
+                    <IconShare size={13} /> {t('chat.share')}
                   </button>
                 )}
                 {m.error && lastJobRef.current[m.who] && i === messages.findLastIndex((x) => x.who === m.who) && (
                   <button className="artifact-btn" onClick={() => retryJob(m.who)}>
-                    <IconRetry size={13} /> Reintentar
+                    <IconRetry size={13} /> {t('chat.retry')}
                   </button>
                 )}
                 {options.length > 0 && (
@@ -3537,7 +3547,7 @@ export default function App() {
       </div>
 
       {lightbox && (
-        <div className="lightbox" onClick={() => setLightbox(null)} title="Click o Esc para cerrar">
+        <div className="lightbox" onClick={() => setLightbox(null)} title={t('chat.lightbox')}>
           <img src={lightbox} alt="" />
         </div>
       )}
@@ -3556,7 +3566,7 @@ export default function App() {
       {introFade && <div className="intro-veil" />}
       {quote && (
         <button type="button" className="quote-btn" style={{ left: quote.x, top: quote.y }} onClick={useQuote}>
-          <IconChat size={13} /> Citar
+          <IconChat size={13} /> {t('chat.quote')}
         </button>
       )}
       {tourOpen && <Tour onDone={endTour} />}
@@ -3581,7 +3591,7 @@ export default function App() {
       {/* plantilla con {{variables}}: pedir los valores antes de insertar */}
       {snipVars && (
         <div className="snip-pop">
-          <div className="skills-note">La plantilla tiene variables — llénalas:</div>
+          <div className="skills-note">{t('snip.varsNote')}</div>
           <div className="snip-form">
             {snipVars.vars.map((v, j) => (
               <input
@@ -3594,9 +3604,9 @@ export default function App() {
               />
             ))}
             <div className="snip-form-row">
-              <button type="button" onClick={() => setSnipVars(null)}>Cancelar</button>
+              <button type="button" onClick={() => setSnipVars(null)}>{t('common.cancel')}</button>
               <button type="button" className="snip-save" onClick={insertSnipVars}>
-                Insertar
+                {t('snip.insert')}
               </button>
             </div>
           </div>
@@ -3623,7 +3633,7 @@ export default function App() {
               <button
                 type="button"
                 className="snip-del"
-                title="Borrar plantilla"
+                title={t('snip.delete')}
                 onClick={(e) => {
                   e.stopPropagation()
                   saveSnippets(snippets.filter((x) => x.id !== s.id))
@@ -3634,24 +3644,24 @@ export default function App() {
             </div>
           ))}
           {!snipMatches.length && (
-            <div className="snip-empty">{snippets.length ? 'Ninguna plantilla con ese nombre' : 'Aún no tienes plantillas'}</div>
+            <div className="snip-empty">{snippets.length ? t('snip.none') : t('snip.empty')}</div>
           )}
           {snipForm ? (
             <div className="snip-form">
               <input
-                placeholder="Nombre (ej: revisar-pr)"
+                placeholder={t('snip.namePh')}
                 value={snipForm.name}
                 onChange={(e) => setSnipForm({ ...snipForm, name: e.target.value })}
                 autoFocus
               />
               <textarea
-                placeholder={'Texto de la plantilla… (admite {{variables}}: «revisa el PR {{numero}} de {{repo}}»)'}
+                placeholder={t('snip.textPh')}
                 rows={3}
                 value={snipForm.text}
                 onChange={(e) => setSnipForm({ ...snipForm, text: e.target.value })}
               />
               <div className="snip-form-row">
-                <button type="button" onClick={() => setSnipForm(null)}>Cancelar</button>
+                <button type="button" onClick={() => setSnipForm(null)}>{t('common.cancel')}</button>
                 <button
                   type="button"
                   className="snip-save"
@@ -3660,16 +3670,16 @@ export default function App() {
                     const name = snipForm.name.trim().replace(/^\//, '').replace(/\s+/g, '-').toLowerCase()
                     saveSnippets([...snippets.filter((x) => x.name !== name), { id: crypto.randomUUID(), name, text: snipForm.text.trim() }])
                     setSnipForm(null)
-                    showToast(`Plantilla /${name} guardada 📌`)
+                    showToast(t('toast.snipSaved', { name }))
                   }}
                 >
-                  Guardar
+                  {t('common.save')}
                 </button>
               </div>
             </div>
           ) : (
             <button type="button" className="snip-new" onClick={() => setSnipForm({ name: snipQuery || '', text: '' })}>
-              <IconAdd size={13} /> Nueva plantilla
+              <IconAdd size={13} /> {t('snip.new')}
             </button>
           )}
         </div>
@@ -3683,8 +3693,8 @@ export default function App() {
           disabled={busy}
           title={
             writeMode
-              ? 'Modo edición: los agentes pueden modificar archivos y correr comandos (auto-aceptado). Clic para pasar a solo lectura.'
-              : 'Modo lectura: los agentes solo investigan. Clic para permitir edición.'
+              ? t('composer.permWrite')
+              : t('composer.permRead')
           }
         >
           {writeMode ? (
@@ -3729,14 +3739,14 @@ export default function App() {
           }}
           placeholder={
             busy
-              ? `${running.map((r) => memberOf(r).name).join(', ')} trabajando… (puedes pedirle algo a otro)`
+              ? t('composer.busy', { names: running.map((r) => memberOf(r).name).join(', ') })
               : squad.length > 1
-                ? `Escríbele al squad… (ej: "${memberOf(squad[1]?.id).name}, ayúdame con…" · ⌘1-${squad.length})`
-                : 'Escríbele a tu asistente…'
+                ? t('composer.placeholder', { name: memberOf(squad[1]?.id).name, n: squad.length })
+                : t('composer.placeholderSolo')
           }
           autoFocus
         />
-        <button type="submit">Enviar</button>
+        <button type="submit">{t('composer.send')}</button>
       </form>
     </div>
   )

@@ -10,42 +10,44 @@ import Pet from './scene/Pet.jsx'
 
 // ── Paleta calcada de la referencia ─────────────────────────────────────────
 // ── Temas de la sala ─────────────────────────────────────────────────────────
+import { t, tl } from './lib/i18n.js'
+
 export const THEMES = {
   clasico: {
-    label: '🏢 Clásico',
+    get label() { return t('theme.clasico') },
     floor: '#e6c6a4', wallBack: '#c08a72', wallLeft: '#e8e2d8', base: '#8a6a52',
     desk: '#cf9b7e', matColor: '#3c6b82', bg: '#b9ccd3',
     ambient: 0.9, hemi: ['#dbe8ec', '#4a3b2f', 0.7], dir: 2.1,
   },
   noche: {
-    label: '🌙 Noche',
+    get label() { return t('theme.noche') },
     floor: '#8a7060', wallBack: '#6e5048', wallLeft: '#3a4a58', base: '#2a2018',
     desk: '#6b4a3a', matColor: '#1f4650', bg: '#080d14',
     ambient: 0.4, hemi: ['#3b5566', '#1a1410', 0.45], dir: 0.9,
     lampsOn: true, // las lámparas de piso se encienden
   },
   playa: {
-    label: '🏖 Playa',
+    get label() { return t('theme.playa') },
     floor: '#f2dcbe', wallBack: '#e0b8a2', wallLeft: '#9fd0dc', base: '#b08a68',
     desk: '#c98a5a', matColor: '#d96a4f', bg: '#cfe9f0',
     ambient: 1.05, hemi: ['#eaf6fa', '#8a6a45', 0.8], dir: 2.4,
   },
   sakura: {
-    label: '🌸 Sakura',
+    get label() { return t('theme.sakura') },
     floor: '#e8cfc6', wallBack: '#c0909a', wallLeft: '#e6d2da', base: '#8a6270',
     desk: '#c9909a', matColor: '#8a5a6e', bg: '#ecd6dc',
     ambient: 0.95, hemi: ['#f5e4ea', '#5a3b45', 0.7], dir: 2.0,
     fall: 'petalos', // pétalos de cerezo cayendo 🌸
   },
   otono: {
-    label: '🍂 Otoño',
+    get label() { return t('theme.otono') },
     floor: '#d9ab7a', wallBack: '#b87a52', wallLeft: '#d8c4a8', base: '#7a4f30',
     desk: '#b8794a', matColor: '#8a5a2e', bg: '#d9b98a',
     ambient: 0.85, hemi: ['#f5dcb4', '#6b4520', 0.75], dir: 1.9,
     fall: 'hojas', // hojas secas planeando 🍂
   },
   invierno: {
-    label: '❄️ Invierno',
+    get label() { return t('theme.invierno') },
     floor: '#c8cfd6', wallBack: '#9fb0bd', wallLeft: '#dde6ec', base: '#5c6a76',
     desk: '#a8b4bd', matColor: '#6b8296', bg: '#dfeaf2',
     ambient: 1.0, hemi: ['#eaf4fb', '#54636e', 0.85], dir: 2.2,
@@ -763,26 +765,11 @@ function routeVia(from, to) {
 }
 
 // ── Vida ambiental: mientras nadie trabaja, la oficina respira ───────────────
-const PHRASES = [
-  '☕ necesito otro café',
-  '🤔 mmm…',
-  '🍕 ¿pedimos algo?',
-  '👀 ¿vieron el deploy?',
-  '🥱 qué sueño',
-  '🔥 en racha hoy',
-]
-// frases con sabor a cada rol (se mezclan con las genéricas, con más peso)
-const PHRASES_BY_ROLE = {
-  dev: ['🐛 este bug no se me escapa', '⌨️ un refactor y quedo', '🚀 listo pa deployar', '✨ hoy compila a la primera'],
-  research: ['📚 qué artículo tan bueno', '🔍 encontré algo interesante', '🗺️ mapeando el código…', '🧠 dato curioso…'],
-  design: ['🎨 ese contraste no va', '✨ pixel perfect o nada', '🖌️ probando una paleta', '📐 4px más de padding…'],
-  qa: ['🧪 eso huele a flaky', '🐞 lo voy a romper', '✅ verde, todo verde', '🚦 ¿quién probó esto?'],
-  pr: ['🔎 ese diff está grande', '📝 LGTM… casi', '🧐 aquí falta un test', '🚦 aprobado con comentarios'],
-  docs: ['📖 si no está documentado, no pasó', '✍️ puliendo el README', '🗒️ esto merece un ADR'],
-}
+// genéricas + las de cada rol viven en el diccionario (#103), así la oficina
+// también murmura en el idioma elegido
 const phraseFor = (id) => {
-  const own = PHRASES_BY_ROLE[id] || []
-  return rand([...own, ...own, ...PHRASES]) // doble peso a las del rol
+  const own = tl(id)
+  return rand([...own, ...own, ...tl('phrases')]) // doble peso a las del rol
 }
 // Puntos de paseo en el centro abierto de la sala (lejos de los escritorios,
 // que ocupan la periferia) para que la vida ambiental no atraviese los muebles.
@@ -991,7 +978,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
             ...a,
             [m.id]: {
               kind: 'visit',
-              text: '🗣️ ¿cómo vas?',
+              text: t('scene.howsItGoing'),
               tour: {
                 // si el camino recto cruza un escritorio, desvía por el centro
                 via: routeVia(standNear(chairFor(m.id)), standNear(chair)),
@@ -1262,15 +1249,15 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
           const amb = m ? ambient[m.id] : null
           const yawScreen = Math.atan2(s.monitor[0] - s.chair[0], s.monitor[2] - s.chair[2])
           const bubble = m && inStandup(m.id, st)
-            ? `📋 ${m.emoji} en el standup`
+            ? `📋 ${m.emoji} ${t('scene.inStandup')}`
             : st === 'working'
-              ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : 'Trabajando…'}${elapsed[m.id] ? ` · ${elapsed[m.id]}` : ''}`
+              ? `${m.emoji} ${tool?.role === m.id && tool.detail ? String(tool.detail).slice(0, 30) : t('scene.working')}${elapsed[m.id] ? ` · ${elapsed[m.id]}` : ''}`
               : st === 'listening'
-                ? '👂 Escuchando…'
+                ? t('scene.listening')
                 : st === 'talking'
                   ? '💬'
                   : st === 'delivering'
-                    ? `${m.emoji} ¡listo!`
+                    ? `${m.emoji} ${t('scene.ready')}`
                     : amb?.text || null
           const busyBubble = st !== 'idle'
           // tour activo del ocupante (standup/entrega/paseo/visita), una sola vez

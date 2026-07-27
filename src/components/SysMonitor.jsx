@@ -1,6 +1,7 @@
 // Monitor de recursos y cuota de Claude (refactor #94).
 import { useEffect, useState } from 'react'
 import { fmtReset, fmtTokens } from '../lib/helpers.js'
+import { t } from '../lib/i18n.js'
 
 // Logo de Apple (sistema) y spark de Claude, como SVG inline.
 const AppleIcon = () => (
@@ -61,7 +62,7 @@ export default function SysMonitor({ modelLabel, profile, tokens }) {
     <div className="sysmon-stack">
       <div className="sysmon">
         <div className="mon-title">
-          <AppleIcon /> sistema
+          <AppleIcon /> {t('mon.system')}
         </div>
         <div className="mon-row">
           <span>CPU</span>
@@ -89,41 +90,42 @@ export default function SysMonitor({ modelLabel, profile, tokens }) {
         </div>
         {modelLabel && (
           <div className="mon-row">
-            <span>Modelo</span>
+            <span>{t('mon.model')}</span>
             <span className="mon-model">{modelLabel}</span>
           </div>
         )}
         {tokTotal > 0 && (
-          <div className="mon-row" title={`entrada ${fmtTokens(tokens.in)} · salida ${fmtTokens(tokens.out)} · caché ${fmtTokens(tokens.cache)}`}>
-            <span>Tokens</span>
-            <span className="mon-model">🪙 {fmtTokens(tokTotal)} esta conversación</span>
+          <div
+            className="mon-row"
+            title={t('mon.tokTitle', { in: fmtTokens(tokens.in), out: fmtTokens(tokens.out), cache: fmtTokens(tokens.cache) })}
+          >
+            <span>{t('mon.tokens')}</span>
+            <span className="mon-model">{t('mon.thisConv', { n: fmtTokens(tokTotal) })}</span>
           </div>
         )}
         {!(s.claude && (s.claude.session || s.claude.weekly)) && (
           <div className="mon-sub mon-nodata">
-            {s.claudeLimitedFor
-              ? `Uso limitado por la API · vuelve en ${s.claudeLimitedFor}m`
-              : 'Uso no disponible · reintentando…'}
+            {s.claudeLimitedFor ? t('mon.limited', { m: s.claudeLimitedFor }) : t('mon.noUsage')}
           </div>
         )}
         {s.claude?.session && (
           <>
             <div className="mon-row">
-              <span>Sesión</span>
+              <span>{t('mon.session')}</span>
               <Bar pct={s.claude.session.pct} />
               <b>{Math.round(s.claude.session.pct)}%</b>
             </div>
-            <div className="mon-sub">resetea en {fmtReset(s.claude.session.resetsAt)}</div>
+            <div className="mon-sub">{t('mon.resets', { t: fmtReset(s.claude.session.resetsAt) })}</div>
           </>
         )}
         {s.claude?.weekly && (
           <>
             <div className="mon-row">
-              <span>Semana</span>
+              <span>{t('mon.week')}</span>
               <Bar pct={s.claude.weekly.pct} />
               <b>{Math.round(s.claude.weekly.pct)}%</b>
             </div>
-            <div className="mon-sub">resetea en {fmtReset(s.claude.weekly.resetsAt)}</div>
+            <div className="mon-sub">{t('mon.resets', { t: fmtReset(s.claude.weekly.resetsAt) })}</div>
           </>
         )}
       </div>

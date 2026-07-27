@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>La Oficina · User guide</title>
+<style>
+  :root {
+    --bg: #0e1417; --surface: #151d21; --surface2: #1b252a; --ink: #e9f1ee;
+    --muted: #93a6a1; --line: #28353a; --accent: #2dd4bf; --accent-soft: #0f3b35;
+    --warn: #f5a524; --orange: #da7756;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 780px; margin: 0 auto; padding: 48px 28px 80px; }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
+  h1 { font-size: 38px; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .lede { color: var(--muted); font-size: 17px; margin: 0 0 8px; }
+  .badge {
+    display: inline-block; font-size: 12px; padding: 4px 12px; border-radius: 999px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 600; margin: 10px 6px 0 0;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  h2 {
+    font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+    margin: 44px 0 16px; display: flex; align-items: center; gap: 10px;
+    font-family: ui-monospace, Menlo, monospace;
+  }
+  h2::before { content: ""; width: 22px; height: 2px; background: var(--accent); border-radius: 2px; }
+  h3 { font-size: 15px; margin: 18px 0 8px; }
+  p { margin: 0 0 12px; font-size: 15px; }
+  code {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13px;
+    background: var(--surface2); padding: 2px 7px; border-radius: 6px; color: var(--accent);
+  }
+  pre {
+    background: var(--surface2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; overflow-x: auto; font-size: 13px; margin: 8px 0 14px;
+  }
+  pre code { background: none; padding: 0; }
+  .card {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 16px;
+    padding: 16px 18px; margin-bottom: 12px;
+  }
+  .card b { color: var(--ink); }
+  .card p:last-child { margin-bottom: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th {
+    font-family: ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.08em;
+    text-transform: uppercase; color: var(--muted); background: var(--surface2);
+  }
+  tr:last-child td { border-bottom: none; }
+  .tablewrap { border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 12px; }
+  ul { margin: 0 0 12px; padding-left: 22px; font-size: 15px; }
+  li { margin: 6px 0; }
+  .tip {
+    border-left: 3px solid var(--warn); background: var(--surface); border-radius: 8px;
+    padding: 10px 14px; font-size: 14px; margin: 10px 0;
+  }
+  .ok { color: var(--accent); font-weight: 700; }
+  kbd {
+    font-family: ui-monospace, Menlo, monospace; font-size: 12px; background: var(--surface2);
+    border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px;
+  }
+  footer { margin-top: 56px; padding-top: 16px; border-top: 1px solid var(--line);
+    color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+</style>
+</head>
+<body>
+<body>
+<div class="page">
+
+  <h1>La Oficina 🏢</h1>
+  <p class="lede">Your AI squad in a 3D office. You type here instead of in the terminal: every agent is a real <b>Claude Code</b> session with its own role, memory and tasks running in parallel.</p>
+  <span class="badge">$0 in API — uses your subscription</span>
+  <span class="badge">One session per agent</span>
+  <span class="badge">Parallel tasks</span>
+
+  <h2>Prerequisites</h2>
+
+  <h3>To use the app (required)</h3>
+  <div class="card">
+    <p><b>1. macOS with Apple Silicon.</b> Windows is on the roadmap.</p>
+    <p><b>2. Claude Code installed and logged in.</b> Simple rule: if <code>claude</code> starts in your terminal, La Oficina works. It needs a <b>Pro or Max</b> plan (the free web account does not enable the CLI).</p>
+    <pre><code># Install (if you don't have it)
+curl -fsSL https://claude.ai/install.sh | bash
+claude   # then follow the /login flow with your account</code></pre>
+    <p><b>3. No <code>ANTHROPIC_API_KEY</code> in the environment.</b> If it exists, Claude Code charges per token instead of using your plan. The app strips it from its agents' environment, but check your <code>~/.zshrc</code> just in case.</p>
+  </div>
+
+  <h3>So agents can use tools (recommended)</h3>
+  <div class="card">
+    <p><b>Homebrew on the shell PATH.</b> Agents run commands with your zsh profile; so they can find <code>gh</code>, <code>node</code> and friends, make sure <code>~/.zprofile</code> has:</p>
+    <pre><code>eval "$(/opt/homebrew/bin/brew shellenv)"</code></pre>
+    <p>The app also adds <code>/opt/homebrew/bin</code>, <code>/usr/local/bin</code> and <code>~/.local/bin</code> to every agent's PATH in case the profile does not load.</p>
+  </div>
+
+  <h3>For the PR Reviewer and the Publisher</h3>
+  <div class="card">
+    <p>Both use the <b>GitHub CLI</b> authenticated with your account:</p>
+    <pre><code>brew install gh
+gh auth login    # GitHub.com → SSH (or HTTPS) → Login with a web browser
+gh auth status   # check: it must show your account with the 'repo' scope</code></pre>
+    <p>The token lives in the system keyring, so it works for the processes the app spawns without logging in again. Also:</p>
+    <p>· <b>git configured</b> (<code>git config --global user.name</code> / <code>user.email</code>) and with access to the repos where you will open PRs.</p>
+    <p>· The <b>Publisher</b> needs permission to create public repos in your account (it uses <code>gh repo create</code> and GitHub Pages) — it always asks for confirmation before publishing anything.</p>
+    <p>· Optional for the PR Reviewer: <b>acli</b> (Atlassian CLI) and the Jira/Slack MCP connectors configured in Claude Code, if your PR skills track work in those tools.</p>
+  </div>
+
+  <h3>Optional</h3>
+  <div class="card">
+    <p><b>Two accounts (💼 work / 🔒 private):</b> create the directories <code>~/.claude-work</code> and <code>~/.claude-private</code> by logging in once with each account using <code>CLAUDE_CONFIG_DIR</code>. The app shows both profiles and each one has its own squad, projects, history and preferences. Without them, it uses your normal account ("🧑 my account").</p>
+    <p><b>Development (building the app):</b> Node.js ≥ 18 · <code>npm install</code> · <code>npm run dev</code>.</p>
+  </div>
+
+  <h2>First launch</h2>
+  <p>The app opens with a <b>cinematic intro</b> 🎬: a flight over the city up to the La Oficina building, the doors open and you walk in. Skip it with the button or <kbd>Esc</kbd>, and turn it off in Preferences. After that, a <b>guided tour</b> 🎓 points out the parts of the screen (repeatable from Settings).</p>
+  <p>You will see an office with <b>a single active agent</b> (the lead, with a randomly drawn real name). Enable more roles from <b>⚙️ Settings → 👥 Agents</b> — up to 6 at a time, out of a catalog of 7 (Dev, Research, UI/UX, QA, PR Reviewer, Docs, Publisher) plus the ones you create.</p>
+
+  <h2>The top bar</h2>
+  <ul>
+    <li><b>💼 work / project ▾</b> — the whole context in one control: profiles as tabs, the project list below and <b>➕ Add project…</b> to bring in folders outside the profile root (they show up with 📌).</li>
+    <li><b>📄 Documents</b> — reports, dashboards and pages the squad creates.</li>
+    <li><b>🕘 History</b> — saved conversations, with search.</li>
+    <li><b>+ New</b> — new conversation (<kbd>⌘K</kbd>).</li>
+    <li><b>⚙️ Settings</b> — preferences and access to Agents (<kbd>⌘,</kbd>).</li>
+  </ul>
+
+  <h2>Talking to the squad</h2>
+  <div class="tablewrap"><table>
+    <tr><th>You type…</th><th>What happens</th></tr>
+    <tr><td class="mono">fix the login bug</td><td>Goes to the <b>lead</b> (the one at the big desk) or to whoever matches the keywords (test → QA, design → UI/UX…)</td></tr>
+    <tr><td class="mono">&lt;QA's name&gt;, run the tests</td><td>An agent's name at the start → goes to that agent</td></tr>
+    <tr><td class="mono">@&lt;name&gt; look into X</td><td>@name anywhere in the text → goes to that agent</td></tr>
+    <tr><td class="mono">&lt;Research&gt;, look into X and hand it to &lt;Dev&gt;</td><td><b>Handoff:</b> Research finishes, walks over to the Dev's desk 🤝 and the Dev's session starts with the result as context</td></tr>
+    <tr><td class="mono">@todos check your areas</td><td><b>Broadcast:</b> the same message reaches every free agent at once</td></tr>
+    <tr><td>🖱 Click on a character</td><td>Prefixes their name in the message (same as <kbd>⌘1</kbd>–<kbd>⌘6</kbd>)</td></tr>
+  </table></div>
+  <ul>
+    <li><b>⌨️ Multiline composer:</b> <kbd>Enter</kbd> sends, <kbd>Shift</kbd>+<kbd>Enter</kbd> adds a line break; the box grows with the text.</li>
+    <li><b>📌 Templates:</b> type <code>/</code> and your templates show up (per profile); <kbd>Enter</kbd> or <kbd>Tab</kbd> inserts the first one, and you create/delete them right there. They support <code>{{variables}}</code>: when inserted, a mini form asks for the values. Four examples ship with the app.</li>
+    <li><b>✏️/🔒 Permission chip</b> (next to the composer): amber = <i>edit</i> (can change files and run commands, auto-approved — use it in repos with git; without git the app warns you); grey = <i>read</i> (investigate only). One click toggles it.</li>
+    <li><b>⏳ Queue:</b> if an agent is busy, your message is queued (✕ removes it) and the character shows a <b>⏳ N</b> badge. The queue <b>survives an app restart</b>: when you come back it asks whether to resume the pending ones. A <b>⏹ Cancelled</b> message comes with ✏️ Edit.</li>
+    <li><b>✏️ Edit and resend:</b> hover any of your messages and the pencil loads it into the composer so you can fix it.</li>
+    <li><b>👁 Live detail:</b> each agent's bubble shows what they are doing and for how long; if they organize their work, their <b>checklist 📝 2/5</b> appears next to the character in real time.</li>
+    <li><b>🪙 Tokens:</b> every response shows how many tokens it used (breakdown in the tooltip) and the monitor keeps the conversation total.</li>
+    <li><b>🔀 View changes:</b> if the task edited files, the response offers the project's coloured <code>git diff</code>, with new files listed separately.</li>
+    <li><b>🔍 Search (⌘F):</b> a small bar over the chat with n/total and navigation between matches. And clicking a message's <b>name</b> filters the chat down to that agent.</li>
+    <li><b>⏹ Stop:</b> a red chip with the name of whoever is working; click to cancel their task. If something fails, the error carries the detail and a <b>🔁 Retry</b> button.</li>
+    <li><b>🔘 Quick replies:</b> if the response ends in a menu of options, they appear as buttons.</li>
+    <li><b>🖼📁 Attachments:</b> paste (<kbd>⌘V</kbd>) or drag images, files and folders into the chat.</li>
+    <li><b>💬 Quote:</b> select a fragment of a response and the floating button carries it to the composer as a quote, so you can ask about it.</li>
+    <li><b>🔁 Automatic retry:</b> if a task fails for something transient (API limit, timeout, network), it retries itself once after 5s.</li>
+    <li><b>⚠️ Collision warning:</b> if you send an editing task to a repo where another agent is already editing, the app warns you (it does not block).</li>
+    <li><b>📋 Copy:</b> every code block has a copy button on hover (and <b>syntax highlighting</b>), and every response has its own in the corner.</li>
+  </ul>
+
+  <h2>Commands and shortcuts</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td class="mono">/standup</td><td>📋 Every free agent resumes their last session on the project and reports — and in the scene, the squad walks to the middle and gathers in a circle meanwhile!</td></tr>
+    <tr><td class="mono">@todos &lt;message&gt;</td><td>📢 The same prompt to every free agent at once</td></tr>
+    <tr><td class="mono">/squad</td><td>Lists the active team</td></tr>
+    <tr><td class="mono">/model opus</td><td>Changes the global model (opus · fable · sonnet · haiku). It also syncs with your terminal's /model when you come back to the app</td></tr>
+    <tr><td class="mono">/clear</td><td>New conversation</td></tr>
+    <tr><td class="mono">/my-template</td><td>With saved templates, / lists and filters them; with no match, the /command goes straight to Claude Code — your skills work</td></tr>
+  </table></div>
+  <p><kbd>⌘K</kbd> new · <kbd>⌘Y</kbd> history · <kbd>⌘F</kbd> search the conversation · <kbd>⌘,</kbd> settings · <kbd>⌘1</kbd>–<kbd>⌘6</kbd> address each agent · <kbd>Esc</kbd> closes panels (in layers) · <kbd>Enter</kbd> sends. And from <b>any app</b>: <kbd>⌥Space</kbd> brings up La Oficina with the composer ready (a second press tucks it away).</p>
+
+  <h2>Settings ⚙️</h2>
+  <ul>
+    <li><b>👥 Agents</b> — the squad submenu: enable/disable with the <b>switch</b> (up to 6; the <b>first active one is the lead</b>), reorder by dragging the <b>⠿</b> grip, rename, pick a character from the 3D gallery (46 models, no repeats — the change applies instantly), edit their <b>✏️ Personality</b> (one <code>.md</code> per character) and pin their <b>🧠 own model</b> (UI/UX on Opus, QA on Haiku… the rest use the global one). At the top there are <b>presets</b> (Web team, mobile, research or just the lead) that enable a set of roles in one click while keeping your names. Custom roles are created and edited right there, and <b>♻️ Restore defaults</b> brings back the deleted ones.</li>
+    <li><b>🧩 Skills</b> — the profile's superpowers: a curated catalog from Anthropic's official repo (frontend design for UI/UX, browser testing for QA, Word/PDF/PowerPoint/Excel for Docs…), install from <b>any GitHub repo</b> (it detects the skills inside), create your own with the skeleton ready, and the <b>Plugins</b> section: full packages (skills + commands + agents + MCP) installable from marketplaces or direct repos. Everything reaches your agents automatically.</li>
+    <li><b>🌐 MCP servers</b> — external tools for the agents: <b>Playwright</b> (they drive a real browser — QA on live interfaces), Chrome DevTools, Context7 (up-to-date docs), Figma, or any server of your own (npx command or URL).</li>
+    <li><b>Model</b> — the global one: Opus 5 · 1M (recommended), Fable 5, Sonnet 5 or Haiku 4.5. Remembered per profile.</li>
+    <li><b>Permission</b> — the same ✏️/🔒 as the composer chip. Remembered per profile.</li>
+    <li><b>🎬 Intro</b> — when the app opens, a short sequence reaches the building and walks in through the door; skip it with the button or <kbd>Esc</kbd>, and disable it in Preferences (it is also skipped if the system asks for reduced motion).</li>
+    <li><b>Theme</b> — Classic, Night 🌙, Beach, and the seasons with falling particles: <b>🌸 Sakura</b> (cherry petals), <b>🍂 Autumn</b> (dry leaves) and <b>❄️ Winter</b> (snow). Or <b>🌗 Auto</b>: Night from 19:00 to 07:00, Classic during the day.</li>
+    <li><b>Documents</b> — the folder where the squad saves what it creates.</li>
+    <li><b>🧠 SQUAD.md board</b> — the squad's shared memory at the project root: agents read it and note progress for the others.</li>
+    <li><b>Notifications</b> — sounds + macOS alerts when someone finishes and you are in another app.</li>
+    <li><b>🖥 Open terminal in the project</b> — Warp (or your default) in the current project folder, for the <b>interactive</b> things the app does not cover (plan mode, <code>/login</code>, fine-grained git…).</li>
+    <li><b>📘 Project's CLAUDE.md</b> — opens (or creates) the instructions EVERY agent reads when working in that repo, without leaving the app.</li>
+    <li><b>📈 Statistics</b> — tasks, tokens and times per agent, with bars for the last 7 days.</li>
+    <li><b>🔧 Diagnostics</b> — the latest events from each agent and errors with their detail, ready to copy or export.</li>
+    <li><b>🎬 Intro and 🎓 Tour</b> — turn the startup intro on and relaunch the guided tour.</li>
+    <li><b>Quality</b> — 🎬 Cinematic (all effects), ✨ Normal or 🔋 Light (saves battery).</li>
+    <li><b>Pet</b> 🦊 — a little fox that wanders the office, sniffs around and comes over to watch the standup.</li>
+    <li><b>Scheduled standup</b> — at the time you pick, on weekdays; when it ends you can <b>📤 share the summary to Slack</b> (configurable channel).</li>
+    <li><b>💾 Export / 📥 Import settings</b> — squad, personalities, templates and projects in a JSON, to back up or move machine. A <b>weekly automatic backup</b> is kept too.</li>
+    <li><b>🌐 Language</b> — Spanish or English. It changes the whole interface and this guide, and the agents answer in the language you pick.</li>
+  </ul>
+  <div class="tip">💡 <b>La Oficina vs the terminal:</b> use the app for the daily flow (tasks, research, standup, parallel work) and the 🖥 button for fine interactive surgery.</div>
+
+  <h2>Documents 📄</h2>
+  <p>Ask for a <b>report, document, dashboard or page</b> and the agent generates a self-contained HTML (with images) that opens inside the app. In the 📄 panel: open, reveal in Finder, export as .zip and <b>💬 use as context</b> for the next message ("review this report and update it"). And if you want it on the web, the <b>Publisher</b> pushes it to GitHub Pages — always with your confirmation, because it becomes public.</p>
+
+  <h2>History 🕘</h2>
+  <p>Every conversation saves itself (the 100 most recent are kept). There is <b>search</b> by title, project <b>and by message text</b> (it shows an excerpt), <b>✏️ rename</b>, <b>📌 pin</b> (pinned ones go on top and are never purged) and <b>⬇ export to Markdown</b> with metadata and every message. When you open one, the squad <b>remembers all the context</b> (the real Claude sessions are resumed). 🗑 deletes it.</p>
+
+  <h2>Monitors 📊</h2>
+  <p>Top left, two bubbles: <b>System</b> (your Mac's real CPU and RAM, app memory) and <b>Claude</b> (model in use, <b>🪙 accumulated conversation tokens</b> and your subscription % — 5h session and week with their reset times). If you go above 90% of the session, the app warns you when dispatching a task. Outside the window, the <b>Dock</b> shows how many agents are working (and the icon bounces when something finishes in the background) and the <b>menu bar 🏢</b> has the same with a quick menu.</p>
+
+  <h2>Office life</h2>
+  <p>When nobody needs them: they grab coffee, drop lines about their role, listen to music 🎧, wander and visit each other. As soon as work arrives, <span class="ok">they go back to their desk</span>. When a task finishes they walk over to hand it off 🙌, and during the <b>standup they gather standing in the middle of the room</b>. The camera framing is <b>remembered between sessions</b> — double-click the scene to reset it. If the window is covered or minimized, the scene slows down to save battery; visible (even on another screen), it runs at 60fps. And while the squad works, the app <b>keeps the Mac from sleeping</b> so tasks are not killed halfway.</p>
+
+  <h2>If something looks off</h2>
+  <ul>
+    <li>If the <code>claude</code> binary is missing, the app tells you at startup with the install instructions.</li>
+    <li>The first macOS notification may ask for permission (Settings → Notifications).</li>
+    <li>Responses with no personality, or characters "stuck"? There may be an old instance running: close every La Oficina window and open it again (or <code>pkill -f "la-oficina"</code>).</li>
+    <li>Each agent's first message takes a few seconds (Claude Code startup).</li>
+    <li>PR Reviewer or Publisher failing on git or GitHub? → check <code>gh auth status</code> in your terminal.</li>
+    <li>When there is a new version on GitHub, the notification <b>downloads it straight to ~/Downloads and opens the installer</b> — you just drag it to Applications.</li>
+    <li>If the Mac slept mid-task (battery, lid closed), the app warns you on wake: cancel with ⏹ and use 🔁 Retry.</li>
+  </ul>
+
+  <footer>La Oficina · runs Claude Code on your subscription · built with Electron + React Three Fiber</footer>
+</div>
+</body>
+</html>
