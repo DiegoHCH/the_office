@@ -148,6 +148,15 @@ export default function App() {
   const hourNow = new Date().getHours()
   const effectiveTheme = theme === 'auto' ? (hourNow >= 19 || hourNow < 7 ? 'noche' : 'clasico') : theme
   const [board, setBoard] = useState(() => localStorage.getItem('oficina-board') !== '0')
+  // Apariencia del chrome (#119): auto sigue al sistema. Es preferencia del
+  // equipo, no del perfil — no se cambia al saltar entre work y private.
+  const [appearance, setAppearance] = useState(() => localStorage.getItem('oficina-appearance') || 'auto')
+  useEffect(() => {
+    localStorage.setItem('oficina-appearance', appearance)
+    // sin data-theme manda el @media; con él, la elección del usuario
+    if (appearance === 'auto') delete document.documentElement.dataset.theme
+    else document.documentElement.dataset.theme = appearance
+  }, [appearance])
   // Idioma de la interfaz (#103): arranca en el del sistema. Cambiarlo repinta
   // todo (el diccionario es un módulo, así que basta con forzar el re-render).
   const [lang, setLangState] = useState(getLang)
@@ -2319,6 +2328,14 @@ export default function App() {
               <button onClick={() => setPrefsPanelOpen(false)} title={t('panel.back')}><IconClose size={16} /></button>
             </div>
             <div className="menu-group">
+            <div className="pref-row">
+              <span className="pref-label">{t('pref.appearance')}</span>
+              <select className="sel pref-sel" value={appearance} onChange={(e) => setAppearance(e.target.value)}>
+                <option value="auto">{t('pref.appAuto')}</option>
+                <option value="light">{t('pref.appLight')}</option>
+                <option value="dark">{t('pref.appDark')}</option>
+              </select>
+            </div>
             <div className="pref-row">
               <span className="pref-label">{t('pref.lang')}</span>
               <select className="sel pref-sel" value={lang} onChange={(e) => changeLang(e.target.value)}>

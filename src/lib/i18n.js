@@ -81,6 +81,10 @@ const ES = {
   'pref.notifOnTitle': 'Apagar sonidos y avisos',
   'pref.notifOffTitle': 'Encender sonidos y avisos',
   'pref.lang': 'Idioma:',
+  'pref.appearance': 'Apariencia:',
+  'pref.appAuto': 'Auto — sigue al sistema',
+  'pref.appLight': 'Clara',
+  'pref.appDark': 'Oscura',
 
   // — cabeceras de panel —
   'panel.settings': 'Configuración',
@@ -564,6 +568,10 @@ const EN = {
   'pref.notifOnTitle': 'Turn sounds and alerts off',
   'pref.notifOffTitle': 'Turn sounds and alerts on',
   'pref.lang': 'Language:',
+  'pref.appearance': 'Appearance:',
+  'pref.appAuto': 'Auto — follows the system',
+  'pref.appLight': 'Light',
+  'pref.appDark': 'Dark',
 
   'panel.settings': 'Settings',
   'panel.agents': 'Agents',
