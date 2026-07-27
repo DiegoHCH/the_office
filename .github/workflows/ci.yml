@@ -32,18 +32,35 @@ jobs:
         run: npm test
       - name: Build del renderer
         run: npx vite build
+      # El runner corre con GL por software y a veces el proceso GPU se cae a
+      # media ejecución; three.js encadena TypeErrors sobre el contexto perdido
+      # y el grep los tomaba por errores del código (#127). Ahora el log se
+      # corta en la caída —lo anterior sí cuenta— y esa corrida se reintenta.
       - name: Smoke test del renderer
         run: |
-          ELECTRON_ENABLE_LOGGING=1 npx electron . > electron-log.txt 2>&1 &
-          EPID=$!
-          sleep 20
-          kill $EPID 2>/dev/null || true
-          if grep -qiE "uncaught|TypeError|ReferenceError" electron-log.txt; then
-            echo "::error::Errores de runtime en el renderer"
-            cat electron-log.txt
-            exit 1
-          fi
-          echo "Renderer sin errores ✓"
+          # solo la caída de verdad: «Context Lost» a secas también lo emite el
+          # cierre normal con kill, y tomarlo por crash haría reintentar siempre
+          GPU_MUERTA='GPU process exited unexpectedly|Restarting GPU process due to unrecoverable error'
+          for intento in 1 2; do
+            ELECTRON_ENABLE_LOGGING=1 npx electron . > electron-log.txt 2>&1 &
+            EPID=$!
+            sleep 20
+            kill $EPID 2>/dev/null || true
+            # solo se analiza lo ocurrido ANTES de perder la GPU
+            sed -E "/$GPU_MUERTA/q" electron-log.txt > analizable.txt
+            if grep -qiE "uncaught|TypeError|ReferenceError" analizable.txt; then
+              echo "::error::Errores de runtime en el renderer"
+              cat analizable.txt
+              exit 1
+            fi
+            if grep -qE "$GPU_MUERTA" electron-log.txt; then
+              echo "GPU del runner caída en el intento $intento — sin errores hasta ese punto"
+              [ "$intento" = 2 ] && { echo "::warning::smoke inconcluso: la GPU se cayó dos veces"; break; }
+              continue
+            fi
+            echo "Renderer sin errores ✓"
+            break
+          done
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
