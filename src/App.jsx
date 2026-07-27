@@ -62,6 +62,8 @@ export default function App() {
     messagesRef.current = messages
   }, [messages])
   const deepLinkRef = useRef(() => {}) // handler de la-oficina:// con closures frescas
+  const retriedRef = useRef(new Set()) // jobs que ya gastaron su auto-retry
+  const autoRetryRef = useRef(() => {}) // re-despacho con closures frescas
   // vista de diff: qué roles editaron archivos en su tarea actual
   const editedRef = useRef({})
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
@@ -522,6 +524,34 @@ export default function App() {
         if (isP) setStatus('Esperándote')
       } else if (e.kind === 'error') {
         delete editedRef.current[who]
+        // ¿error transitorio (rate limit, red, timeout)? un reintento
+        // automático con backoff — solo UNO por job; si repite, error normal
+        const transient = /(\b429\b|\b529\b|rate.?limit|timeout|etimedout|econnreset|enotfound|eai_again|socket hang up|network|overloaded)/i.test(
+          `${e.message || ''} ${e.detail || ''}`
+        )
+        const failedJob = lastJobRef.current[who]
+        if (transient && failedJob && !retriedRef.current.has(failedJob.id)) {
+          retriedRef.current.add(failedJob.id)
+          setRS(who, 'idle')
+          setTool((t) => (t?.role === who ? null : t))
+          setAgentTool((t) => {
+            const copy = { ...t }
+            delete copy[who]
+            return copy
+          })
+          setAgentTodos((t) => {
+            const copy = { ...t }
+            delete copy[who]
+            return copy
+          })
+          const name = squadRef.current.find((m) => m.id === who)?.name || who
+          setToast(`⚠️ ${name}: error transitorio — reintentando en 5s…`)
+          clearTimeout(toastTimer.current)
+          toastTimer.current = setTimeout(() => setToast(null), 5000)
+          setTimeout(() => autoRetryRef.current(who), 5000)
+          if (isP) setStatus('Reintentando…')
+          return
+        }
         // el stderr (si vino) se muestra como bloque de código en el mensaje
         const text = e.detail ? `⚠️ ${e.message}\n\n\`\`\`\n${e.detail}\n\`\`\`` : `⚠️ ${e.message}`
         setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
@@ -1385,6 +1415,14 @@ export default function App() {
   const standupCmdRef = useRef(() => {})
   useEffect(() => {
     standupCmdRef.current = () => handleLocalCommand('/standup')
+  })
+
+  // Auto-retry (#90): re-despacha el último job de un rol con estado fresco.
+  useEffect(() => {
+    autoRetryRef.current = (who) => {
+      const job = lastJobRef.current[who]
+      if (job) routeJob({ ...job }) // mismo id: el mensaje no se duplica
+    }
   })
 
   // ── Deep links: el handler vive en un ref para tener closures frescas ────
