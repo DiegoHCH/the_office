@@ -24,7 +24,7 @@ import {
   IconTerminal, IconExport, IconImport, IconTune, IconChevron,
   IconWork, IconPrivate, IconPerson, IconFolder, IconPin, IconAdd,
   IconClose, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
-  IconCheck, IconWarn, IconSpinner, IconClip, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
+  IconCheck, IconWarn, IconSpinner, IconClip, IconBulb, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
   IconCopy, IconRetry, IconShare, IconDiff, IconChat, IconBoard, IconBell, IconBellOff, IconRestore, IconCoin, IconClock,
 } from './components/icons.jsx'
 
@@ -214,7 +214,8 @@ export default function App() {
       else localStorage.removeItem('oficina-pending-queue')
     } catch {}
   }
-  const pendingArtifactRef = useRef({}) // role → true si generó un artifact en este turno
+  const pendingArtifactRef = useRef({})
+  const pendingThinkingRef = useRef({}) // razonamiento en curso por agente (#122) // role → true si generó un artifact en este turno
   const toastTimer = useRef(null)
   const sessionsRef = useRef({})
   const convIdRef = useRef(null)
@@ -546,18 +547,23 @@ export default function App() {
           }
           return [...ms, { role: 'assistant', who, text: e.text, streaming: true }]
         })
+      } else if (e.kind === 'thinking') {
+        // se acumula y se engancha al mensaje del agente cuando termine
+        pendingThinkingRef.current[who] = (pendingThinkingRef.current[who] || '') + e.text
       } else if (e.kind === 'done') {
         const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
         const edited = !!editedRef.current[who]
         delete editedRef.current[who]
+        const thinking = pendingThinkingRef.current[who] || null
+        delete pendingThinkingRef.current[who]
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
             const copy = [...ms]
-            copy[idx] = { ...copy[idx], streaming: false, usage, edited }
+            copy[idx] = { ...copy[idx], streaming: false, usage, edited, thinking }
             return copy
           }
-          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, edited }] : ms
+          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, edited, thinking }] : ms
         })
         // acumulado de tokens de la conversación (para el monitor de claude)
         if (usage)
@@ -888,6 +894,7 @@ export default function App() {
   // pestañas: renombrar con doble click y reordenar arrastrando (#121)
   const [tabRename, setTabRename] = useState(null) // {id, val} | null
   const [tabDrag, setTabDrag] = useState(null)
+  const [thinkingOpen, setThinkingOpen] = useState({}) // índices con el razonamiento desplegado
   const commitTabRename = () => {
     if (!tabRename) return
     const val = tabRename.val.trim()
@@ -3555,6 +3562,22 @@ export default function App() {
                     {m.atts.map((a, j) =>
                       typeof a === 'string' ? <span key={j}><IconImage size={12} /> {a}</span> : <AttThumb key={j} att={a} onZoom={setLightbox} />
                     )}
+                  </div>
+                )}
+                {m.thinking && (
+                  <div className="thinking">
+                    <button
+                      type="button"
+                      className="thinking-head"
+                      onClick={() => setThinkingOpen((o) => ({ ...o, [i]: !o[i] }))}
+                    >
+                      <IconBulb size={13} />
+                      {t('chat.thinking')}
+                      <span className={thinkingOpen[i] ? 'thinking-caret open' : 'thinking-caret'}>
+                        <IconChevron size={16} />
+                      </span>
+                    </button>
+                    {thinkingOpen[i] && <div className="thinking-body">{m.thinking}</div>}
                   </div>
                 )}
                 {m.role === 'assistant' ? (

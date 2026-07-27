@@ -257,6 +257,7 @@ const ES = {
   'chat.renameHint': 'doble click para renombrar · arrastra para reordenar',
   'chat.newTab': 'Nueva pestaña',
   'chat.quote': 'Citar',
+  'chat.thinking': 'Razonamiento',
   'chat.lightbox': 'Click o Esc para cerrar',
 
   // — plantillas (snippets) —
@@ -739,6 +740,7 @@ const EN = {
   'chat.renameHint': 'double-click to rename · drag to reorder',
   'chat.newTab': 'New tab',
   'chat.quote': 'Quote',
+  'chat.thinking': 'Reasoning',
   'chat.lightbox': 'Click or Esc to close',
 
   'snip.varsNote': 'This template has variables — fill them in:',

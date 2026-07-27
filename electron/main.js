@@ -501,6 +501,11 @@ function makeLineHandler(role, claveSesion, displayName) {
 
     if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
       for (const block of msg.message.content) {
+        // el razonamiento llega completo en el bloque (#122); se emite entero y
+        // no por deltas, igual que los tool_use, para no pintarlo a trozos
+        if (block.type === 'thinking' && block.thinking) {
+          emit({ kind: 'thinking', role, text: block.thinking })
+        }
         if (block.type === 'tool_use') {
           // aquí ya viene el input completo → detalle de QUÉ hace exactamente
           emit({ kind: 'tool', role, name: block.name, detail: toolDetail(block.name, block.input) })
