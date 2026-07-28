@@ -675,12 +675,15 @@ body {
 .skill-install {
   background: var(--accent); color: var(--accent-ink); border: none; border-radius: 999px;
   padding: 5px 14px; font-size: 11.5px; font-weight: 600; cursor: pointer;
+  /* la fila es flex y el texto de al lado lleva flex:1: sin esto la pastilla se
+     comprime y la etiqueta se parte o se sale */
+  flex: none; white-space: nowrap;
 }
 .skill-install:hover { filter: brightness(1.08); }
 /* recomendación manual: no conecta nada, abre la guía oficial */
 .skill-manual {
   background: none; border: 1px solid var(--line-3); border-radius: 999px; color: var(--muted);
-  padding: 5px 12px; font-size: 11px; cursor: pointer; white-space: nowrap;
+  padding: 5px 12px; font-size: 11px; cursor: pointer; white-space: nowrap; flex: none;
 }
 .skill-manual:hover { color: var(--accent-2); border-color: var(--accent-2); }
 .skill-busy { font-size: 13px; }
@@ -700,14 +703,19 @@ select.squad-model {
 .art-item > div:first-child { flex: 1; min-width: 0; }
 .art-actions { display: flex; gap: 4px; flex: none; }
 /* iconos sueltos a media opacidad no se leían como botones (#129): ahora
-   llevan superficie propia, y el destructivo va en rojo */
-.art-actions button {
+   llevan superficie propia, y el destructivo va en rojo.
+   El :not() no es cosmético: .art-actions lo comparten las filas de Skills y
+   MCP, que además de iconos llevan botones de TEXTO ("Instalar", "Conectar…").
+   Esta regla es más específica que .skill-install (0,1,1 vs 0,1,0), así que sin
+   excluirlos les imponía la caja de icono de 28×28 con padding 0 —y encima el
+   gris de --surface-3—, y el texto se desbordaba del botón y de la tarjeta. */
+.art-actions button:not(.skill-install, .skill-manual) {
   display: grid; place-items: center; width: 28px; height: 28px; padding: 0;
   background: var(--surface-3); color: var(--muted); cursor: pointer;
   border: 1px solid var(--line); border-radius: 8px;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
-.art-actions button:hover { color: var(--accent); border-color: var(--accent); background: var(--surface-4); }
+.art-actions button:not(.skill-install, .skill-manual):hover { color: var(--accent); border-color: var(--accent); background: var(--surface-4); }
 .art-actions button.danger { color: var(--danger-2); }
 .art-actions button.danger:hover { color: var(--danger); border-color: var(--danger); }
 .hist-empty { color: var(--muted); font-size: 12.5px; padding: 8px; font-family: ui-monospace, Menlo, monospace; }
