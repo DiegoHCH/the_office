@@ -36,7 +36,11 @@ export const MCP_CATALOG = [
   { id: 'chrome-devtools', name: 'Chrome DevTools', get desc() { return t('srv.chrome-devtools') }, roles: ['dev', 'qa'], cmd: ['npx', 'chrome-devtools-mcp@latest'] },
   { id: 'context7', name: 'Context7', get desc() { return t('srv.context7') }, roles: ['dev'], cmd: ['npx', '-y', '@upstash/context7-mcp'] },
   { id: 'figma', name: 'Figma', get desc() { return t('srv.figma') }, roles: ['design'], url: 'https://mcp.figma.com/mcp' },
-  { id: 'nano-banana', name: 'Nano Banana 🍌', get desc() { return t('srv.nano-banana') }, roles: ['design'], cmd: ['npx', '-y', '@mindstone/mcp-server-nano-banana'], needsEnv: 'GEMINI_API_KEY' },
+  // Nano Banana (Gemini) se quitó del catálogo: la API de Gemini NO tiene free
+  // tier de imagen. Verificado contra la API — los 4 modelos devuelven 429 con
+  // `limit: 0` en generate_content_free_tier_requests — y contra la doc oficial
+  // de pricing, que marca Free Tier «Not available». La entrada prometía 500
+  // imágenes/día gratis sin tarjeta, así que solo llevaba a un 429 seguro.
   // recomendaciones manuales: solo aparecen en el listado con su guía — el
   // usuario los configura por su cuenta (instaladores propios, registries…)
   { id: 'engram', name: 'Engram 🧠', get desc() { return t('srv.engram') }, roles: ['dev', 'research', 'qa'], manual: true, link: 'https://engram.tools' },

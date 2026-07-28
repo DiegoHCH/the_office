@@ -313,8 +313,6 @@ const ES = {
   'srv.context7': 'Documentación al día de librerías y frameworks, directo al contexto del agente',
   'srv.figma':
     'Lee tus diseños de Figma — ⚠️ en plan gratis solo 6 usos/mes; para uso real pide seat Dev/Full de pago (y autenticarse una vez con /mcp)',
-  'srv.nano-banana':
-    'Genera y edita imágenes con Gemini — 500 imágenes/día GRATIS con tu API key de Google AI Studio (se pide al conectar, sin tarjeta)',
   'srv.engram':
     'Memoria de largo plazo compartida del squad: lo aprendido queda buscable entre sesiones y proyectos (MIT; local gratis, hosted con tier gratis). Se instala con su propio setup',
   'srv.shadcn':
@@ -796,8 +794,6 @@ const EN = {
   'srv.context7': 'Up-to-date docs for libraries and frameworks, straight into the agent context',
   'srv.figma':
     'Reads your Figma designs — ⚠️ the free plan allows only 6 uses/month; real use needs a paid Dev/Full seat (and one-time auth with /mcp)',
-  'srv.nano-banana':
-    'Generates and edits images with Gemini — 500 images/day FREE with your Google AI Studio API key (asked for on connect, no card)',
   'srv.engram':
     "The squad's shared long-term memory: what they learn stays searchable across sessions and projects (MIT; free locally, hosted has a free tier). Installs with its own setup",
   'srv.shadcn':
