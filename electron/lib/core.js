@@ -492,28 +492,59 @@ function eligePorTexto(texto, candidatos, nombreDe = (x) => x) {
   return mejor ? { item: mejor, punt: mejorPunt } : null
 }
 
+// Palabras con las que se puede pedir un objetivo sin saber su nombre: «corre el
+// emulador android», «el físico ios». Sin esto, «emulador android» empataba con
+// un Android físico —los dos dicen «android»— y no se podía distinguir.
+const PALABRAS_TIPO = {
+  fisico: 'fisico physical real enchufado',
+  emulador: 'emulador emulator virtual',
+  escritorio: 'escritorio desktop',
+  web: 'web navegador browser',
+}
+
+const textoDe = (nombre, plataforma, id, tipo) => {
+  const ios = String(plataforma || '').startsWith('ios')
+  const partes = [nombre, plataforma, id, PALABRAS_TIPO[tipo] || '']
+  if (ios) partes.push('ios apple')
+  // «simulador» es el término de Apple: aplicarlo a todo emulador hacía que
+  // «el simulador» empatara con un AVD de Android
+  if (ios && tipo === 'emulador') partes.push('simulador simulator')
+  return partes.join(' ')
+}
+
 // Interpreta «/correr …» para poder lanzar sin abrir el panel. Dispositivos y
 // emuladores compiten en la MISMA puntuación: «medium phone» tiene que ganarle a
 // «iPhone», que solo coincide en una palabra.
+//
+// Un empate significa que la frase no alcanza para decidir, y adivinar cuesta una
+// compilación de minutos. Con una excepción: si empatan un dispositivo ya
+// disponible y un emulador por lanzar de la misma clase —«el emulador android»
+// con ese emulador ya arriba— no hay duda de la intención, y gana el que ya está
+// listo, que ahorra el arranque.
 function interpretaCorrer(texto, { devices = [], emulators = [], configs = [] } = {}) {
   const t = String(texto || '').trim()
-  // se puntúa TODO junto para poder comparar: un empate significa que la frase no
-  // alcanza para decidir, y adivinar cuesta una compilación de minutos
   const candidatos = [
-    ...devices.map((x) => ({ tipo: 'dispositivo', item: x, nombre: `${x.name} ${x.platform} ${x.id}` })),
-    ...emulators.map((x) => ({ tipo: 'emulador', item: x, nombre: `${x.name} ${x.platform} ${x.id}` })),
-  ].map((c) => ({ ...c, punt: puntua(t, c.nombre) }))
+    ...devices.map((x) => ({ tipo: 'dispositivo', item: x, txt: textoDe(x.name, x.platform, x.id, x.tipo) })),
+    ...emulators.map((x) => ({ tipo: 'emulador', item: x, txt: textoDe(x.name, x.platform, x.id, 'emulador') })),
+  ].map((c) => ({ ...c, punt: puntua(t, c.txt) }))
   const conPunto = candidatos.filter((c) => c.punt > 0).sort((a, b) => b.punt - a.punt)
-  const objetivo = conPunto[0] || null
-  // dos candidatos igual de buenos: no hay forma de saber a cuál se refería
-  const empatados = conPunto.filter((c) => c.punt === conPunto[0]?.punt)
+  let empatados = conPunto.filter((c) => c.punt === conPunto[0]?.punt)
+  // un dispositivo listo le gana a un emulador por arrancar
+  if (empatados.length > 1) {
+    const listos = empatados.filter((c) => c.tipo === 'dispositivo')
+    if (listos.length === 1) empatados = listos
+  }
   const ambiguo = empatados.length > 1
+  const objetivo = ambiguo ? null : empatados[0] || null
 
-  const cs = configs.map((x) => ({ item: x, punt: puntua(t, x.name) })).filter((c) => c.punt > 0).sort((a, b) => b.punt - a.punt)
+  const cs = configs
+    .map((x) => ({ item: x, punt: puntua(t, x.name) }))
+    .filter((c) => c.punt > 0)
+    .sort((a, b) => b.punt - a.punt)
   const configAmbigua = cs.filter((c) => c.punt === cs[0]?.punt).length > 1
 
   return {
-    objetivo: ambiguo ? null : objetivo,
+    objetivo,
     config: configAmbigua ? null : cs[0]?.item || null,
     ambiguo,
     configAmbigua,

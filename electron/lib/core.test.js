@@ -767,3 +767,66 @@ describe('plataformaOcupada', () => {
     expect(plataformaOcupada(null, 'ios')).toBeNull()
   })
 })
+
+// ── Pedir por tipo y plataforma, sin saber nombres ───────────────────────────
+describe('interpretaCorrer: «el emulador android», «el físico ios»', () => {
+  const CTX = {
+    devices: [
+      { id: '00008030', name: 'iPhone', platform: 'ios', tipo: 'fisico' },
+      { id: '36c56d94', name: '24069PC21G', platform: 'android-arm64', tipo: 'fisico' },
+      { id: 'macos', name: 'macOS', platform: 'darwin', tipo: 'escritorio' },
+    ],
+    emulators: [
+      { id: 'apple_ios_simulator', name: 'iOS Simulator', platform: 'ios' },
+      { id: 'Medium_Phone_API_36.1', name: 'Medium Phone API 36.1', platform: 'android' },
+    ],
+    configs: [{ name: 'Global66 (ci)' }, { name: 'Global66 (prod)' }],
+  }
+  const cual = (frase, ctx = CTX) => {
+    const r = interpretaCorrer(frase, ctx)
+    return r.objetivo ? `${r.objetivo.tipo}:${r.objetivo.item.id}` : r.ambiguo ? 'ambiguo' : 'nada'
+  }
+
+  it('distingue emulador de físico dentro de la misma plataforma', () => {
+    // sin el tipo en la puntuación, «emulador android» empataba con el Android
+    // físico: los dos dicen «android»
+    expect(cual('el emulador android')).toBe('emulador:Medium_Phone_API_36.1')
+    expect(cual('el fisico android')).toBe('dispositivo:36c56d94')
+    expect(cual('el emulador ios')).toBe('emulador:apple_ios_simulator')
+    expect(cual('el fisico ios')).toBe('dispositivo:00008030')
+  })
+
+  it('«simulador» es de Apple: no arrastra al emulador de Android', () => {
+    expect(cual('el simulador')).toBe('emulador:apple_ios_simulator')
+  })
+
+  it('un nombre concreto sigue mandando', () => {
+    expect(cual('iphone')).toBe('dispositivo:00008030')
+    expect(cual('en escritorio')).toBe('dispositivo:macos')
+  })
+
+  it('el tipo se combina con la configuración', () => {
+    const r = interpretaCorrer('prod en el fisico ios', CTX)
+    expect(r.objetivo.item.id).toBe('00008030')
+    expect(r.config.name).toBe('Global66 (prod)')
+  })
+
+  it('si el emulador pedido ya está arriba, gana ése y no se arranca otro', () => {
+    const ctx = {
+      ...CTX,
+      devices: [...CTX.devices, { id: 'emulator-5554', name: 'sdk gphone64', platform: 'android-arm64', tipo: 'emulador' }],
+    }
+    expect(cual('el emulador android', ctx)).toBe('dispositivo:emulator-5554')
+  })
+
+  it('dos emuladores android por arrancar sí es ambiguo', () => {
+    const ctx = {
+      ...CTX,
+      emulators: [
+        { id: 'Small_Phone', name: 'Small Phone', platform: 'android' },
+        { id: 'Medium_Phone_API_36.1', name: 'Medium Phone API 36.1', platform: 'android' },
+      ],
+    }
+    expect(cual('el emulador android', ctx)).toBe('ambiguo')
+  })
+})
