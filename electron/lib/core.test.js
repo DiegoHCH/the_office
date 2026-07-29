@@ -3,7 +3,7 @@ import core from './core.js'
 
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
 const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
-const { resultadoLanzarEmulador } = core
+const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = core
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
 const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 
@@ -427,5 +427,54 @@ describe('aplicaProgreso', () => {
     expect(aplicaProgreso(antes, {})).toEqual(antes)
     aplicaProgreso(antes, { id: '1', finished: true })
     expect(antes['1']).toBeDefined()
+  })
+})
+
+describe('idsEmuladorAdb', () => {
+  // salida real: 36c56d94 es un teléfono por USB, no un emulador
+  const SALIDA = `List of devices attached
+36c56d94	device usb:0-1.3 product:peridot_global model:24069PC21G
+emulator-5554	device
+emulator-5556	offline
+`
+  it('saca solo los emuladores conectados', () => {
+    expect(idsEmuladorAdb(SALIDA)).toEqual(['emulator-5554'])
+  })
+
+  it('no confunde un teléfono físico con un emulador', () => {
+    expect(idsEmuladorAdb('36c56d94\tdevice')).toEqual([])
+  })
+
+  it('tolera salida vacía', () => {
+    expect(idsEmuladorAdb('')).toEqual([])
+    expect(idsEmuladorAdb(null)).toEqual([])
+  })
+})
+
+describe('marcaEmuladoresCorriendo', () => {
+  const EMUS = [
+    { id: 'apple_ios_simulator', name: 'iOS Simulator', platform: 'ios' },
+    { id: 'Medium_Phone_API_36.1', name: 'Medium Phone API 36.1', platform: 'android' },
+    { id: 'Small_Phone', name: 'Small Phone', platform: 'android' },
+  ]
+
+  it('marca el simulador de iOS si hay alguno booteado', () => {
+    const [ios] = marcaEmuladoresCorriendo(EMUS, { ios: true, android: {} })
+    expect(ios.corriendo).toBe(true)
+  })
+
+  it('en Android distingue CUÁL avd está arriba y con qué pararlo', () => {
+    const r = marcaEmuladoresCorriendo(EMUS, { ios: false, android: { Small_Phone: 'emulator-5554' } })
+    expect(r[1]).toMatchObject({ id: 'Medium_Phone_API_36.1', corriendo: false, deviceId: null })
+    expect(r[2]).toMatchObject({ id: 'Small_Phone', corriendo: true, deviceId: 'emulator-5554' })
+  })
+
+  it('sin nada corriendo no marca ninguno', () => {
+    expect(marcaEmuladoresCorriendo(EMUS, { ios: false, android: {} }).some((e) => e.corriendo)).toBe(false)
+    expect(marcaEmuladoresCorriendo(EMUS, null).some((e) => e.corriendo)).toBe(false)
+  })
+
+  it('tolera lista vacía', () => {
+    expect(marcaEmuladoresCorriendo(null, { ios: true })).toEqual([])
   })
 })

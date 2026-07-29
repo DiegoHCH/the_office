@@ -17,6 +17,8 @@ const {
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,
+  idsEmuladorAdb,
+  marcaEmuladoresCorriendo,
   resultadoLanzarEmulador,
   parseLineaDaemon,
   peticionRecarga,
@@ -1805,6 +1807,7 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
   if (devs.status === 'rejected' && emus.status === 'rejected') {
     return { ok: false, esFlutter: true, via: bin.via, proyecto, error: String(devs.reason?.message || '').slice(0, 300) }
   }
+  const lista = emus.status === 'fulfilled' ? parseEmuladores(emus.value) : []
   return {
     ok: true,
     esFlutter: true,
@@ -1812,7 +1815,8 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
     proyecto,
     proyectos,
     devices: ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : []),
-    emulators: emus.status === 'fulfilled' ? parseEmuladores(emus.value) : [],
+    // cuáles ya están arriba: ahí el botón no es «lanzar» sino «cerrar»
+    emulators: marcaEmuladoresCorriendo(lista, await emuladoresArriba()),
   }
 })
 
@@ -1833,6 +1837,60 @@ ipcMain.handle('flutter:launchEmulator', async (_e, { cwd, id, cold } = {}) => {
   } catch (err) {
     // aquí solo caen los fallos de verdad del proceso (no encontrado, timeout…)
     return { ok: false, error: String(err.message || 'No se pudo lanzar el emulador').slice(0, 250) }
+  }
+})
+
+// Qué emuladores están arriba. No hay id común con el dispositivo resultante, así
+// que se pregunta a las herramientas de cada plataforma (ver core.js).
+const ADB_CANDIDATES = () => [
+  path.join(app.getPath('home'), 'Library', 'Android', 'sdk', 'platform-tools', 'adb'),
+  path.join(app.getPath('home'), 'Android', 'Sdk', 'platform-tools', 'adb'),
+  '/opt/homebrew/bin/adb',
+  '/usr/local/bin/adb',
+]
+const adbBin = () => ADB_CANDIDATES().find((p) => fs.existsSync(p)) || null
+
+async function emuladoresArriba() {
+  const estado = { ios: false, android: {} }
+  try {
+    const out = await execFileP('/usr/bin/xcrun', ['simctl', 'list', 'devices', 'booted', '--json'], { timeout: 20000 })
+    const devs = JSON.parse(out).devices || {}
+    estado.ios = Object.values(devs).some((lista) => (lista || []).some((d) => d.state === 'Booted'))
+  } catch {}
+  const adb = adbBin()
+  if (adb) {
+    try {
+      for (const id of idsEmuladorAdb(await execFileP(adb, ['devices'], { timeout: 15000 }))) {
+        try {
+          const nombre = (await execFileP(adb, ['-s', id, 'emu', 'avd', 'name'], { timeout: 10000 }))
+            .split('\n')[0]
+            .trim()
+          if (nombre) estado.android[nombre] = id
+        } catch {}
+      }
+    } catch {}
+  }
+  return estado
+}
+
+// Cierra un emulador que está arriba. Android se mata por adb; en iOS se apaga el
+// simulador y además se cierra la app, que si no queda la ventana abierta en negro.
+ipcMain.handle('flutter:stopEmulator', async (_e, { platform, deviceId } = {}) => {
+  try {
+    if (platform === 'ios') {
+      await execFileP('/usr/bin/xcrun', ['simctl', 'shutdown', 'all'], { timeout: 30000 })
+      try {
+        await execFileP('/usr/bin/osascript', ['-e', 'quit app "Simulator"'], { timeout: 15000 })
+      } catch {}
+      return { ok: true }
+    }
+    const adb = adbBin()
+    if (!adb) return { ok: false, error: 'No se encontró adb para cerrar el emulador' }
+    if (!deviceId) return { ok: false, error: 'No se supo qué emulador cerrar' }
+    await execFileP(adb, ['-s', deviceId, 'emu', 'kill'], { timeout: 20000 })
+    return { ok: true }
+  } catch (err) {
+    return { ok: false, error: String(err.message || 'No se pudo cerrar el emulador').slice(0, 250) }
   }
 })
 

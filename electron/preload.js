@@ -42,6 +42,8 @@ contextBridge.exposeInMainWorld('oficina', {
   flutterTargets: (cwd) => ipcRenderer.invoke('flutter:targets', cwd),
   // lanza un emulador; vuelve al disparar, no cuando ya arrancó
   flutterLaunchEmulator: (arg) => ipcRenderer.invoke('flutter:launchEmulator', arg),
+  // cierra un emulador que ya está arriba
+  flutterStopEmulator: (arg) => ipcRenderer.invoke('flutter:stopEmulator', arg),
   // correr el proyecto y controlarlo mientras corre
   flutterRun: (arg) => ipcRenderer.invoke('flutter:run', arg),
   flutterReload: (arg) => ipcRenderer.invoke('flutter:reload', arg),

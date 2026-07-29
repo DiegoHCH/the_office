@@ -249,6 +249,35 @@ const progresoVisible = (mapa) => {
   return claves.length ? mapa[claves[claves.length - 1]] : null
 }
 
+// ── Emuladores ya arrancados ─────────────────────────────────────────────────
+// No hay id común entre el emulador y el dispositivo que produce: lanzar
+// `apple_ios_simulator` aparece como «iPhone 13 mini». Para saber cuál está
+// arriba se pregunta a las herramientas de cada plataforma:
+//   iOS     → xcrun simctl list devices booted
+//   Android → adb devices  +  adb -s <id> emu avd name  (ese nombre SÍ coincide)
+
+// Ids de emulador en la salida de `adb devices`. Un teléfono por USB sale con su
+// serial (36c56d94) y no debe confundirse con un emulador (emulator-5554).
+function idsEmuladorAdb(salida) {
+  return String(salida || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => /^emulator-\d+\s+device\b/.test(l))
+    .map((l) => l.split(/\s+/)[0])
+}
+
+// Marca cada emulador con si está corriendo y, en Android, con qué dispositivo
+// pararlo. `estado` es { ios: bool, android: { avdName: deviceId } }.
+function marcaEmuladoresCorriendo(emuladores, estado) {
+  const ios = !!estado?.ios
+  const android = estado?.android || {}
+  return (Array.isArray(emuladores) ? emuladores : []).map((e) => {
+    if (e.platform === 'ios') return { ...e, corriendo: ios, deviceId: null }
+    const encontrado = Object.keys(android).find((avd) => avd === e.id || avd === e.name)
+    return { ...e, corriendo: !!encontrado, deviceId: encontrado ? android[encontrado] : null }
+  })
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -259,6 +288,8 @@ module.exports = {
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,
+  idsEmuladorAdb,
+  marcaEmuladoresCorriendo,
   resultadoLanzarEmulador,
   parseLineaDaemon,
   mensajeDaemon,

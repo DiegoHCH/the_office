@@ -1781,6 +1781,22 @@ export default function App() {
     await window.oficina?.flutterStop?.()
   }
 
+  // Cerrar un emulador que ya está arriba. Después se refresca la lista: el
+  // dispositivo tiene que desaparecer de «disponibles ahora».
+  const cerrarEmulador = async (em) => {
+    setDevicesView((v) => (v ? { ...v, cerrando: em.id, error: null } : v))
+    const res = await window.oficina?.flutterStopEmulator?.({ platform: em.platform, deviceId: em.deviceId })
+    if (!res?.ok) {
+      setDevicesView((v) => (v ? { ...v, cerrando: null, error: res?.error || null } : v))
+      return
+    }
+    showToast(t('dev.emuClosed', { name: em.name }))
+    // apagar tarda un momento en reflejarse en la lista de dispositivos
+    await new Promise((r) => setTimeout(r, 2500))
+    const t2 = await window.oficina?.flutterTargets?.(project)
+    setDevicesView((v) => (v ? (t2?.ok ? t2 : { ...v, cerrando: null }) : v))
+  }
+
   const openDevices = async () => {
     if (devicesView) return setDevicesView(null)
     setDevicesView({ loading: true })
@@ -3369,9 +3385,9 @@ export default function App() {
                       className="dev-launch"
                       onClick={() => correrEn(d)}
                       disabled={!!run}
-                      title={t('run.run', { device: d.name })}
+                      title={t('dev.runTitle', { device: d.name })}
                     >
-                      <IconPlay size={11} /> {t('dev.launch')}
+                      <IconPlay size={11} /> {t('dev.run')}
                     </button>
                   </div>
                 ))}
@@ -3381,21 +3397,45 @@ export default function App() {
                   <div key={e.id} className="dev-row emulador">
                     <span className="dev-kind">{t('dev.emulador')}</span>
                     <span className="dev-name">{e.name}</span>
-                    <span className="dev-meta">{e.platform}</span>
-                    <button
-                      type="button"
-                      className="dev-launch"
-                      onClick={() => launchEmulator(e)}
-                      disabled={!!devicesView.lanzando}
-                    >
-                      {devicesView.lanzando === e.id ? (
-                        <>
-                          <IconSpinner size={12} /> {t('dev.launching')}
-                        </>
-                      ) : (
-                        t('dev.launch')
-                      )}
-                    </button>
+                    <span className="dev-meta">
+                      {e.platform}
+                      {e.corriendo && ` · ${t('dev.emuRunning')}`}
+                    </span>
+                    {e.corriendo ? (
+                      <button
+                        type="button"
+                        className="dev-launch cerrar"
+                        onClick={() => cerrarEmulador(e)}
+                        disabled={devicesView.cerrando === e.id}
+                        title={t('dev.stopEmuTitle', { name: e.name })}
+                      >
+                        {devicesView.cerrando === e.id ? (
+                          <>
+                            <IconSpinner size={12} /> {t('dev.stoppingEmu')}
+                          </>
+                        ) : (
+                          <>
+                            <IconStopSquare size={11} /> {t('dev.stopEmu')}
+                          </>
+                        )}
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="dev-launch"
+                        onClick={() => launchEmulator(e)}
+                        disabled={!!devicesView.lanzando}
+                        title={t('dev.launch')}
+                      >
+                        {devicesView.lanzando === e.id ? (
+                          <>
+                            <IconSpinner size={12} /> {t('dev.launching')}
+                          </>
+                        ) : (
+                          t('dev.launch')
+                        )}
+                      </button>
+                    )}
                   </div>
                 ))}
                 {devicesView.aviso && <div className="dev-sdk">{devicesView.aviso}</div>}
