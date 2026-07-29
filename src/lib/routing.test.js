@@ -108,6 +108,20 @@ describe('routeMessage', () => {
   })
 })
 
+describe('keywords con tildes', () => {
+  it('una keyword acentuada sí rutea (el mensaje se compara normalizado)', () => {
+    // antes quedaba muerta en silencio: safeRegex guardaba «diseño» pero el
+    // ruteo compara contra texto sin tildes, así que el rol nunca se activaba
+    const conTildes = [
+      { id: 'dev', name: 'Luffy', kw: safeRegex('codigo') },
+      { id: 'design', name: 'Sanji', kw: safeRegex('diseño, botón, tipografía') },
+    ]
+    expect(routeMessage('revisa el diseño de la home', conTildes, 'dev')).toBe('design')
+    expect(routeMessage('el botón no se ve', conTildes, 'dev')).toBe('design')
+    expect(routeMessage('cambia la tipografía', conTildes, 'dev')).toBe('design')
+  })
+})
+
 // El ruteo real depende de los kw del catálogo, no de los del squad de prueba:
 // estos casos fijan el vocabulario con el que se convive a diario.
 describe('routeMessage con las keywords del catálogo', () => {

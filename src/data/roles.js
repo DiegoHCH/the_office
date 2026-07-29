@@ -1,5 +1,6 @@
 // Catálogo de roles, avatares y su meta visual/ruteo (refactor #94).
 import { t } from '../lib/i18n.js'
+import { norm } from '../lib/helpers.js'
 
 // ── Catálogo de roles (visual + keywords). Nombres/activos vienen de la config ⚙️ ──
 export const ROLE_META = {
@@ -75,8 +76,12 @@ export const PROTECTED_ROLES = new Set(['dev', 'research', 'pr', 'publish'])
 export const canDelete = (r) => r.custom || !PROTECTED_ROLES.has(r.id)
 
 // Regex de ruteo a partir de palabras clave separadas por coma/espacio.
+//
+// Las keywords se normalizan igual que el mensaje (minúsculas, sin tildes): el
+// ruteo compara contra texto ya normalizado, así que una keyword escrita
+// «diseño» o «botón» nunca podía matchear y el rol quedaba muerto en silencio.
 export const safeRegex = (s) => {
-  const parts = String(s || '')
+  const parts = norm(String(s || ''))
     .split(/[,\s]+/)
     .map((x) => x.trim())
     .filter(Boolean)
