@@ -47,7 +47,9 @@ contextBridge.exposeInMainWorld('oficina', {
   // correr el proyecto y controlarlo mientras corre
   flutterRun: (arg) => ipcRenderer.invoke('flutter:run', arg),
   flutterReload: (arg) => ipcRenderer.invoke('flutter:reload', arg),
-  flutterStop: () => ipcRenderer.invoke('flutter:stop'),
+  flutterStop: (arg) => ipcRenderer.invoke('flutter:stop', arg),
+  // recarga automática tras un turno del agente: decide reload/restart/recompilar
+  flutterAutoReload: (arg) => ipcRenderer.invoke('flutter:autoReload', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),

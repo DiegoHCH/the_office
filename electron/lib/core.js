@@ -278,6 +278,56 @@ function marcaEmuladoresCorriendo(emuladores, estado) {
   })
 }
 
+// ── ¿Hot reload, hot restart o recompilar? ───────────────────────────────────
+// No todo cambio se ve con un hot reload, y equivocarse es peor que no recargar:
+// el usuario mira una app que no cambió sin saber por qué.
+//
+//   · nativo o pubspec  → no hay recarga posible, toca volver a compilar
+//   · estado global, jerarquías de clase, enums, main(), initState → hot restart,
+//     porque el reload re-ejecuta build() pero NO los inicializadores globales
+//     ni initState de un State que ya existe
+//   · el resto (cuerpos de método, widgets)  → hot reload
+//
+// Se mira SOLO lo que cambió (las líneas +/- del diff): buscar «class» o «enum»
+// en el archivo entero daría restart casi siempre, porque casi todo archivo Dart
+// declara clases.
+const RUTAS_RECOMPILAR =
+  /(^|\/)pubspec\.yaml$|(^|\/)(ios|android|macos|windows|linux)\/|\.(gradle|kts|plist|pbxproj|podspec)$|(^|\/)Podfile/
+
+// Lo que un hot reload NO puede aplicar.
+const CAMBIOS_RESTART = [
+  [/^\s*(?:void\s+)?main\s*\(/, 'cambió main()'],
+  [/^\s*enum\s+\w/, 'cambió un enum'],
+  [/^\s*(?:abstract\s+|sealed\s+|mixin\s+)?class\s+\w+[^{]*\b(?:extends|implements|with)\b/, 'cambió la jerarquía de una clase'],
+  [/^\s*typedef\s+\w/, 'cambió un typedef'],
+  [/^\s*static\s+\w/, 'cambió un valor static'],
+  // Declaración a nivel de archivo (sin indentar): su inicializador no se
+  // re-ejecuta en un reload — el caso típico es un provider de Riverpod.
+  // Ojo: tiene que ser declaración, no expresión. Un `const SizedBox(...)`
+  // indentado dentro del árbol de widgets sí se recarga sin problema.
+  [/^(?:const|final|var|late\s+final)\s+\w+/, 'cambió una variable global'],
+  [/\binitState\s*\(/, 'cambió initState'],
+]
+
+// Líneas añadidas o quitadas de un diff unificado, sin las cabeceras.
+function lineasCambiadas(diff) {
+  return String(diff || '')
+    .split('\n')
+    .filter((l) => /^[+-]/.test(l) && !/^(\+\+\+|---)/.test(l))
+    .map((l) => l.slice(1))
+}
+
+function decideRecarga(rutas, diff) {
+  const paths = Array.isArray(rutas) ? rutas.filter(Boolean) : []
+  const nativa = paths.find((p) => RUTAS_RECOMPILAR.test(p))
+  if (nativa) return { accion: 'recompilar', motivo: `tocó ${nativa.split('/').pop()}` }
+  for (const linea of lineasCambiadas(diff)) {
+    for (const [re, motivo] of CAMBIOS_RESTART) if (re.test(linea)) return { accion: 'restart', motivo }
+  }
+  // sin diff que mirar no se adivina: el reload es lo barato y lo reversible
+  return { accion: 'reload', motivo: null }
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -298,6 +348,8 @@ module.exports = {
   resultadoRecarga,
   aplicaProgreso,
   progresoVisible,
+  decideRecarga,
+  lineasCambiadas,
   ordenaDispositivos,
   tipoDeDispositivo,
 }

@@ -1378,3 +1378,30 @@ select.squad-model {
   color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent);
 }
 .dev-launch.cerrar:hover:not(:disabled) { background: color-mix(in srgb, var(--danger) 24%, transparent); }
+/* un chip por dispositivo: estado a la vista y clic para enfocar solo ese */
+.runbar-chip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  background: none; border: 1px solid transparent; border-radius: 999px;
+  padding: 3px 9px 3px 7px; cursor: pointer;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px; color: var(--scene-muted);
+  max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.runbar-chip:hover { background: rgba(233, 241, 238, 0.08); color: var(--scene-ink-2); }
+.runbar-chip.on { color: var(--scene-ink-2); }
+.runbar-chip.foco { border-color: var(--scene-accent); color: var(--scene-ink); }
+.runbar-chip.malo .runbar-dot { background: var(--scene-danger); animation: none; }
+.runbar-chip.on .runbar-dot { background: var(--ok); animation: none; }
+.runbar-chip:focus-visible { outline: 2px solid var(--scene-accent); outline-offset: 1px; }
+/* a quién le pegan las acciones cuando hay varios */
+.runbar-scope {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--scene-muted-2); flex: none;
+}
+.runbar-btn.auto { width: auto; gap: 4px; padding: 0 8px; }
+.runbar-auto-txt {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+}
+.runbar-btn.auto.on { background: var(--scene-accent); color: #04201c; }

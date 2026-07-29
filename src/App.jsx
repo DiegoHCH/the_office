@@ -57,13 +57,19 @@ export default function App() {
   const editedRef = useRef({})
   const editedPathsRef = useRef([]) // rutas tocadas en la conversación → en qué repos pedir el diff
   const ultimoRef = useRef(null) // último rol que respondió → afinidad de los seguimientos
+  const turnoPathsRef = useRef({}) // role → rutas tocadas EN ESTE turno (para decidir la recarga)
+  const autoTimerRef = useRef(null)
   const hubotextoRef = useRef({}) // role → true si el turno llegó a decir algo
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [devicesView, setDevicesView] = useState(null) // null | { loading } | { devices, emulators, error }
   const [flutterProj, setFlutterProj] = useState(null) // { esFlutter, proyecto, proyectos } del proyecto activo
   const [targets, setTargets] = useState(null) // último listado conocido, precargado al elegir proyecto
-  // la app que está corriendo: null | { fase, device, appId, progreso, url, error }
-  const [run, setRun] = useState(null)
+  // las apps corriendo: deviceId → { fase, device, appId, progreso, url, error }
+  // `flutter run --machine` no admite -d all, así que es un proceso por
+  // dispositivo y las acciones de la barra van a todas salvo que se enfoque una.
+  const [runs, setRuns] = useState({})
+  const [foco, setFoco] = useState(null) // deviceId enfocado, null = todas
+  const [autoReload, setAutoReload] = useState(false)
   const [runLogs, setRunLogs] = useState([])
   const [verLogs, setVerLogs] = useState(false)
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
@@ -547,6 +553,7 @@ export default function App() {
           // la ruta completa se guarda para la vista de cambios: el diff se pide
           // en el repo del archivo, no en la raíz del proyecto (que puede no serlo)
           if (e.path && !editedPathsRef.current.includes(e.path)) editedPathsRef.current.push(e.path)
+          if (e.path) (turnoPathsRef.current[who] ||= []).push(e.path)
         }
         // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
         if (e.name === 'Write' && /\.html?$/i.test(e.detail || '')) {
@@ -639,6 +646,13 @@ export default function App() {
         // terminaba sin texto, así que parecía que la respuesta se había perdido.
         const respondio = !!hubotextoRef.current[who] || !!(e.result || '').trim()
         delete hubotextoRef.current[who]
+        // Recarga automática: solo al terminar el turno y con debounce. En cada
+        // Write recargaría con el código a medias de un multi-edit.
+        const tocadas = turnoPathsRef.current[who] || []
+        delete turnoPathsRef.current[who]
+        if (tocadas.length && editedRef.current[who] !== undefined) {
+          autoRecargaRef.current(tocadas)
+        }
         if (respondio) {
           ultimoRef.current = who
           dingSound()
@@ -1762,45 +1776,97 @@ export default function App() {
 
   // Eventos del `flutter run`: progreso de compilación, arranque, logs y parada.
   useEffect(() => {
+    const parche = (id, campos) =>
+      setRuns((rs) => (rs[id] ? { ...rs, [id]: { ...rs[id], ...campos } } : rs))
     const off = window.oficina?.onFlutterEvent?.((e) => {
-      if (e.kind === 'run-start') setRun((r) => (r ? { ...r, appId: e.appId, fase: 'compilando' } : r))
-      else if (e.kind === 'run-started') setRun((r) => (r ? { ...r, fase: 'corriendo', progreso: null } : r))
-      else if (e.kind === 'run-progress') setRun((r) => (r ? { ...r, progreso: e.progreso } : r))
-      else if (e.kind === 'run-url') setRun((r) => (r ? { ...r, url: e.url } : r))
-      else if (e.kind === 'run-error') setRun((r) => (r ? { ...r, error: e.error } : r))
+      const id = e.deviceId
+      if (e.kind === 'run-start') parche(id, { appId: e.appId, fase: 'compilando' })
+      else if (e.kind === 'run-started') parche(id, { fase: 'corriendo', progreso: null })
+      else if (e.kind === 'run-progress') parche(id, { progreso: e.progreso })
+      else if (e.kind === 'run-url') parche(id, { url: e.url })
+      else if (e.kind === 'run-error') parche(id, { error: e.error })
       else if (e.kind === 'run-stop') {
-        setRun(null)
+        setRuns((rs) => {
+          if (!rs[id]) return rs
+          const copia = { ...rs }
+          delete copia[id]
+          return copia
+        })
+        setFoco((f) => (f === id ? null : f))
         showToast(t('run.stopped'))
       } else if (e.kind === 'run-log') {
-        setRunLogs((l) => [...l.slice(-400), e.texto])
+        setRunLogs((l) => [...l.slice(-400), { deviceId: id, texto: e.texto }])
       }
     })
     return off
   }, [])
 
+  // Se guarda en un ref porque la llama el listener del stream, montado una vez.
+  const autoRecargaRef = useRef(() => {})
+  useEffect(() => {
+    autoRecargaRef.current = (rutas) => {
+      if (!autoReload || !Object.keys(runs).length) return
+      clearTimeout(autoTimerRef.current)
+      autoTimerRef.current = setTimeout(async () => {
+        const res = await window.oficina?.flutterAutoReload?.({ cwd: project, paths: rutas })
+        if (res?.sinCorridas) return
+        if (res?.accion === 'recompilar') return showToast(t('run.needsRebuild', { motivo: res.motivo }), 8000)
+        if (!res?.resultados) return
+        const fallos = res.resultados.filter((r) => !r.ok)
+        setRuns((prev) => {
+          const copia = { ...prev }
+          for (const r of res.resultados) if (copia[r.deviceId]) copia[r.deviceId] = { ...copia[r.deviceId], error: r.ok ? null : r.error || null }
+          return copia
+        })
+        if (fallos.length) showToast(`⚠️ ${t('run.reloadFailed', { error: (fallos[0].error || '').slice(0, 90) })}`, 7000)
+        else if (res.accion === 'restart') showToast(t('run.autoRestarted', { motivo: res.motivo || '' }), 5000)
+        else showToast(t('run.autoReloaded', { motivo: res.motivo || 'reload' }))
+      }, 1500)
+    }
+  }, [autoReload, runs, project])
+
   const correrEn = async (d) => {
-    if (run) return showToast(t('run.busy'))
-    setRunLogs([])
-    setRun({ fase: 'compilando', device: d.name, appId: null, progreso: null })
+    if (runs[d.id]) return showToast(t('run.busy'))
+    setRuns((rs) => ({ ...rs, [d.id]: { fase: 'compilando', device: d.name, appId: null, progreso: null } }))
     const res = await window.oficina?.flutterRun?.({ cwd: project, deviceId: d.id })
     if (!res?.ok) {
-      setRun(null)
+      setRuns((rs) => {
+        const copia = { ...rs }
+        delete copia[d.id]
+        return copia
+      })
       showToast(`⚠️ ${res?.error || t('run.busy')}`)
     } else {
       setDevicesView(null) // el panel ya cumplió: manda la barra
     }
   }
 
+  // El resultado es por dispositivo: un reload puede fallar en uno y no en otro.
+  const aplicaResultados = (res, completa) => {
+    const rs = res?.resultados || []
+    setRuns((prev) => {
+      const copia = { ...prev }
+      for (const r of rs) if (copia[r.deviceId]) copia[r.deviceId] = { ...copia[r.deviceId], recargando: false, error: r.ok ? null : r.error || null }
+      return copia
+    })
+    const fallos = rs.filter((r) => !r.ok)
+    if (!fallos.length) return showToast(completa ? t('run.restarted') : t('run.reloaded'))
+    if (rs.length > 1) showToast(`⚠️ ${t('run.partial', { n: fallos.length, total: rs.length })}`, 7000)
+    else showToast(`⚠️ ${t('run.reloadFailed', { error: (fallos[0].error || '').slice(0, 90) })}`, 7000)
+  }
+
   const recargar = async (completa) => {
-    setRun((r) => (r ? { ...r, error: null, recargando: true } : r))
-    const res = await window.oficina?.flutterReload?.({ completa })
-    setRun((r) => (r ? { ...r, recargando: false, error: res?.ok ? null : res?.error || null } : r))
-    if (res?.ok) showToast(completa ? t('run.restarted') : t('run.reloaded'))
-    else showToast(`⚠️ ${t('run.reloadFailed', { error: (res?.error || '').slice(0, 90) })}`, 7000)
+    const objetivo = foco || undefined
+    setRuns((rs) => {
+      const copia = { ...rs }
+      for (const id of Object.keys(copia)) if (!objetivo || id === objetivo) copia[id] = { ...copia[id], error: null, recargando: true }
+      return copia
+    })
+    aplicaResultados(await window.oficina?.flutterReload?.({ completa, deviceId: objetivo }), completa)
   }
 
   const detener = async () => {
-    await window.oficina?.flutterStop?.()
+    await window.oficina?.flutterStop?.({ deviceId: foco || undefined })
   }
 
   // Cerrar un emulador que ya está arriba. Después se refresca la lista: el
@@ -3296,77 +3362,126 @@ export default function App() {
             )
           })()}
 
-        {/* Barra de la app corriendo: pastilla flotante sobre la escena, al
-            estilo de la del editor. Solo lleva acciones que el daemon soporta
+        {/* Barra de las apps corriendo: pastilla flotante sobre la escena, al
+            estilo de la del editor. Un chip por dispositivo; las acciones van a
+            todos salvo que se enfoque uno. Solo lleva lo que el daemon soporta
             de verdad — pausa y stepping necesitan un debug adapter. */}
-        {run && (
-          <div className="runbar">
-            <span className={run.fase === 'corriendo' ? 'runbar-dot on' : 'runbar-dot'} />
-            <span className="runbar-label">
-              {run.fase === 'corriendo'
-                ? t('run.running', { device: run.device })
-                : run.progreso?.mensaje || t('run.compiling')}
-            </span>
-            <span className="runbar-sep" />
-            <button
-              type="button"
-              className="runbar-btn reload"
-              onClick={() => recargar(false)}
-              disabled={run.fase !== 'corriendo' || run.recargando}
-              title={t('run.reload')}
-              aria-label={t('run.reload')}
-            >
-              <IconBolt size={15} />
-            </button>
-            <button
-              type="button"
-              className="runbar-btn restart"
-              onClick={() => recargar(true)}
-              disabled={run.fase !== 'corriendo' || run.recargando}
-              title={t('run.restart')}
-              aria-label={t('run.restart')}
-            >
-              <IconRestartApp size={15} />
-            </button>
-            <button
-              type="button"
-              className="runbar-btn stop"
-              onClick={detener}
-              title={run.fase === 'corriendo' ? t('run.stop') : t('run.cancel')}
-              aria-label={run.fase === 'corriendo' ? t('run.stop') : t('run.cancel')}
-            >
-              <IconStopSquare size={15} />
-            </button>
-            {run.url && (
-              <button
-                type="button"
-                className="runbar-btn"
-                onClick={() => window.open(run.url, '_blank')}
-                title={t('run.devtools')}
-                aria-label={t('run.devtools')}
-              >
-                <IconLink size={15} />
-              </button>
-            )}
-            <button
-              type="button"
-              className={verLogs ? 'runbar-btn on' : 'runbar-btn'}
-              onClick={() => setVerLogs((v) => !v)}
-              title={t('run.logs')}
-              aria-label={t('run.logs')}
-              aria-expanded={verLogs}
-            >
-              <IconBoard size={15} />
-            </button>
-            {run.error && <span className="runbar-error">{run.error.slice(0, 90)}</span>}
-            {/* la salida del proceso: cuando una compilación falla, el motivo está aquí */}
-            {verLogs && (
-              <pre className="runbar-logs">
-                {runLogs.length ? runLogs.slice(-200).join('\n') : t('run.compiling')}
-              </pre>
-            )}
-          </div>
-        )}
+        {Object.keys(runs).length > 0 &&
+          (() => {
+            const ids = Object.keys(runs)
+            const activos = foco ? [foco] : ids
+            const listos = activos.filter((id) => runs[id]?.fase === 'corriendo')
+            const puedeRecargar = listos.length > 0 && !activos.some((id) => runs[id]?.recargando)
+            const conError = ids.find((id) => runs[id]?.error)
+            const compilando = ids.find((id) => runs[id]?.fase !== 'corriendo')
+            return (
+              <div className="runbar">
+                {ids.map((id) => {
+                  const r = runs[id]
+                  return (
+                    <button
+                      type="button"
+                      key={id}
+                      className={[
+                        'runbar-chip',
+                        r.fase === 'corriendo' ? 'on' : '',
+                        foco === id ? 'foco' : '',
+                        r.error ? 'malo' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ')}
+                      onClick={() => setFoco((f) => (f === id ? null : id))}
+                      title={r.fase === 'corriendo' ? t('run.running', { device: r.device }) : t('run.compiling')}
+                    >
+                      <span className="runbar-dot" />
+                      {r.device}
+                    </button>
+                  )
+                })}
+                {ids.length > 1 && <span className="runbar-scope">{foco ? runs[foco]?.device : t('run.all')}</span>}
+                <span className="runbar-label">
+                  {compilando ? runs[compilando]?.progreso?.mensaje || t('run.compiling') : ''}
+                </span>
+                <span className="runbar-sep" />
+                <button
+                  type="button"
+                  className={autoReload ? 'runbar-btn auto on' : 'runbar-btn auto'}
+                  onClick={() => {
+                    setAutoReload((v) => !v)
+                    showToast(autoReload ? t('run.autoOff') : t('run.autoOn'))
+                  }}
+                  title={t('run.auto')}
+                  aria-label={t('run.auto')}
+                  aria-pressed={autoReload}
+                >
+                  <IconBolt size={13} />
+                  <span className="runbar-auto-txt">auto</span>
+                </button>
+                <button
+                  type="button"
+                  className="runbar-btn reload"
+                  onClick={() => recargar(false)}
+                  disabled={!puedeRecargar}
+                  title={t('run.reload')}
+                  aria-label={t('run.reload')}
+                >
+                  <IconBolt size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="runbar-btn restart"
+                  onClick={() => recargar(true)}
+                  disabled={!puedeRecargar}
+                  title={t('run.restart')}
+                  aria-label={t('run.restart')}
+                >
+                  <IconRestartApp size={15} />
+                </button>
+                <button
+                  type="button"
+                  className="runbar-btn stop"
+                  onClick={detener}
+                  title={listos.length ? t('run.stop') : t('run.cancel')}
+                  aria-label={listos.length ? t('run.stop') : t('run.cancel')}
+                >
+                  <IconStopSquare size={15} />
+                </button>
+                {runs[foco || ids[0]]?.url && (
+                  <button
+                    type="button"
+                    className="runbar-btn"
+                    onClick={() => window.open(runs[foco || ids[0]].url, '_blank')}
+                    title={t('run.devtools')}
+                    aria-label={t('run.devtools')}
+                  >
+                    <IconLink size={15} />
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={verLogs ? 'runbar-btn on' : 'runbar-btn'}
+                  onClick={() => setVerLogs((v) => !v)}
+                  title={t('run.logs')}
+                  aria-label={t('run.logs')}
+                  aria-expanded={verLogs}
+                >
+                  <IconBoard size={15} />
+                </button>
+                {conError && <span className="runbar-error">{runs[conError].error.slice(0, 70)}</span>}
+                {/* la salida: cuando una compilación falla, el motivo está aquí */}
+                {verLogs && (
+                  <pre className="runbar-logs">
+                    {runLogs.length
+                      ? runLogs
+                          .slice(-200)
+                          .map((l) => (ids.length > 1 ? `[${runs[l.deviceId]?.device || l.deviceId}] ${l.texto}` : l.texto))
+                          .join('\n')
+                      : t('run.compiling')}
+                  </pre>
+                )}
+              </div>
+            )
+          })()}
 
         {devicesView && (
           <div className="drawer dev-drawer">
@@ -3422,7 +3537,7 @@ export default function App() {
                       type="button"
                       className="dev-launch"
                       onClick={() => correrEn(d)}
-                      disabled={!!run}
+                      disabled={!!runs[d.id]}
                       title={t('dev.runTitle', { device: d.name })}
                     >
                       <IconPlay size={11} /> {t('dev.run')}

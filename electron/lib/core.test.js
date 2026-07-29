@@ -6,6 +6,7 @@ const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDisposi
 const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = core
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
 const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
+const { decideRecarga } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -476,5 +477,55 @@ describe('marcaEmuladoresCorriendo', () => {
 
   it('tolera lista vacía', () => {
     expect(marcaEmuladoresCorriendo(null, { ios: true })).toEqual([])
+  })
+})
+
+// ── Hot reload vs hot restart vs recompilar ──────────────────────────────────
+describe('decideRecarga', () => {
+  const diff = (...lineas) => ['diff --git a/x b/x', '--- a/x', '+++ b/x', '@@ -1 +1 @@', ...lineas].join('\n')
+
+  it('un cambio normal de widget se ve con hot reload', () => {
+    expect(decideRecarga(['lib/home.dart'], diff('-      child: Text("a"),', '+      child: Text("b"),'))).toEqual({
+      accion: 'reload',
+      motivo: null,
+    })
+  })
+
+  it('nativo o pubspec no se recargan: hay que recompilar', () => {
+    expect(decideRecarga(['pubspec.yaml'], diff('+  nueva_dep: ^1.0.0')).accion).toBe('recompilar')
+    expect(decideRecarga(['ios/Runner/Info.plist'], '').accion).toBe('recompilar')
+    expect(decideRecarga(['android/app/build.gradle'], '').accion).toBe('recompilar')
+    expect(decideRecarga(['lib/a.dart', 'ios/Podfile'], diff('+  algo')).accion).toBe('recompilar')
+  })
+
+  it('lo que el reload no puede aplicar pide hot restart', () => {
+    // el reload re-ejecuta build(), pero no los inicializadores globales
+    expect(decideRecarga(['lib/main.dart'], diff('+void main() {')).motivo).toMatch(/main/)
+    expect(decideRecarga(['lib/e.dart'], diff('+enum Estado { a, b }')).motivo).toMatch(/enum/)
+    expect(decideRecarga(['lib/a.dart'], diff('+class Casa extends Widget {')).motivo).toMatch(/jerarquía/)
+    expect(decideRecarga(['lib/a.dart'], diff('+  static const alto = 12;')).motivo).toMatch(/static/)
+    expect(decideRecarga(['lib/a.dart'], diff('+  void initState() {')).motivo).toMatch(/initState/)
+  })
+
+  it('un provider global cambiado pide restart, no reload', () => {
+    // caso típico en Riverpod: el inicializador no se re-ejecuta
+    const r = decideRecarga(['lib/stocks_provider.dart'], diff('-final stocksProvider = Provider((ref) => 1);', '+final stocksProvider = Provider((ref) => 2);'))
+    expect(r.accion).toBe('restart')
+    expect(r.motivo).toMatch(/global/)
+  })
+
+  it('no confunde una variable local con una global', () => {
+    // indentada = dentro de un método: el reload la aplica sin problema
+    expect(decideRecarga(['lib/a.dart'], diff('+    final total = 3;')).accion).toBe('reload')
+  })
+
+  it('mira solo lo cambiado, no el archivo entero', () => {
+    // la cabecera del diff nombra clases y no debe disparar restart
+    expect(decideRecarga(['lib/a.dart'], diff('+      const SizedBox(height: 8),')).accion).toBe('reload')
+  })
+
+  it('sin diff cae a reload, que es lo barato y reversible', () => {
+    expect(decideRecarga(['lib/a.dart'], '').accion).toBe('reload')
+    expect(decideRecarga([], null).accion).toBe('reload')
   })
 })
