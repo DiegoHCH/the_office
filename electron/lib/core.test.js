@@ -9,6 +9,7 @@ const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 const { decideRecarga } = core
 const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer, plataformaOcupada } = core
 const { plataformasDelProyecto, filtraPorPlataforma, familiaPlataforma, dispositivoDeDaemon } = core
+const { scriptsDelProyecto, gestorDePaquetes, argsDeScript, urlDeSalida } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -915,5 +916,76 @@ describe('dispositivoDeDaemon', () => {
   it('sin id no hay dispositivo', () => {
     expect(dispositivoDeDaemon({})).toBeNull()
     expect(dispositivoDeDaemon(null)).toBeNull()
+  })
+})
+
+// ── Proyectos npm (web y escritorio) ─────────────────────────────────────────
+describe('scriptsDelProyecto', () => {
+  // los scripts reales de este mismo proyecto: web (vite) + escritorio (electron)
+  const PKG = JSON.stringify({
+    scripts: {
+      dev: 'concurrently -k npm:dev:vite npm:dev:electron',
+      'dev:vite': 'vite',
+      build: 'vite build',
+      preview: 'vite preview',
+      start: 'NODE_ENV=production electron .',
+      'dist:mac': 'vite build && electron-builder --mac dmg',
+      test: 'vitest run',
+      lint: 'eslint .',
+    },
+  })
+
+  it('separa los que arrancan algo de los que compilan y terminan', () => {
+    const s = scriptsDelProyecto(PKG)
+    const corren = s.filter((x) => x.corre).map((x) => x.name)
+    expect(corren).toEqual(['dev', 'dev:vite', 'preview', 'start'])
+    expect(s.find((x) => x.name === 'build').corre).toBe(false)
+    expect(s.find((x) => x.name === 'dist:mac').corre).toBe(false)
+  })
+
+  it('los que corren van primero, pero no se esconde ninguno', () => {
+    const s = scriptsDelProyecto(PKG)
+    expect(s[0].corre).toBe(true)
+    expect(s).toHaveLength(8) // están todos
+  })
+
+  it('un package.json sin scripts o roto no revienta', () => {
+    expect(scriptsDelProyecto('{"name":"x"}')).toEqual([])
+    expect(scriptsDelProyecto('{roto')).toEqual([])
+    expect(scriptsDelProyecto(null)).toEqual([])
+  })
+})
+
+describe('gestorDePaquetes y argsDeScript', () => {
+  it('lo decide el lockfile, no la preferencia', () => {
+    expect(gestorDePaquetes(['package-lock.json'])).toBe('npm')
+    expect(gestorDePaquetes(['pnpm-lock.yaml'])).toBe('pnpm')
+    expect(gestorDePaquetes(['yarn.lock'])).toBe('yarn')
+    expect(gestorDePaquetes(['bun.lockb'])).toBe('bun')
+  })
+
+  it('sin lockfile se asume npm', () => {
+    expect(gestorDePaquetes([])).toBe('npm')
+    expect(gestorDePaquetes(null)).toBe('npm')
+  })
+
+  it('yarn no lleva «run»', () => {
+    expect(argsDeScript('npm', 'dev')).toEqual(['run', 'dev'])
+    expect(argsDeScript('pnpm', 'dev')).toEqual(['run', 'dev'])
+    expect(argsDeScript('yarn', 'dev')).toEqual(['dev'])
+  })
+})
+
+describe('urlDeSalida', () => {
+  it('encuentra la URL en la salida de Vite, Next y CRA', () => {
+    expect(urlDeSalida('  ➜  Local:   http://localhost:5173/')).toBe('http://localhost:5173/')
+    expect(urlDeSalida('- Local:        http://localhost:3000')).toBe('http://localhost:3000')
+    expect(urlDeSalida('On Your Network: http://127.0.0.1:8080/app')).toBe('http://127.0.0.1:8080/app')
+  })
+
+  it('no confunde una URL cualquiera con el servidor local', () => {
+    expect(urlDeSalida('see https://vitejs.dev for help')).toBeNull()
+    expect(urlDeSalida('')).toBeNull()
+    expect(urlDeSalida(null)).toBeNull()
   })
 })

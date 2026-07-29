@@ -621,6 +621,55 @@ function dispositivoDeDaemon(params) {
   return ordenaDispositivos([d])[0] || null
 }
 
+// ── Proyectos npm: web y escritorio ─────────────────────────────────────────
+// Aquí el objetivo no es un dispositivo, es un SCRIPT: `npm run dev` levanta un
+// servidor de Vite (web) o Electron (escritorio) según lo que declare el
+// proyecto. No hay hot reload que pedir —Vite recarga solo al guardar— así que la
+// barra se reduce a arrancar, reiniciar el servidor, detener y ver la salida.
+
+// Scripts que arrancan algo y se quedan corriendo, frente a los que compilan y
+// terminan. Se ordenan por lo probable, sin esconder el resto: `dist:mac` no es
+// para «correr», pero tampoco hay por qué prohibirlo.
+const SCRIPTS_QUE_CORREN = /^(dev|start|serve|preview|watch|electron|storybook)(:|$)/
+const SCRIPTS_QUE_TERMINAN = /^(build|test|lint|format|dist|guia|typecheck|tsc|prepare|postinstall)(:|$)/
+
+function scriptsDelProyecto(pkgJson) {
+  let j
+  try {
+    j = typeof pkgJson === 'string' ? JSON.parse(pkgJson) : pkgJson
+  } catch {
+    return []
+  }
+  const scripts = j?.scripts
+  if (!scripts || typeof scripts !== 'object') return []
+  return Object.entries(scripts)
+    .map(([name, cmd]) => ({
+      name,
+      cmd: String(cmd || ''),
+      corre: SCRIPTS_QUE_CORREN.test(name) && !SCRIPTS_QUE_TERMINAN.test(name),
+    }))
+    .sort((a, b) => (a.corre === b.corre ? a.name.localeCompare(b.name) : a.corre ? -1 : 1))
+}
+
+// Con qué gestor invocarlo: lo dice el lockfile, no la preferencia de quien mira.
+function gestorDePaquetes(archivos) {
+  const hay = new Set(archivos || [])
+  if (hay.has('pnpm-lock.yaml')) return 'pnpm'
+  if (hay.has('yarn.lock')) return 'yarn'
+  if (hay.has('bun.lockb') || hay.has('bun.lock')) return 'bun'
+  return 'npm'
+}
+
+// `yarn <script>` y el resto con `run`.
+const argsDeScript = (gestor, script) => (gestor === 'yarn' ? [script] : ['run', script])
+
+// La URL donde quedó servido, para poder abrirla. Vite, Next y CRA la imprimen
+// con formatos distintos, así que se busca cualquier localhost con puerto.
+function urlDeSalida(texto) {
+  const m = String(texto || '').match(/https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?[^\s)'"]*/)
+  return m ? m[0] : null
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -650,6 +699,10 @@ module.exports = {
   plataformasDelProyecto,
   filtraPorPlataforma,
   dispositivoDeDaemon,
+  scriptsDelProyecto,
+  gestorDePaquetes,
+  argsDeScript,
+  urlDeSalida,
   familiaPlataforma,
   familiaDe,
   eligePorTexto,

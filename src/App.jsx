@@ -64,6 +64,7 @@ export default function App() {
   const [devicesView, setDevicesView] = useState(null) // null | { loading } | { devices, emulators, error }
   const [flutterProj, setFlutterProj] = useState(null) // { esFlutter, proyecto, proyectos } del proyecto activo
   const [targets, setTargets] = useState(null) // último listado conocido, precargado al elegir proyecto
+  const [npmProj, setNpmProj] = useState(null) // { esNpm, proyecto, scripts, gestor } — web/escritorio
   // las apps corriendo: deviceId → { fase, device, appId, progreso, url, error }
   // `flutter run --machine` no admite -d all, así que es un proceso por
   // dispositivo y las acciones de la barra van a todas salvo que se enfoque una.
@@ -1755,10 +1756,13 @@ export default function App() {
     let timer = null
     if (!project) {
       setFlutterProj(null)
+      setNpmProj(null)
       setTargets(null)
       setDevicesView(null)
       return
     }
+    // web/escritorio: sin dispositivos, el objetivo es un script del package.json
+    window.oficina?.npmProject?.(project).then((n) => vivo && setNpmProj(n?.esNpm ? n : null))
     window.oficina?.flutterProject?.(project).then((r) => {
       if (!vivo) return
       setFlutterProj(r || null)
@@ -1953,12 +1957,32 @@ export default function App() {
     }
   }
 
+  const correrScript = async (sc) => {
+    const clave = `npm:${sc.name}`
+    if (runs[clave]) return showToast(t('run.busy'))
+    setRuns((rs) => ({ ...rs, [clave]: { fase: 'compilando', device: sc.name, tipo: 'npm', appId: null } }))
+    const res = await window.oficina?.npmRun?.({ cwd: project, script: sc.name })
+    if (!res?.ok) {
+      setRuns((rs) => {
+        const copia = { ...rs }
+        delete copia[clave]
+        return copia
+      })
+      showToast(`⚠️ ${res?.error || ''}`)
+    } else {
+      setDevicesView(null)
+    }
+  }
+
   const openDevices = async () => {
     if (devicesView) {
       setDevicesView(null)
       window.oficina?.flutterWatch?.({ on: false })
       return
     }
+    // un proyecto npm no tiene dispositivos que descubrir: se abre directo con
+    // sus scripts, sin arrancar el toolchain ni el vigía
+    if (!flutterProj?.esFlutter) return setDevicesView({ npm: npmProj })
     // el vigía de enchufar/desenchufar vive con el panel: es un proceso Dart y
     // tenerlo siempre arriba costaría memoria para nada
     window.oficina?.flutterWatch?.({ cwd: project, on: true })
@@ -2531,7 +2555,7 @@ export default function App() {
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
           {/* solo con un proyecto Flutter delante: en un microservicio no pinta nada */}
-          {flutterProj?.esFlutter && (
+          {(flutterProj?.esFlutter || npmProj?.esNpm) && (
             <button
               type="button"
               className={devicesView ? 'iconbtn on' : 'iconbtn'}
@@ -3622,9 +3646,11 @@ export default function App() {
           <div className="drawer dev-drawer">
             <div className="drawer-head">
               <b>
-                {t('panel.devices', {
-                  project: (devicesView.proyecto || project || '').split('/').pop() || t('panel.theProject'),
-                })}
+                {npmProj?.esNpm && !flutterProj?.esFlutter
+                  ? t('npm.title')
+                  : t('panel.devices', {
+                      project: (devicesView.proyecto || project || '').split('/').pop() || t('panel.theProject'),
+                    })}
               </b>
               <button
                 type="button"
@@ -3644,6 +3670,31 @@ export default function App() {
               <div className="hist-empty">
                 <IconWarn size={13} /> {devicesView.error}
               </div>
+            )}
+            {/* web/escritorio: el objetivo es un script, no un dispositivo */}
+            {npmProj?.esNpm && (
+              <>
+                <div className="dev-sdk">{t('npm.manager', { gestor: npmProj.gestor })}</div>
+                <div className="dev-sdk">{t('npm.noHotReload')}</div>
+                <div className="dev-group">{t('npm.runs')}</div>
+                {npmProj.scripts
+                  .filter((sc) => sc.corre)
+                  .map((sc) => (
+                    <div key={sc.name} className="dev-row fisico">
+                      <span className="dev-kind">script</span>
+                      <span className="dev-name">{sc.name}</span>
+                      <span className="dev-meta">{sc.cmd.slice(0, 40)}</span>
+                      <button
+                        type="button"
+                        className="dev-launch"
+                        onClick={() => correrScript(sc)}
+                        disabled={!!runs[`npm:${sc.name}`]}
+                      >
+                        <IconPlay size={11} /> {t('npm.run')}
+                      </button>
+                    </div>
+                  ))}
+              </>
             )}
             {devicesView.devices && (
               <>

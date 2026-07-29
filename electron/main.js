@@ -34,6 +34,10 @@ const {
   plataformasDelProyecto,
   filtraPorPlataforma,
   dispositivoDeDaemon,
+  scriptsDelProyecto,
+  gestorDePaquetes,
+  argsDeScript,
+  urlDeSalida,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -2296,6 +2300,117 @@ ipcMain.handle('flutter:watch', async (_e, { cwd, on } = {}) => {
 ipcMain.handle('flutter:watchCwd', (_e, cwd) => {
   if (vigia && cwd) vigia.cwd = cwd
   return { ok: true }
+})
+
+// ── Proyectos npm: web y escritorio ─────────────────────────────────────────
+// Sin dispositivos que elegir: el objetivo es un script del package.json. Y sin
+// hot reload que pedir, porque Vite recarga solo al guardar; lo que queda útil es
+// arrancar, reiniciar el servidor, detener, ver la salida y abrir la URL.
+const LOCKFILES = ['package-lock.json', 'pnpm-lock.yaml', 'yarn.lock', 'bun.lockb', 'bun.lock']
+
+// El package.json puede estar en la raíz o un nivel abajo, igual que el pubspec.
+function resuelveProyectoNpm(cwd) {
+  const lee = (dir) => {
+    try {
+      return fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+    } catch {
+      return null
+    }
+  }
+  const conScripts = (dir) => scriptsDelProyecto(lee(dir)).length > 0
+  if (conScripts(cwd)) return cwd
+  let hijos = []
+  try {
+    hijos = fs
+      .readdirSync(cwd, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'node_modules')
+      .map((d) => path.join(cwd, d.name))
+      .slice(0, 40)
+  } catch {}
+  return hijos.find(conScripts) || null
+}
+
+ipcMain.handle('npm:project', (_e, cwd) => {
+  if (!cwd) return { esNpm: false, scripts: [] }
+  const proyecto = resuelveProyectoNpm(cwd)
+  if (!proyecto) return { esNpm: false, scripts: [] }
+  let scripts = []
+  try {
+    scripts = scriptsDelProyecto(fs.readFileSync(path.join(proyecto, 'package.json'), 'utf8'))
+  } catch {}
+  const gestor = gestorDePaquetes(LOCKFILES.filter((f) => fs.existsSync(path.join(proyecto, f))))
+  return { esNpm: true, proyecto, scripts, gestor }
+})
+
+const GESTOR_CANDIDATOS = {
+  npm: ['/opt/homebrew/bin/npm', '/usr/local/bin/npm'],
+  pnpm: ['/opt/homebrew/bin/pnpm', '/usr/local/bin/pnpm'],
+  yarn: ['/opt/homebrew/bin/yarn', '/usr/local/bin/yarn'],
+  bun: ['/opt/homebrew/bin/bun', '/usr/local/bin/bun'],
+}
+
+ipcMain.handle('npm:run', async (_e, { cwd, script } = {}) => {
+  if (!cwd || !script) return { ok: false, error: 'Falta el proyecto o el script' }
+  const clave = `npm:${script}`
+  if (corriendo.has(clave)) return { ok: false, error: 'Ese script ya está corriendo' }
+  const proyecto = resuelveProyectoNpm(cwd)
+  if (!proyecto) return { ok: false, error: 'No hay un package.json con scripts en esta carpeta' }
+  const gestor = gestorDePaquetes(LOCKFILES.filter((f) => fs.existsSync(path.join(proyecto, f))))
+  const bin =
+    (GESTOR_CANDIDATOS[gestor] || []).find((p) => fs.existsSync(p)) || (await buscaEnShell(gestor)) || gestor
+
+  const child = spawn(bin, argsDeScript(gestor, script), {
+    cwd: proyecto,
+    env: sanitizeEnv(process.env, { home: app.getPath('home') }),
+  })
+  const c = {
+    child,
+    tipo: 'npm',
+    deviceId: clave,
+    device: script,
+    platform: null,
+    appId: null,
+    proyecto,
+    pendientes: new Map(),
+    seq: 0,
+    progreso: {},
+    parando: false,
+  }
+  corriendo.set(clave, c)
+  avisaFlutter({ kind: 'run-start', deviceId: clave, appId: null, tipo: 'npm' })
+
+  const alSalir = (buf) => {
+    const texto = buf.toString()
+    for (const linea of texto.split('\n')) {
+      if (!linea.trim()) continue
+      avisaFlutter({ kind: 'run-log', deviceId: clave, texto: linea.trimEnd() })
+      // el servidor ya está sirviendo: se puede abrir
+      const url = urlDeSalida(linea)
+      if (url && !c.url) {
+        c.url = url
+        avisaFlutter({ kind: 'run-url', deviceId: clave, url })
+        avisaFlutter({ kind: 'run-started', deviceId: clave })
+      }
+    }
+  }
+  child.stdout.on('data', alSalir)
+  child.stderr.on('data', alSalir)
+  child.on('error', (err) => {
+    avisaFlutter({ kind: 'run-error', deviceId: clave, error: String(err.message || err).slice(0, 300) })
+    cierraCorrida(clave, 'error')
+  })
+  child.on('close', (code) => {
+    const cc = corriendo.get(clave)
+    if (cc && !cc.parando && code) {
+      avisaFlutter({ kind: 'run-error', deviceId: clave, error: `${gestor} run ${script} terminó con código ${code}` })
+    }
+    cierraCorrida(clave, 'cerrado')
+  })
+  // sin URL que detectar (Electron puro) se da por arrancado a los 3s
+  setTimeout(() => {
+    if (corriendo.has(clave) && !c.url) avisaFlutter({ kind: 'run-started', deviceId: clave })
+  }, 3000)
+  return { ok: true, proyecto, script, gestor }
 })
 
 // Al cerrar la app no se dejan `flutter run` huérfanos ocupando los dispositivos.

@@ -55,6 +55,9 @@ contextBridge.exposeInMainWorld('oficina', {
   // vigilar enchufar/desenchufar mientras el panel está abierto
   flutterWatch: (arg) => ipcRenderer.invoke('flutter:watch', arg),
   flutterWatchCwd: (cwd) => ipcRenderer.invoke('flutter:watchCwd', cwd),
+  // proyectos npm (web y escritorio): el objetivo es un script, no un dispositivo
+  npmProject: (cwd) => ipcRenderer.invoke('npm:project', cwd),
+  npmRun: (arg) => ipcRenderer.invoke('npm:run', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),
