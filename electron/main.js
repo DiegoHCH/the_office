@@ -1810,6 +1810,11 @@ function resuelveProyectoFlutter(cwd) {
   return { esFlutter: proyectos.length > 0, proyecto: proyectos[0] || null, proyectos }
 }
 
+// Dispositivos y emuladores son de la MÁQUINA: se cachean aquí para poder
+// re-filtrarlos al instante cuando cambia el proyecto, sin volver a arrancar el
+// toolchain solo para descubrir lo mismo.
+let cacheMaquina = null // { devices, emulators }
+
 // Carpetas de plataforma que tiene el proyecto: sin `web/` no hay Chrome, sin
 // `macos/` no hay escritorio. Solo disco, así que es instantáneo.
 const DIRS_PLATAFORMA = ['ios', 'android', 'web', 'macos', 'windows', 'linux']
@@ -1829,7 +1834,16 @@ ipcMain.handle('flutter:project', (_e, cwd) => {
       configs = parseLaunchConfigs(fs.readFileSync(path.join(r.proyecto, '.vscode', 'launch.json'), 'utf8'))
     } catch {}
   }
-  return { ...r, configs, plataformas: r.proyecto ? plataformasDe(r.proyecto) : [] }
+  const plataformas = r.proyecto ? plataformasDe(r.proyecto) : []
+  // con el listado de la máquina ya en memoria, el cambio de proyecto solo
+  // re-filtra: no hace falta volver a preguntarle a flutter
+  const listas = cacheMaquina
+    ? {
+        devices: filtraPorPlataforma(cacheMaquina.devices, plataformas),
+        emulators: filtraPorPlataforma(cacheMaquina.emulators, plataformas),
+      }
+    : {}
+  return { ...r, configs, plataformas, ...listas }
 })
 
 // Dónde puede correr el proyecto: móviles enchufados, emuladores ya arrancados,
@@ -1863,6 +1877,9 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
   // solo lo que el proyecto puede compilar: ofrecer Chrome a una app solo
   // android+ios es regalar una compilación fallida
   const plataformas = plataformasDe(proyecto)
+  const todosDevices = ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : [])
+  const todosEmus = marcaEmuladoresCorriendo(lista, await emuladoresArriba())
+  cacheMaquina = { devices: todosDevices, emulators: todosEmus }
   // las mismas configuraciones que ofrece el editor: flavor, dart-defines, entry
   let configs = []
   try {
@@ -1875,12 +1892,9 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
     proyecto,
     proyectos,
     plataformas,
-    devices: filtraPorPlataforma(
-      ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : []),
-      plataformas
-    ),
+    devices: filtraPorPlataforma(todosDevices, plataformas),
     // cuáles ya están arriba: ahí el botón no es «lanzar» sino «cerrar»
-    emulators: filtraPorPlataforma(marcaEmuladoresCorriendo(lista, await emuladoresArriba()), plataformas),
+    emulators: filtraPorPlataforma(todosEmus, plataformas),
     configs,
   }
 })

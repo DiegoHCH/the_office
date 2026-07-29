@@ -1767,7 +1767,16 @@ export default function App() {
       setConfig((c) => (c && nombres.includes(c) ? c : ''))
       const parcheProyecto = (prev) =>
         prev
-          ? { ...prev, proyecto: r?.proyecto || null, proyectos: r?.proyectos || [], configs: r?.configs || [] }
+          ? {
+              ...prev,
+              proyecto: r?.proyecto || null,
+              proyectos: r?.proyectos || [],
+              configs: r?.configs || [],
+              plataformas: r?.plataformas || [],
+              // el proceso principal las devuelve ya filtradas para este proyecto:
+              // un proyecto solo web no debe seguir mostrando los móviles del anterior
+              ...(r?.devices ? { devices: r.devices, emulators: r.emulators || [] } : {}),
+            }
           : prev
       setTargets(parcheProyecto)
       // si el panel está abierto, se actualiza en el sitio en vez de quedarse
