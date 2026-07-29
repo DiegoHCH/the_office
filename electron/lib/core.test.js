@@ -3,6 +3,7 @@ import core from './core.js'
 
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
 const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
+const { resultadoLanzarEmulador } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -285,5 +286,30 @@ describe('buscaProyectosFlutter', () => {
   it('sin ninguno devuelve lista vacía', () => {
     expect(buscaProyectosFlutter([{ dir: '/w', pubspec: 'name: x\n' }])).toEqual([])
     expect(buscaProyectosFlutter(null)).toEqual([])
+  })
+})
+
+describe('resultadoLanzarEmulador', () => {
+  // el comando sale con 0 aunque falle: si se mira el exit code, la app diría
+  // que lanzó un emulador que nunca arrancó (medido contra flutter 3.44.6)
+  it('un id que no existe es un fallo, aunque el comando devuelva 0', () => {
+    expect(resultadoLanzarEmulador("No emulator found that matches 'no_existe'.")).toEqual({
+      ok: false,
+      error: 'No se encontró ese emulador',
+    })
+  })
+
+  it('el camino bueno no imprime nada', () => {
+    expect(resultadoLanzarEmulador('')).toEqual({ ok: true })
+    expect(resultadoLanzarEmulador('   \n ')).toEqual({ ok: true })
+  })
+
+  it('reporta el primer error que traiga la salida', () => {
+    expect(resultadoLanzarEmulador('Error: no space left on device').ok).toBe(false)
+    expect(resultadoLanzarEmulador('algo\nUnable to boot the simulator').error).toMatch(/Unable to boot/)
+  })
+
+  it('no confunde texto informativo con un error', () => {
+    expect(resultadoLanzarEmulador('Starting emulator...').ok).toBe(true)
   })
 })

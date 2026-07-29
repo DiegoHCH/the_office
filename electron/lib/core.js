@@ -124,6 +124,18 @@ function buscaProyectosFlutter(candidatos) {
   return (Array.isArray(candidatos) ? candidatos : []).filter((c) => esProyectoFlutter(c?.pubspec)).map((c) => c.dir)
 }
 
+// `flutter emulators --launch <id>` **sale con código 0 aunque falle**: con un id
+// que no existe imprime «No emulator found that matches …» y devuelve 0 igual.
+// Si se mira solo el exit code, la app diría que lanzó algo que nunca arrancó.
+// En el camino bueno no imprime nada y vuelve en ~1s, sin esperar el arranque.
+function resultadoLanzarEmulador(salida) {
+  const txt = String(salida || '').trim()
+  if (/no emulator found that matches/i.test(txt)) return { ok: false, error: 'No se encontró ese emulador' }
+  const fallo = txt.split('\n').find((l) => /^(error|exception)\b|error:|failed to|could not|unable to/i.test(l.trim()))
+  if (fallo) return { ok: false, error: fallo.trim().slice(0, 200) }
+  return { ok: true }
+}
+
 // Tabla de `flutter emulators`:
 //   Id                    • Name                  • Manufacturer • Platform
 //   apple_ios_simulator   • iOS Simulator         • Apple        • ios
@@ -180,6 +192,7 @@ module.exports = {
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,
+  resultadoLanzarEmulador,
   ordenaDispositivos,
   tipoDeDispositivo,
 }

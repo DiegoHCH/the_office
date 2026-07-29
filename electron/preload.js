@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('oficina', {
   flutterProject: (cwd) => ipcRenderer.invoke('flutter:project', cwd),
   // dónde puede correr el proyecto Flutter: dispositivos y emuladores
   flutterTargets: (cwd) => ipcRenderer.invoke('flutter:targets', cwd),
+  // lanza un emulador; vuelve al disparar, no cuando ya arrancó
+  flutterLaunchEmulator: (arg) => ipcRenderer.invoke('flutter:launchEmulator', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),

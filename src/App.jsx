@@ -1741,6 +1741,31 @@ export default function App() {
     else setDevicesView(res)
   }
 
+  // Lanzar un emulador. El comando vuelve al disparar, no cuando el emulador ya
+  // arrancó, así que después se sondea la lista hasta que aparezca el nuevo
+  // dispositivo — si no, la UI diría «listo» con la pantalla todavía negra.
+  const launchEmulator = async (em) => {
+    const antes = new Set((devicesView?.devices || []).map((d) => d.id))
+    setDevicesView((v) => (v ? { ...v, lanzando: em.id, error: null, aviso: null } : v))
+    const res = await window.oficina?.flutterLaunchEmulator?.({ cwd: project, id: em.id })
+    if (!res?.ok) {
+      setDevicesView((v) => (v ? { ...v, lanzando: null, error: res?.error || t('dev.none') } : v))
+      return
+    }
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 4000))
+      const t2 = await window.oficina?.flutterTargets?.(project)
+      if (!t2?.ok) continue
+      const nuevo = t2.devices.find((d) => !antes.has(d.id))
+      setDevicesView((v) => (v ? { ...t2, lanzando: nuevo ? null : em.id } : v))
+      if (nuevo) {
+        showToast(t('dev.booted', { name: nuevo.name }))
+        return
+      }
+    }
+    setDevicesView((v) => (v ? { ...v, lanzando: null, aviso: t('dev.slowBoot') } : v))
+  }
+
   // ── Vista de diff: cambios pendientes del proyecto (git diff HEAD) ───────
   const openDiff = async () => {
     setDiffView({ loading: true })
@@ -3228,8 +3253,23 @@ export default function App() {
                     <span className="dev-kind">{t('dev.emulador')}</span>
                     <span className="dev-name">{e.name}</span>
                     <span className="dev-meta">{e.platform}</span>
+                    <button
+                      type="button"
+                      className="dev-launch"
+                      onClick={() => launchEmulator(e)}
+                      disabled={!!devicesView.lanzando}
+                    >
+                      {devicesView.lanzando === e.id ? (
+                        <>
+                          <IconSpinner size={12} /> {t('dev.launching')}
+                        </>
+                      ) : (
+                        t('dev.launch')
+                      )}
+                    </button>
                   </div>
                 ))}
+                {devicesView.aviso && <div className="dev-sdk">{devicesView.aviso}</div>}
               </>
             )}
           </div>

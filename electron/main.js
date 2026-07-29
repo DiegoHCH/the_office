@@ -17,6 +17,7 @@ const {
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,
+  resultadoLanzarEmulador,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -1806,6 +1807,26 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
     proyectos,
     devices: ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : []),
     emulators: emus.status === 'fulfilled' ? parseEmuladores(emus.value) : [],
+  }
+})
+
+// Lanza un emulador. El comando vuelve enseguida —solo dispara el arranque, no
+// lo espera— y encima sale con 0 aunque no encuentre el emulador, así que el
+// veredicto se saca de la salida (ver resultadoLanzarEmulador).
+ipcMain.handle('flutter:launchEmulator', async (_e, { cwd, id, cold } = {}) => {
+  if (!cwd || !id) return { ok: false, error: 'Falta el proyecto o el emulador' }
+  const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
+  if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
+  const bin = flutterCmd(proyecto)
+  if (!bin) return { ok: false, error: 'No se encontró Flutter' }
+  const args = [...bin.base, 'emulators', '--launch', id]
+  if (cold) args.push('--cold') // arranque en frío, solo Android
+  try {
+    const out = await execFileP(bin.cmd, args, { cwd: proyecto, timeout: 180000, maxBuffer: 4 * 1024 * 1024 })
+    return resultadoLanzarEmulador(out)
+  } catch (err) {
+    // aquí solo caen los fallos de verdad del proceso (no encontrado, timeout…)
+    return { ok: false, error: String(err.message || 'No se pudo lanzar el emulador').slice(0, 250) }
   }
 })
 
