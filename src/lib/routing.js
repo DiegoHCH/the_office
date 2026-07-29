@@ -28,8 +28,24 @@ export function routeMessage(text, squad, principal) {
     }
   }
   if (elegido) return elegido
-  for (const m of squad) if (m.id !== principal && m.kw?.test(t)) return m.id
-  return principal
+  // Palabras clave: compite TODO el squad —incluido el principal— y gana la que
+  // aparece ANTES en el texto, igual que con los nombres.
+  //
+  // Antes el principal quedaba fuera de esta ronda, así que cualquier keyword
+  // ajena le robaba el mensaje: con el dev como principal, «refactoriza ese
+  // widget con el estilo centrado» se iba a UI/UX por «estilo» aunque
+  // «refactoriza» sea del dev. Y el desempate era el orden del squad, no el
+  // texto, así que dependía de en qué posición estuviera cada rol.
+  let porKw = null
+  let posKw = Infinity
+  for (const m of squad) {
+    const hit = m.kw?.exec(t)
+    if (hit && hit.index < posKw) {
+      posKw = hit.index
+      porKw = m.id
+    }
+  }
+  return porKw || principal
 }
 
 // ¿El mensaje pide pasarle el resultado a otro miembro? ("...y pásaselo al Dev",

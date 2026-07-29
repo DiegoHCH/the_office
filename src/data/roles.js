@@ -9,7 +9,10 @@ export const ROLE_META = {
     color: '#2dd4bf',
     hair: '#1f2937',
     url: '/models/pj/Casual_Male.gltf',
-    kw: /arregla|implementa|refactoriza|codigo|\bbug\b/,
+    // Incluye el vocabulario cotidiano de Flutter/mobile: «widget», «provider» o
+    // «el módulo de stocks» son lenguaje de desarrollo, no de diseño. Sin esto,
+    // un mensaje sobre código se iba a UI/UX en cuanto mencionara «estilo».
+    kw: /arregla|implementa|refactoriza|codigo|\bbug\b|widget|flutter|\bdart\b|riverpod|provider|pubspec|freezed|build_runner|\bbloc\b|cubit|stateless|stateful|setstate|hot reload|gorouter|go_router|navigator|\bmixin\b|extension|pod(?:file|s)?\b|gradle|xcode|melos|usecase|caso de uso|repositori|datasource|\bentidad|mapper|compila|\bapk\b|\bipa\b|emulador|simulador|\bmodulo\b|componente/,
   },
   research: {
     label: 'Research',
@@ -25,7 +28,10 @@ export const ROLE_META = {
     color: '#f472b6',
     hair: '#eab308',
     url: '/models/pj/Casual2_Male.gltf',
-    kw: /disen|\bui\b|\bux\b|figma|pantalla|mockup|interfaz|estilo|layout|tipografia/,
+    // Sin «pantalla» ni «layout» a propósito: en Flutter son vocabulario de dev
+    // («el layout de la pantalla se desborda» es un RenderFlex overflow, no un
+    // encargo de diseño). Quedan solo señales inequívocas de diseño.
+    kw: /disen|\bui\b|\bux\b|figma|mockup|interfaz|estilo|tipografia/,
   },
   qa: {
     label: 'QA',

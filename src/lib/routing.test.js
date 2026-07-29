@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { routeMessage, detectHandoff } from './routing.js'
-import { safeRegex } from '../data/roles.js'
+import { safeRegex, ROLE_META } from '../data/roles.js'
 
 // Squad de prueba con nombres que ejercitan tildes, mayúsculas y keywords.
 const SQUAD = [
@@ -91,6 +91,58 @@ describe('routeMessage', () => {
 
   it('tolera texto vacío', () => {
     expect(routeMessage('', SQUAD, P)).toBe('dev')
+  })
+
+  it('el principal también compite por keyword', () => {
+    // antes quedaba excluido de la ronda de keywords, así que cualquier keyword
+    // ajena le robaba el mensaje aunque la suya apareciera primero
+    expect(routeMessage('arregla el codigo y luego lo diseñamos', SQUAD, P)).toBe('dev')
+    expect(routeMessage('hay un bug en el ui del carrito', SQUAD, P)).toBe('dev')
+  })
+
+  it('con varias keywords gana la que aparece antes, no el orden del squad', () => {
+    expect(routeMessage('documenta lo que investigó el equipo', SQUAD, P)).toBe('docs')
+    expect(routeMessage('investiga y documenta el hallazgo', SQUAD, P)).toBe('research')
+    // el principal no tiene privilegio: si su keyword va después, pierde
+    expect(routeMessage('corre el test y arregla el codigo', SQUAD, P)).toBe('qa')
+  })
+})
+
+// El ruteo real depende de los kw del catálogo, no de los del squad de prueba:
+// estos casos fijan el vocabulario con el que se convive a diario.
+describe('routeMessage con las keywords del catálogo', () => {
+  const REAL = [
+    { id: 'dev', name: 'Luffy', kw: ROLE_META.dev.kw },
+    { id: 'design', name: 'Sanji', kw: ROLE_META.design.kw },
+    { id: 'qa', name: 'Zoro', kw: ROLE_META.qa.kw },
+  ]
+
+  it('un follow-up de código no se va a UI/UX por decir «estilo»', () => {
+    // el caso reportado: iba a design por «estilo» pese a hablar de un widget
+    expect(
+      routeMessage(
+        'Ahora ese componente o widget del disclaimer, con el estilo centrado que usamos en las pantallas de compra y venta, ¿lo hiciste general para todo el módulo stocks?',
+        REAL,
+        'dev'
+      )
+    ).toBe('dev')
+    expect(routeMessage('refactoriza ese widget del disclaimer con el estilo centrado', REAL, 'dev')).toBe('dev')
+  })
+
+  it('el vocabulario de Flutter es del dev', () => {
+    expect(routeMessage('el provider de stocks no refresca despues de la compra', REAL, 'dev')).toBe('dev')
+    expect(routeMessage('migra el widget a Riverpod 3 y corre build_runner', REAL, 'dev')).toBe('dev')
+    expect(routeMessage('el layout de la pantalla de venta se desborda', REAL, 'dev')).toBe('dev')
+  })
+
+  it('los encargos de diseño siguen llegando a UI/UX', () => {
+    expect(routeMessage('diseña la pantalla de detalle de la accion', REAL, 'dev')).toBe('design')
+    expect(routeMessage('cambia la tipografia del titulo', REAL, 'dev')).toBe('design')
+    expect(routeMessage('esto no cumple el ux del flujo', REAL, 'dev')).toBe('design')
+  })
+
+  it('QA sigue quedándose con las pruebas', () => {
+    expect(routeMessage('agrega tests unitarios al usecase de compra', REAL, 'dev')).toBe('qa')
   })
 })
 
