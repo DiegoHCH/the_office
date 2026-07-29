@@ -14,8 +14,22 @@ import { norm, escRe } from './helpers.js'
 // Si aparecen varios, gana el que se nombra ANTES en el texto, no el orden
 // del squad: «Nami investiga y pásaselo a Luffy» arranca en Nami.
 //
+// Arranques que delatan que el mensaje continúa lo anterior en vez de abrir algo
+// nuevo. Lista cerrada y anclada al principio: «ahora hazlo general» continúa,
+// pero «no me gusta ahora que lo veo» no arranca con ninguno de estos.
+const CONTINUA =
+  /^(?:ahora|y|entonces|tambien|ademas|luego|despues|pero|listo|ok|okay|dale|sigue|continua|perfecto|gracias|eso|ese|esa|esto|esos|esas|lo mismo|igual)\b/
+
+// ¿El mensaje es un seguimiento de lo que ya se venía haciendo?
+export const esContinuacion = (text) => CONTINUA.test(norm(String(text || '').trim()))
+
 // El límite de palabra se mantiene: «Namibia» no es «Nami».
-export function routeMessage(text, squad, principal) {
+//
+// `ultimo` es el rol que respondió de último en la conversación: solo se usa como
+// último recurso, para que un seguimiento sin nombre ni keywords se quede con
+// quien venía trabajando en vez de saltar al principal (que arrancaría sin el
+// contexto, porque cada rol tiene su propia sesión).
+export function routeMessage(text, squad, principal, ultimo = null) {
   const t = norm(text)
   let elegido = null
   let posicion = Infinity
@@ -45,7 +59,13 @@ export function routeMessage(text, squad, principal) {
       porKw = m.id
     }
   }
-  return porKw || principal
+  if (porKw) return porKw
+  // Nada en el texto decide: si es un seguimiento, se queda con quien venía
+  // trabajando. Va DESPUÉS de las keywords a propósito — «ahora diseña la
+  // pantalla de detalle» es un encargo nuevo para UI/UX aunque empiece por
+  // «ahora», y la afinidad no debe secuestrarlo.
+  if (ultimo && squad.some((m) => m.id === ultimo) && esContinuacion(text)) return ultimo
+  return principal
 }
 
 // ¿El mensaje pide pasarle el resultado a otro miembro? ("...y pásaselo al Dev",

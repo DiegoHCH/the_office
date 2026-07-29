@@ -55,6 +55,7 @@ export default function App() {
   // vista de diff: qué roles editaron archivos en su tarea actual
   const editedRef = useRef({})
   const editedPathsRef = useRef([]) // rutas tocadas en la conversación → en qué repos pedir el diff
+  const ultimoRef = useRef(null) // último rol que respondió → afinidad de los seguimientos
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
   // citar selección (#97): al soltar el mouse con texto seleccionado dentro de
@@ -623,6 +624,7 @@ export default function App() {
           delete copy[who]
           return copy
         })
+        ultimoRef.current = who
         dingSound()
         window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
         // chip transitorio anunciando la respuesta final (con duración si fue larga)
@@ -957,6 +959,7 @@ export default function App() {
     } catch {}
     handoffsRef.current = []
     editedPathsRef.current = []
+    ultimoRef.current = null
     window.oficina?.reset?.()
   }
 
@@ -981,6 +984,7 @@ export default function App() {
       sessions: { ...sessionsRef.current },
       queues: { ...queuesRef.current },
       editedPaths: [...editedPathsRef.current],
+      ultimo: ultimoRef.current,
       tokens: convTokens,
     }
   }
@@ -993,6 +997,7 @@ export default function App() {
     sessionsRef.current = st.sessions || {}
     queuesRef.current = st.queues || {}
     editedPathsRef.current = st.editedPaths || []
+    ultimoRef.current = st.ultimo || null
     syncQueues()
     await window.oficina?.setSession?.({ sessions: st.sessions || {}, profile, cwd: project })
   }
@@ -1788,7 +1793,7 @@ export default function App() {
         if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
         const target = d.role
           ? squad.find((m) => m.id === d.role || norm(m.name) === norm(d.role))?.id || principal
-          : routeMessage(text, squad, principal)
+          : routeMessage(text, squad, principal, ultimoRef.current)
         routeJob({ id: crypto.randomUUID(), target, text, display: `🔗 ${text}`, prompt: text, atts: [] })
         showToast(t('toast.deepLink', { name: memberOf(target).name }))
       }
@@ -2065,7 +2070,7 @@ export default function App() {
       if (inputRef.current) inputRef.current.style.height = 'auto'
       return
     }
-    const target = routeMessage(text, squad, principal)
+    const target = routeMessage(text, squad, principal, ultimoRef.current)
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     const handoffTo = detectHandoff(text, squad, target)
     // adjuntos: imágenes (Read) y carpetas/archivos del disco (Glob/Read)

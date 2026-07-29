@@ -122,6 +122,39 @@ describe('keywords con tildes', () => {
   })
 })
 
+describe('afinidad de conversación', () => {
+  it('un seguimiento sin pistas se queda con quien venía trabajando', () => {
+    expect(routeMessage('ahora hazlo general para todo el módulo', SQUAD, P, 'design')).toBe('design')
+    expect(routeMessage('listo, y lo mismo en la otra', SQUAD, P, 'research')).toBe('research')
+    expect(routeMessage('eso, tal cual', SQUAD, P, 'qa')).toBe('qa')
+  })
+
+  it('sin seguimiento manda el principal, no el último', () => {
+    expect(routeMessage('hola, ¿cómo vas?', SQUAD, P, 'design')).toBe('dev')
+    expect(routeMessage('necesito otra cosa', SQUAD, P, 'design')).toBe('dev')
+  })
+
+  it('la afinidad no le gana a las keywords ni a los nombres', () => {
+    // «ahora» arranca continuación, pero el encargo es claramente de diseño
+    expect(routeMessage('ahora el diseño de la home', SQUAD, P, 'dev')).toBe('design')
+    expect(routeMessage('ahora investiga las alternativas', SQUAD, P, 'dev')).toBe('research')
+    expect(routeMessage('ahora Zoro lo prueba', SQUAD, P, 'dev')).toBe('qa')
+  })
+
+  it('ignora un último que ya no está en el squad', () => {
+    expect(routeMessage('ahora hazlo general', SQUAD, P, 'publish')).toBe('dev')
+  })
+
+  it('sin último se comporta como antes', () => {
+    expect(routeMessage('ahora hazlo general', SQUAD, P)).toBe('dev')
+    expect(routeMessage('ahora hazlo general', SQUAD, P, null)).toBe('dev')
+  })
+
+  it('no confunde un «ahora» que no arranca el mensaje', () => {
+    expect(routeMessage('no me gusta ahora que lo veo', SQUAD, P, 'design')).toBe('dev')
+  })
+})
+
 // El ruteo real depende de los kw del catálogo, no de los del squad de prueba:
 // estos casos fijan el vocabulario con el que se convive a diario.
 describe('routeMessage con las keywords del catálogo', () => {
