@@ -36,6 +36,10 @@ contextBridge.exposeInMainWorld('oficina', {
   // Diff del proyecto (cambios de los agentes en modo edición).
   // acepta la ruta del proyecto o { cwd, paths } con los archivos editados
   gitDiff: (arg) => ipcRenderer.invoke('git:diff', arg),
+  // ¿hay un proyecto Flutter a la vista? (instantáneo, solo disco)
+  flutterProject: (cwd) => ipcRenderer.invoke('flutter:project', cwd),
+  // dónde puede correr el proyecto Flutter: dispositivos y emuladores
+  flutterTargets: (cwd) => ipcRenderer.invoke('flutter:targets', cwd),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),

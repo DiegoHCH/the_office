@@ -1256,3 +1256,45 @@ select.squad-model {
 }
 /* con pestañas, el chat empieza más abajo para no quedar tapado */
 .chat-tabbed { top: 46px; }
+
+/* ── Dónde correr la app: dispositivos y emuladores del proyecto Flutter ───── */
+.dev-drawer { width: min(560px, 92vw); }
+/* el botón queda marcado mientras el panel está abierto */
+.iconbtn.on { background: var(--accent-a27); color: var(--accent); }
+.dev-sdk {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px; color: var(--muted-2); margin: 0 0 6px;
+}
+.dev-group {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--muted); margin: 12px 0 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.dev-group::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.dev-row {
+  display: flex; align-items: baseline; gap: 9px;
+  padding: 8px 11px; margin-bottom: 6px;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-left-width: 3px; border-radius: 10px;
+}
+/* el tipo se lee de un golpe por el color del borde: enchufado ≠ emulado */
+.dev-row.fisico { border-left-color: var(--ok); }
+.dev-row.emulador { border-left-color: var(--warn); }
+.dev-row.escritorio { border-left-color: var(--muted-3); }
+.dev-row.web { border-left-color: var(--muted-4); }
+.dev-kind {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--muted); flex: none; min-width: 66px;
+}
+.dev-name { font-size: 13px; font-weight: 600; color: var(--ink); }
+.dev-meta {
+  margin-left: auto; text-align: right;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; color: var(--muted-2); flex: none;
+}
+@media (max-width: 560px) {
+  .dev-row { flex-wrap: wrap; }
+  .dev-meta { margin-left: 0; text-align: left; }
+}

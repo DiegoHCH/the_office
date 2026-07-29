@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import core from './core.js'
 
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
+const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -180,5 +181,109 @@ describe('buildClaudeArgs', () => {
     const args = buildClaudeArgs({ ...base, model: 'claude-opus-5', sid: 'abc-123' })
     expect(args[args.indexOf('--resume') + 1]).toBe('abc-123')
     expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5')
+  })
+})
+
+// ── Objetivos de Flutter ─────────────────────────────────────────────────────
+describe('esProyectoFlutter', () => {
+  it('reconoce un pubspec que depende del SDK de Flutter', () => {
+    expect(esProyectoFlutter('name: app\ndependencies:\n  flutter:\n    sdk: flutter\n')).toBe(true)
+  })
+
+  it('no confunde un paquete Dart puro', () => {
+    expect(esProyectoFlutter('name: cli\ndependencies:\n  args: ^2.0.0\n')).toBe(false)
+  })
+
+  it('tolera que no haya pubspec', () => {
+    expect(esProyectoFlutter('')).toBe(false)
+    expect(esProyectoFlutter(null)).toBe(false)
+  })
+})
+
+describe('parseEmuladores', () => {
+  // `flutter emulators` no admite --machine: solo esta tabla
+  const SALIDA = `
+3 available emulators:
+
+Id                    • Name                  • Manufacturer • Platform
+
+apple_ios_simulator   • iOS Simulator         • Apple        • ios
+Medium_Phone_API_36.1 • Medium Phone API 36.1 • Generic       • android
+Small_Phone           • Small Phone           • Generic       • android
+
+To run an emulator, run 'flutter emulators --launch <emulator id>'.
+`
+
+  it('saca los emuladores y descarta cabecera y ayuda', () => {
+    const em = parseEmuladores(SALIDA)
+    expect(em.map((e) => e.id)).toEqual(['apple_ios_simulator', 'Medium_Phone_API_36.1', 'Small_Phone'])
+    expect(em[0]).toMatchObject({ name: 'iOS Simulator', manufacturer: 'Apple', platform: 'ios' })
+    expect(em[2].platform).toBe('android')
+  })
+
+  it('devuelve lista vacía si no hay emuladores o la salida no sirve', () => {
+    expect(parseEmuladores('No emulators available.')).toEqual([])
+    expect(parseEmuladores('')).toEqual([])
+    expect(parseEmuladores(null)).toEqual([])
+  })
+})
+
+describe('ordenaDispositivos', () => {
+  // lo que devuelve de verdad `flutter devices --machine` en un Mac con un
+  // iPhone enchufado, más un emulador de Android arrancado
+  const DEVICES = [
+    { id: 'chrome', name: 'Chrome', targetPlatform: 'web-javascript', emulator: false, isSupported: true },
+    { id: 'macos', name: 'macOS', targetPlatform: 'darwin', emulator: false, isSupported: true },
+    { id: 'emulator-5554', name: 'sdk gphone64', targetPlatform: 'android-arm64', emulator: true, isSupported: true },
+    { id: '00008030-000C', name: 'iPhone', targetPlatform: 'ios', emulator: false, isSupported: true, sdk: 'iOS 26.5.2' },
+  ]
+
+  it('el móvil enchufado va primero, y web al final', () => {
+    expect(ordenaDispositivos(DEVICES).map((d) => d.tipo)).toEqual(['fisico', 'emulador', 'escritorio', 'web'])
+    expect(ordenaDispositivos(DEVICES)[0].name).toBe('iPhone')
+  })
+
+  it('clasifica y normaliza cada dispositivo', () => {
+    const [iphone] = ordenaDispositivos(DEVICES)
+    expect(iphone).toMatchObject({ id: '00008030-000C', platform: 'ios', sdk: 'iOS 26.5.2', tipo: 'fisico', soportado: true })
+  })
+
+  it('tolera entradas ausentes o vacías', () => {
+    expect(ordenaDispositivos(null)).toEqual([])
+    expect(ordenaDispositivos([])).toEqual([])
+  })
+})
+
+describe('buscaProyectosFlutter', () => {
+  const FLUT = 'name: app\ndependencies:\n  flutter:\n    sdk: flutter\n'
+
+  it('encuentra el proyecto un nivel abajo cuando la raíz no es Flutter', () => {
+    // el caso real: el proyecto apunta al workspace y la app está dentro
+    expect(
+      buscaProyectosFlutter([
+        { dir: '/w', pubspec: null },
+        { dir: '/w/ai-context', pubspec: null },
+        { dir: '/w/front-mobile-b2c', pubspec: FLUT },
+      ])
+    ).toEqual(['/w/front-mobile-b2c'])
+  })
+
+  it('la raíz manda si ella misma es Flutter', () => {
+    expect(buscaProyectosFlutter([{ dir: '/app', pubspec: FLUT }])[0]).toBe('/app')
+  })
+
+  it('devuelve todos si hay varios, en orden', () => {
+    expect(
+      buscaProyectosFlutter([
+        { dir: '/w', pubspec: null },
+        { dir: '/w/a', pubspec: FLUT },
+        { dir: '/w/b', pubspec: FLUT },
+      ])
+    ).toEqual(['/w/a', '/w/b'])
+  })
+
+  it('sin ninguno devuelve lista vacía', () => {
+    expect(buscaProyectosFlutter([{ dir: '/w', pubspec: 'name: x\n' }])).toEqual([])
+    expect(buscaProyectosFlutter(null)).toEqual([])
   })
 })

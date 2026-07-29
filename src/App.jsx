@@ -58,6 +58,8 @@ export default function App() {
   const ultimoRef = useRef(null) // último rol que respondió → afinidad de los seguimientos
   const hubotextoRef = useRef({}) // role → true si el turno llegó a decir algo
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
+  const [devicesView, setDevicesView] = useState(null) // null | { loading } | { devices, emulators, error }
+  const [flutterProj, setFlutterProj] = useState(null) // { esFlutter, proyecto, proyectos } del proyecto activo
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
   // citar selección (#97): al soltar el mouse con texto seleccionado dentro de
   // una respuesta, aparece un botón flotante que lo lleva al composer
@@ -1721,6 +1723,24 @@ export default function App() {
     if (findOpen && findQuery.trim()) gotoHit(0)
   }, [findQuery]) // al escribir, salta a la primera coincidencia
 
+  // ── Dónde correr la app: solo aparece si hay un proyecto Flutter a la vista ─
+  useEffect(() => {
+    let vivo = true
+    if (!project) return setFlutterProj(null)
+    window.oficina?.flutterProject?.(project).then((r) => vivo && setFlutterProj(r || null))
+    return () => {
+      vivo = false
+    }
+  }, [project])
+
+  const openDevices = async () => {
+    if (devicesView) return setDevicesView(null)
+    setDevicesView({ loading: true })
+    const res = await window.oficina?.flutterTargets?.(project)
+    if (!res?.ok) setDevicesView({ error: res?.error || t('dev.none') })
+    else setDevicesView(res)
+  }
+
   // ── Vista de diff: cambios pendientes del proyecto (git diff HEAD) ───────
   const openDiff = async () => {
     setDiffView({ loading: true })
@@ -2190,6 +2210,21 @@ export default function App() {
         </div>
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
+          {/* solo con un proyecto Flutter delante: en un microservicio no pinta nada */}
+          {flutterProj?.esFlutter && (
+            <button
+              type="button"
+              className={devicesView ? 'iconbtn on' : 'iconbtn'}
+              aria-label={t('hud.devicesLabel')}
+              onClick={openDevices}
+              title={t('hud.devices')}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="5" y="2" width="14" height="20" rx="2" />
+                <line x1="10" y1="18.5" x2="14" y2="18.5" />
+              </svg>
+            </button>
+          )}
           <button type="button" className="iconbtn" aria-label={t('hud.docsLabel')} onClick={toggleArts} title={t('hud.docs')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -3139,6 +3174,66 @@ export default function App() {
               </div>
             )
           })()}
+
+        {devicesView && (
+          <div className="drawer dev-drawer">
+            <div className="drawer-head">
+              <b>
+                {t('panel.devices', {
+                  project: (devicesView.proyecto || project || '').split('/').pop() || t('panel.theProject'),
+                })}
+              </b>
+              <button type="button" className="iconbtn" onClick={openDevices} title={t('dev.refresh')} disabled={devicesView.loading}>
+                <IconRefresh size={15} />
+              </button>
+              <button onClick={() => setDevicesView(null)}>
+                <IconClose size={16} />
+              </button>
+            </div>
+            {devicesView.loading && <div className="hist-empty">{t('dev.loading')}</div>}
+            {devicesView.error && (
+              <div className="hist-empty">
+                <IconWarn size={13} /> {devicesView.error}
+              </div>
+            )}
+            {devicesView.devices && (
+              <>
+                {devicesView.via && <div className="dev-sdk">{t('dev.sdk', { via: devicesView.via })}</div>}
+                {devicesView.proyectos?.length > 1 && (
+                  <div className="dev-sdk">
+                    {t('dev.otherProject', {
+                      list: devicesView.proyectos
+                        .slice(1)
+                        .map((p) => p.split('/').pop())
+                        .join(' · '),
+                    })}
+                  </div>
+                )}
+                <div className="dev-group">{t('dev.connected')}</div>
+                {devicesView.devices.length === 0 && <div className="hist-empty">{t('dev.none')}</div>}
+                {devicesView.devices.map((d) => (
+                  <div key={d.id} className={`dev-row ${d.tipo}`}>
+                    <span className="dev-kind">{t(`dev.${d.tipo}`)}</span>
+                    <span className="dev-name">{d.name}</span>
+                    <span className="dev-meta">
+                      {d.sdk || d.platform}
+                      {!d.hotReload && ` · ${t('dev.noHotReload')}`}
+                    </span>
+                  </div>
+                ))}
+                <div className="dev-group">{t('dev.launchable')}</div>
+                {devicesView.emulators.length === 0 && <div className="hist-empty">{t('dev.noEmus')}</div>}
+                {devicesView.emulators.map((e) => (
+                  <div key={e.id} className="dev-row emulador">
+                    <span className="dev-kind">{t('dev.emulador')}</span>
+                    <span className="dev-name">{e.name}</span>
+                    <span className="dev-meta">{e.platform}</span>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
 
         {diffView && (
           <div className="drawer diff-drawer">

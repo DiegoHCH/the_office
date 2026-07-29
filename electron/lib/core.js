@@ -100,4 +100,86 @@ function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid
   return args
 }
 
-module.exports = { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs }
+// ── Objetivos de Flutter: dispositivos y emuladores ──────────────────────────
+// El proyecto puede correr en un móvil enchufado, en un emulador ya arrancado o
+// en escritorio/web. `flutter devices --machine` da JSON limpio, pero
+// `flutter emulators` NO admite --machine: solo una tabla de texto, y de ahí
+// salen los emuladores que se pueden lanzar.
+
+// ¿El proyecto es Flutter? Un pubspec.yaml que dependa del SDK de Flutter.
+// Se mira el texto en crudo para no arrastrar un parser de YAML por esto.
+function esProyectoFlutter(pubspec) {
+  if (!pubspec) return false
+  return /^\s*(sdk:\s*flutter|flutter:\s*$)/m.test(pubspec) || /^dependencies:[\s\S]*?^\s{2}flutter:/m.test(pubspec)
+}
+
+// Cuál es el proyecto Flutter, dado el proyecto elegido y sus subcarpetas.
+//
+// El proyecto puede apuntar a una carpeta padre —un workspace con varios repos
+// dentro, elegido así para que los agentes tomen su contexto— y entonces el
+// pubspec no está en la raíz sino un nivel más abajo. Mismo caso que el diff.
+//
+// `candidatos` son { dir, pubspec } ya leídos: la raíz primero y luego sus hijos.
+function buscaProyectosFlutter(candidatos) {
+  return (Array.isArray(candidatos) ? candidatos : []).filter((c) => esProyectoFlutter(c?.pubspec)).map((c) => c.dir)
+}
+
+// Tabla de `flutter emulators`:
+//   Id                    • Name                  • Manufacturer • Platform
+//   apple_ios_simulator   • iOS Simulator         • Apple        • ios
+// Se ignoran cabecera, líneas de ayuda y todo lo que no traiga 4 columnas.
+function parseEmuladores(salida) {
+  const out = []
+  for (const linea of String(salida || '').split('\n')) {
+    if (!linea.includes('•')) continue
+    const cols = linea.split('•').map((c) => c.trim())
+    if (cols.length < 4) continue
+    const [id, name, manufacturer, platform] = cols
+    if (!id || id.toLowerCase() === 'id') continue // la cabecera
+    out.push({ id, name: name || id, manufacturer, platform: platform.toLowerCase() })
+  }
+  return out
+}
+
+// Un dispositivo enchufado vale más que un emulador, y un emulador más que
+// escritorio o web: así se ordena la lista, porque el orden es la
+// recomendación. En este squad además importa de verdad — la app de b2c no
+// corre en simuladores de iOS (MLKit no trae slice arm64-sim), así que ofrecer
+// el simulador primero sería ofrecer lo que no funciona.
+const ORDEN = { fisico: 0, emulador: 1, escritorio: 2, web: 3 }
+
+function tipoDeDispositivo(d) {
+  const plat = String(d.targetPlatform || '')
+  if (/^web/.test(plat)) return 'web'
+  if (/^(darwin|windows|linux)/.test(plat)) return 'escritorio'
+  return d.emulator ? 'emulador' : 'fisico'
+}
+
+// Normaliza y ordena lo que devuelve `flutter devices --machine`.
+function ordenaDispositivos(devices) {
+  return (Array.isArray(devices) ? devices : [])
+    .map((d) => ({
+      id: d.id,
+      name: d.name || d.id,
+      platform: d.targetPlatform || '',
+      sdk: d.sdk || '',
+      soportado: d.isSupported !== false,
+      tipo: tipoDeDispositivo(d),
+      hotReload: d.capabilities?.hotReload !== false,
+    }))
+    .sort((a, b) => ORDEN[a.tipo] - ORDEN[b.tipo] || a.name.localeCompare(b.name))
+}
+
+module.exports = {
+  sanitizeEnv,
+  sessionKey,
+  pickSafeMcp,
+  parseUsage,
+  gitignoreConSquad,
+  buildClaudeArgs,
+  esProyectoFlutter,
+  buscaProyectosFlutter,
+  parseEmuladores,
+  ordenaDispositivos,
+  tipoDeDispositivo,
+}

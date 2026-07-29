@@ -7,7 +7,18 @@ const https = require('node:https')
 const crypto = require('node:crypto')
 const { pathToFileURL } = require('node:url')
 // lógica pura y testeable del main (#116)
-const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = require('./lib/core.js')
+const {
+  sanitizeEnv,
+  sessionKey,
+  pickSafeMcp,
+  parseUsage,
+  gitignoreConSquad,
+  buildClaudeArgs,
+  esProyectoFlutter,
+  buscaProyectosFlutter,
+  parseEmuladores,
+  ordenaDispositivos,
+} = require('./lib/core.js')
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -1683,6 +1694,118 @@ ipcMain.handle('mcp:remove', async (_e, { profile, name }) => {
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }
+  }
+})
+
+// ── Flutter: dónde puede correr el proyecto ──────────────────────────────────
+// Electron no hereda el PATH del shell, y en un proyecto con fvm el SDK que vale
+// es el que fija el proyecto, no el global. `.fvm/flutter_sdk` es un symlink al
+// SDK pinneado: es la vía más directa y no depende de que `fvm` esté en el PATH.
+const FVM_CANDIDATES = ['/opt/homebrew/bin/fvm', '/usr/local/bin/fvm']
+const FLUTTER_CANDIDATES = () => [
+  '/opt/homebrew/bin/flutter',
+  '/usr/local/bin/flutter',
+  path.join(app.getPath('home'), 'development', 'flutter', 'bin', 'flutter'),
+  path.join(app.getPath('home'), 'flutter', 'bin', 'flutter'),
+  path.join(app.getPath('home'), 'fvm', 'default', 'bin', 'flutter'),
+]
+
+function flutterCmd(cwd) {
+  const conFvm = fs.existsSync(path.join(cwd, '.fvmrc')) || fs.existsSync(path.join(cwd, '.fvm'))
+  // 1) el SDK que fija el proyecto, invocado directo
+  const link = path.join(cwd, '.fvm', 'flutter_sdk', 'bin', 'flutter')
+  if (fs.existsSync(link)) return { cmd: link, base: [], via: 'SDK del proyecto (fvm)' }
+  // 2) la versión de .fvmrc, si el symlink no está materializado
+  try {
+    const v = JSON.parse(fs.readFileSync(path.join(cwd, '.fvmrc'), 'utf8'))?.flutter
+    const p = v && path.join(app.getPath('home'), 'fvm', 'versions', v, 'bin', 'flutter')
+    if (p && fs.existsSync(p)) return { cmd: p, base: [], via: `fvm ${v}` }
+  } catch {}
+  // 3) que lo resuelva fvm
+  if (conFvm) {
+    const fvm = FVM_CANDIDATES.find((p) => fs.existsSync(p))
+    if (fvm) return { cmd: fvm, base: ['flutter'], via: 'fvm' }
+  }
+  // 4) el flutter del sistema
+  const delSistema = FLUTTER_CANDIDATES().find((p) => fs.existsSync(p))
+  if (delSistema) return { cmd: delSistema, base: [], via: 'flutter del sistema' }
+  return null
+}
+
+// `flutter devices --machine` puede escupir avisos antes del JSON.
+function jsonDeLaSalida(out) {
+  const i = String(out || '').indexOf('[')
+  if (i < 0) return []
+  try {
+    return JSON.parse(String(out).slice(i))
+  } catch {
+    return []
+  }
+}
+
+// Qué proyecto Flutter hay a la vista: la raíz elegida, o uno de sus hijos
+// directos cuando el proyecto apunta a una carpeta padre. Solo toca disco, así
+// que sirve para decidir al instante si la app muestra el control de ejecución.
+function resuelveProyectoFlutter(cwd) {
+  const leePubspec = (dir) => {
+    try {
+      return fs.readFileSync(path.join(dir, 'pubspec.yaml'), 'utf8')
+    } catch {
+      return null
+    }
+  }
+  const candidatos = [{ dir: cwd, pubspec: leePubspec(cwd) }]
+  if (!esProyectoFlutter(candidatos[0].pubspec)) {
+    let hijos = []
+    try {
+      hijos = fs
+        .readdirSync(cwd, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+        .map((d) => path.join(cwd, d.name))
+        .slice(0, 40)
+    } catch {}
+    for (const h of hijos) candidatos.push({ dir: h, pubspec: leePubspec(h) })
+  }
+  const proyectos = buscaProyectosFlutter(candidatos)
+  // si hay varios, manda el primero y la UI ofrece cambiar
+  return { esFlutter: proyectos.length > 0, proyecto: proyectos[0] || null, proyectos }
+}
+
+// Chequeo instantáneo para saber si toca mostrar el control de ejecución.
+ipcMain.handle('flutter:project', (_e, cwd) => (cwd ? resuelveProyectoFlutter(cwd) : { esFlutter: false, proyectos: [] }))
+
+// Dónde puede correr el proyecto: móviles enchufados, emuladores ya arrancados,
+// escritorio y web, más los emuladores que se pueden lanzar.
+ipcMain.handle('flutter:targets', async (_e, cwd) => {
+  if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
+  const { esFlutter, proyecto, proyectos } = resuelveProyectoFlutter(cwd)
+  if (!esFlutter) return { ok: true, esFlutter: false, devices: [], emulators: [] }
+
+  const bin = flutterCmd(proyecto)
+  if (!bin) {
+    return {
+      ok: false,
+      esFlutter: true,
+      error: 'No se encontró Flutter. Si el proyecto usa fvm, corre `fvm install` una vez en su carpeta.',
+    }
+  }
+  const correr = (args) =>
+    execFileP(bin.cmd, [...bin.base, ...args], { cwd: proyecto, timeout: 180000, maxBuffer: 8 * 1024 * 1024 })
+  // los dos tardan lo suyo (el primero arranca el toolchain): van en paralelo, y
+  // que falle uno no tumba al otro — con el móvil enchufado y el SDK de Android
+  // a medio instalar, `emulators` puede reventar mientras `devices` responde bien
+  const [devs, emus] = await Promise.allSettled([correr(['devices', '--machine']), correr(['emulators'])])
+  if (devs.status === 'rejected' && emus.status === 'rejected') {
+    return { ok: false, esFlutter: true, via: bin.via, proyecto, error: String(devs.reason?.message || '').slice(0, 300) }
+  }
+  return {
+    ok: true,
+    esFlutter: true,
+    via: bin.via,
+    proyecto,
+    proyectos,
+    devices: ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : []),
+    emulators: emus.status === 'fulfilled' ? parseEmuladores(emus.value) : [],
   }
 })
 
