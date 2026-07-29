@@ -1782,6 +1782,7 @@ export default function App() {
       // si el panel está abierto, se actualiza en el sitio en vez de quedarse
       // mostrando el proyecto anterior hasta cerrarlo y volver a abrirlo
       setDevicesView((v) => (v && !v.loading ? parcheProyecto(v) : v))
+      window.oficina?.flutterWatchCwd?.(project)
       if (r?.esFlutter) {
         // revalidar por detrás: pudo cambiarse el cable o el SDK del proyecto
         timer = setTimeout(() => {
@@ -1819,6 +1820,11 @@ export default function App() {
         })
         setFoco((f) => (f === id ? null : f))
         showToast(t('run.stopped'))
+      } else if (e.kind === 'devices') {
+        // enchufar o desenchufar: la lista se mantiene sola
+        const fresco = { devices: e.devices || [], emulators: e.emulators || [] }
+        setTargets((tg) => (tg ? { ...tg, ...fresco } : tg))
+        setDevicesView((v) => (v && !v.loading ? { ...v, ...fresco } : v))
       } else if (e.kind === 'run-log') {
         setRunLogs((l) => [...l.slice(-400), { deviceId: id, texto: e.texto }])
       }
@@ -1939,7 +1945,14 @@ export default function App() {
   }
 
   const openDevices = async () => {
-    if (devicesView) return setDevicesView(null)
+    if (devicesView) {
+      setDevicesView(null)
+      window.oficina?.flutterWatch?.({ on: false })
+      return
+    }
+    // el vigía de enchufar/desenchufar vive con el panel: es un proceso Dart y
+    // tenerlo siempre arriba costaría memoria para nada
+    window.oficina?.flutterWatch?.({ cwd: project, on: true })
     // con la precarga hecha se abre con datos y se revalida por detrás; sin ella
     // (proyecto recién elegido) toca esperar
     setDevicesView(targets ? { ...targets, refrescando: true } : { loading: true })

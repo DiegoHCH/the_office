@@ -8,7 +8,7 @@ const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
 const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 const { decideRecarga } = core
 const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer, plataformaOcupada } = core
-const { plataformasDelProyecto, filtraPorPlataforma, familiaPlataforma } = core
+const { plataformasDelProyecto, filtraPorPlataforma, familiaPlataforma, dispositivoDeDaemon } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -885,5 +885,35 @@ describe('plataformasDelProyecto y filtraPorPlataforma', () => {
     expect(familiaPlataforma('web-javascript')).toBe('web')
     expect(familiaPlataforma('darwin')).toBe('darwin')
     expect(familiaPlataforma('ios')).toBe('ios')
+  })
+})
+
+describe('dispositivoDeDaemon', () => {
+  // params literales de un `device.added` real (flutter daemon 0.6.1)
+  it('normaliza un teléfono físico a la forma de la lista', () => {
+    const d = dispositivoDeDaemon({
+      id: '00008030-000C390C1AC0C02E',
+      name: 'iPhone',
+      platform: 'ios',
+      emulator: false,
+      ephemeral: true,
+    })
+    expect(d).toMatchObject({ id: '00008030-000C390C1AC0C02E', name: 'iPhone', platform: 'ios', tipo: 'fisico' })
+  })
+
+  it('un emulador arrancado se marca como emulador', () => {
+    expect(dispositivoDeDaemon({ id: 'emulator-5554', name: 'sdk gphone64', platform: 'android-arm64', emulator: true }).tipo).toBe(
+      'emulador'
+    )
+  })
+
+  it('escritorio y web se clasifican igual que en la lista', () => {
+    expect(dispositivoDeDaemon({ id: 'macos', name: 'macOS', platform: 'darwin' }).tipo).toBe('escritorio')
+    expect(dispositivoDeDaemon({ id: 'chrome', name: 'Chrome', platform: 'web-javascript' }).tipo).toBe('web')
+  })
+
+  it('sin id no hay dispositivo', () => {
+    expect(dispositivoDeDaemon({})).toBeNull()
+    expect(dispositivoDeDaemon(null)).toBeNull()
   })
 })

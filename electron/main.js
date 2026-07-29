@@ -33,6 +33,7 @@ const {
   plataformaOcupada,
   plataformasDelProyecto,
   filtraPorPlataforma,
+  dispositivoDeDaemon,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -2203,8 +2204,96 @@ ipcMain.handle('flutter:interpretaCorrer', async (_e, { cwd, texto } = {}) => {
   return { ok: true, objetivo, config, devices, emulators, configs }
 })
 
+// ── Dispositivos en vivo ─────────────────────────────────────────────────────
+// `flutter daemon` + device.enable avisa al enchufar y al desenchufar
+// (device.added / device.removed), así que la lista se mantiene sola en vez de
+// esperar un refresco a mano.
+//
+// Vive solo mientras el panel está abierto: es un proceso Dart, y tenerlo
+// siempre arriba costaría memoria para nada — con el panel cerrado, al abrirlo ya
+// se revalida el listado.
+let vigia = null // { child, cwd }
+
+async function paraVigia() {
+  if (!vigia) return
+  const child = vigia.child
+  vigia = null
+  try {
+    child.kill('SIGTERM')
+  } catch {}
+}
+
+// Reemite el listado completo, ya filtrado para el proyecto que se está viendo.
+async function avisaListado(cwd) {
+  if (!cacheMaquina) return
+  const { proyecto } = resuelveProyectoFlutter(cwd)
+  const plataformas = proyecto ? plataformasDe(proyecto) : []
+  // un emulador que arranca aparece como dispositivo: hay que rehacer la marca
+  cacheMaquina.emulators = marcaEmuladoresCorriendo(cacheMaquina.emulators, await emuladoresArriba())
+  avisaFlutter({
+    kind: 'devices',
+    devices: filtraPorPlataforma(cacheMaquina.devices, plataformas),
+    emulators: filtraPorPlataforma(cacheMaquina.emulators, plataformas),
+  })
+}
+
+ipcMain.handle('flutter:watch', async (_e, { cwd, on } = {}) => {
+  if (!on) {
+    await paraVigia()
+    return { ok: true, vigilando: false }
+  }
+  if (vigia) return { ok: true, vigilando: true }
+  if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
+  const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
+  if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
+  const bin = await flutterCmd(proyecto)
+  if (!bin) return { ok: false, error: 'No se encontró Flutter' }
+
+  const child = spawn(bin.cmd, [...bin.base, 'daemon'], {
+    cwd: proyecto,
+    env: sanitizeEnv(process.env, { home: app.getPath('home') }),
+  })
+  vigia = { child, cwd }
+  let resto = ''
+  child.stdout.on('data', (buf) => {
+    resto += buf.toString()
+    const lineas = resto.split('\n')
+    resto = lineas.pop()
+    for (const linea of lineas) {
+      const msg = parseLineaDaemon(linea)
+      if (!msg || msg.tipo !== 'evento' || !vigia) continue
+      if (msg.evento === 'device.added') {
+        const d = dispositivoDeDaemon(msg.params)
+        if (!d || !cacheMaquina) continue
+        if (!cacheMaquina.devices.some((x) => x.id === d.id)) cacheMaquina.devices = [...cacheMaquina.devices, d]
+        avisaListado(vigia.cwd)
+      } else if (msg.evento === 'device.removed') {
+        const id = msg.params?.id
+        if (!id || !cacheMaquina) continue
+        cacheMaquina.devices = cacheMaquina.devices.filter((x) => x.id !== id)
+        avisaListado(vigia.cwd)
+      }
+    }
+  })
+  child.on('error', () => paraVigia())
+  child.on('close', () => {
+    vigia = null
+  })
+  try {
+    child.stdin.write(`${JSON.stringify([{ id: 1, method: 'device.enable' }])}\n`)
+  } catch {}
+  return { ok: true, vigilando: true }
+})
+
+// el proyecto que se está viendo cambia sin reiniciar el vigía: solo el filtro
+ipcMain.handle('flutter:watchCwd', (_e, cwd) => {
+  if (vigia && cwd) vigia.cwd = cwd
+  return { ok: true }
+})
+
 // Al cerrar la app no se dejan `flutter run` huérfanos ocupando los dispositivos.
 app.on('before-quit', () => {
+  paraVigia()
   for (const c of corriendo.values()) {
     try {
       c.child.kill('SIGTERM')

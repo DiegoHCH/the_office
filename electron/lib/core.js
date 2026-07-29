@@ -603,6 +603,24 @@ function filtraPorPlataforma(items, soportadas, campo = 'platform') {
   return (Array.isArray(items) ? items : []).filter((x) => set.has(familiaPlataforma(x?.[campo])))
 }
 
+// El daemon de dispositivos manda menos campos que `flutter devices --machine` y
+// con otro nombre: `platform` en vez de `targetPlatform`, y sin sdk ni
+// capabilities. Se normaliza a la misma forma que usa la lista.
+function dispositivoDeDaemon(params) {
+  if (!params?.id) return null
+  const d = {
+    id: params.id,
+    targetPlatform: params.platform || '',
+    name: params.name || params.id,
+    emulator: !!params.emulator,
+    isSupported: params.isSupported !== false,
+    // el daemon no dice si soporta hot reload; se asume que sí y la corrida lo
+    // desmentirá si no, que es mejor que ocultar el objetivo
+    capabilities: { hotReload: true },
+  }
+  return ordenaDispositivos([d])[0] || null
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -631,6 +649,7 @@ module.exports = {
   plataformaOcupada,
   plataformasDelProyecto,
   filtraPorPlataforma,
+  dispositivoDeDaemon,
   familiaPlataforma,
   familiaDe,
   eligePorTexto,

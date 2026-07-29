@@ -52,6 +52,9 @@ contextBridge.exposeInMainWorld('oficina', {
   flutterAutoReload: (arg) => ipcRenderer.invoke('flutter:autoReload', arg),
   // «/correr …»: interpreta la frase contra lo que hay conectado
   flutterInterpretaCorrer: (arg) => ipcRenderer.invoke('flutter:interpretaCorrer', arg),
+  // vigilar enchufar/desenchufar mientras el panel está abierto
+  flutterWatch: (arg) => ipcRenderer.invoke('flutter:watch', arg),
+  flutterWatchCwd: (cwd) => ipcRenderer.invoke('flutter:watchCwd', cwd),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),
