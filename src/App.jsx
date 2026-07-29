@@ -3617,6 +3617,11 @@ export default function App() {
             {devicesView.devices && (
               <>
                 {devicesView.via && <div className="dev-sdk">{t('dev.sdk', { via: devicesView.via })}</div>}
+                {/* se listan solo los objetivos que el proyecto puede compilar:
+                    decir en cuáles corre evita que la ausencia parezca un fallo */}
+                {devicesView.plataformas?.length > 0 && (
+                  <div className="dev-sdk">{t('dev.platforms', { list: devicesView.plataformas.join(' · ') })}</div>
+                )}
                 {devicesView.proyectos?.length > 1 && (
                   <div className="dev-sdk">
                     {t('dev.otherProject', {

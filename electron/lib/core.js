@@ -567,6 +567,42 @@ function plataformaOcupada(corridas, plataforma) {
   return null
 }
 
+// ── En qué plataformas corre el proyecto ─────────────────────────────────────
+// Un proyecto Flutter solo corre donde tiene su carpeta de plataforma: sin
+// `web/` no hay Chrome, sin `macos/` no hay escritorio. Ofrecer un objetivo que
+// el proyecto no soporta es regalar una compilación fallida — comprobado con
+// `flutter run -d chrome` en un proyecto solo android+ios: muere al arrancar.
+const DIR_DE_PLATAFORMA = { ios: 'ios', android: 'android', darwin: 'macos', web: 'web', windows: 'windows', linux: 'linux' }
+
+// A qué familia pertenece el targetPlatform que reporta flutter.
+function familiaPlataforma(plataforma) {
+  const p = String(plataforma || '')
+  if (p.startsWith('web')) return 'web'
+  if (p.startsWith('darwin')) return 'darwin'
+  if (p.startsWith('android')) return 'android'
+  if (p.startsWith('ios')) return 'ios'
+  if (p.startsWith('windows')) return 'windows'
+  if (p.startsWith('linux')) return 'linux'
+  return p.split('-')[0] || null
+}
+
+// Familias soportadas, a partir de las carpetas que existen en el proyecto.
+function plataformasDelProyecto(dirsExistentes) {
+  const hay = new Set(dirsExistentes || [])
+  return Object.entries(DIR_DE_PLATAFORMA)
+    .filter(([, dir]) => hay.has(dir))
+    .map(([familia]) => familia)
+}
+
+// Deja solo los objetivos donde el proyecto puede correr. Sin plataformas
+// detectadas no se filtra: mejor mostrar todo que dejar la lista vacía por un
+// proyecto con una estructura que no reconocemos.
+function filtraPorPlataforma(items, soportadas, campo = 'platform') {
+  const set = new Set(soportadas || [])
+  if (!set.size) return Array.isArray(items) ? items : []
+  return (Array.isArray(items) ? items : []).filter((x) => set.has(familiaPlataforma(x?.[campo])))
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -593,6 +629,9 @@ module.exports = {
   argsDeLaunchConfig,
   interpretaCorrer,
   plataformaOcupada,
+  plataformasDelProyecto,
+  filtraPorPlataforma,
+  familiaPlataforma,
   familiaDe,
   eligePorTexto,
   puntua,

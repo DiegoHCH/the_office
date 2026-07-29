@@ -8,6 +8,7 @@ const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
 const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 const { decideRecarga } = core
 const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer, plataformaOcupada } = core
+const { plataformasDelProyecto, filtraPorPlataforma, familiaPlataforma } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -828,5 +829,61 @@ describe('interpretaCorrer: «el emulador android», «el físico ios»', () => 
       ],
     }
     expect(cual('el emulador android', ctx)).toBe('ambiguo')
+  })
+})
+
+// ── Solo los objetivos donde el proyecto puede correr ────────────────────────
+describe('plataformasDelProyecto y filtraPorPlataforma', () => {
+  const DEVICES = [
+    { name: 'iPhone', platform: 'ios' },
+    { name: '24069PC21G', platform: 'android-arm64' },
+    { name: 'macOS', platform: 'darwin' },
+    { name: 'Chrome', platform: 'web-javascript' },
+  ]
+  const EMUS = [
+    { name: 'iOS Simulator', platform: 'ios' },
+    { name: 'Medium Phone', platform: 'android' },
+  ]
+  const nombres = (dirs, items = DEVICES) =>
+    filtraPorPlataforma(items, plataformasDelProyecto(dirs)).map((x) => x.name)
+
+  it('una app móvil no ofrece escritorio ni web', () => {
+    // comprobado en el proyecto real: `flutter run -d chrome` sin carpeta web/
+    // muere al arrancar, así que ofrecerlo es regalar una compilación fallida
+    expect(nombres(['android', 'ios'])).toEqual(['iPhone', '24069PC21G'])
+  })
+
+  it('una app web solo ofrece web, y ningún emulador', () => {
+    expect(nombres(['web'])).toEqual(['Chrome'])
+    expect(nombres(['web'], EMUS)).toEqual([])
+  })
+
+  it('una app de escritorio solo ofrece escritorio', () => {
+    expect(nombres(['macos'])).toEqual(['macOS'])
+  })
+
+  it('solo android deja fuera al iPhone y al simulador', () => {
+    expect(nombres(['android'])).toEqual(['24069PC21G'])
+    expect(nombres(['android'], EMUS)).toEqual(['Medium Phone'])
+  })
+
+  it('solo ios deja fuera al android', () => {
+    expect(nombres(['ios'])).toEqual(['iPhone'])
+    expect(nombres(['ios'], EMUS)).toEqual(['iOS Simulator'])
+  })
+
+  it('con todas las carpetas no filtra nada', () => {
+    expect(nombres(['android', 'ios', 'web', 'macos'])).toHaveLength(4)
+  })
+
+  it('sin plataformas reconocidas no filtra: mejor mostrar todo que nada', () => {
+    expect(nombres([])).toHaveLength(4)
+  })
+
+  it('la familia se saca del targetPlatform que reporta flutter', () => {
+    expect(familiaPlataforma('android-arm64')).toBe('android')
+    expect(familiaPlataforma('web-javascript')).toBe('web')
+    expect(familiaPlataforma('darwin')).toBe('darwin')
+    expect(familiaPlataforma('ios')).toBe('ios')
   })
 })

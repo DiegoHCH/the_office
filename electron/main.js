@@ -31,6 +31,8 @@ const {
   argsDeLaunchConfig,
   interpretaCorrer,
   plataformaOcupada,
+  plataformasDelProyecto,
+  filtraPorPlataforma,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -1808,6 +1810,12 @@ function resuelveProyectoFlutter(cwd) {
   return { esFlutter: proyectos.length > 0, proyecto: proyectos[0] || null, proyectos }
 }
 
+// Carpetas de plataforma que tiene el proyecto: sin `web/` no hay Chrome, sin
+// `macos/` no hay escritorio. Solo disco, así que es instantáneo.
+const DIRS_PLATAFORMA = ['ios', 'android', 'web', 'macos', 'windows', 'linux']
+const plataformasDe = (proyecto) =>
+  plataformasDelProyecto(DIRS_PLATAFORMA.filter((d) => fs.existsSync(path.join(proyecto, d))))
+
 // Chequeo instantáneo (solo disco) de lo que SÍ depende del proyecto: cuál es y
 // qué configuraciones ofrece. Los dispositivos y emuladores no dependen del
 // proyecto —son de la máquina— así que no hace falta volver a descubrirlos al
@@ -1821,7 +1829,7 @@ ipcMain.handle('flutter:project', (_e, cwd) => {
       configs = parseLaunchConfigs(fs.readFileSync(path.join(r.proyecto, '.vscode', 'launch.json'), 'utf8'))
     } catch {}
   }
-  return { ...r, configs }
+  return { ...r, configs, plataformas: r.proyecto ? plataformasDe(r.proyecto) : [] }
 })
 
 // Dónde puede correr el proyecto: móviles enchufados, emuladores ya arrancados,
@@ -1852,6 +1860,9 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
     return { ok: false, esFlutter: true, via: bin.via, proyecto, error: String(devs.reason?.message || '').slice(0, 300) }
   }
   const lista = emus.status === 'fulfilled' ? parseEmuladores(emus.value) : []
+  // solo lo que el proyecto puede compilar: ofrecer Chrome a una app solo
+  // android+ios es regalar una compilación fallida
+  const plataformas = plataformasDe(proyecto)
   // las mismas configuraciones que ofrece el editor: flavor, dart-defines, entry
   let configs = []
   try {
@@ -1863,9 +1874,13 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
     via: bin.via,
     proyecto,
     proyectos,
-    devices: ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : []),
+    plataformas,
+    devices: filtraPorPlataforma(
+      ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : []),
+      plataformas
+    ),
     // cuáles ya están arriba: ahí el botón no es «lanzar» sino «cerrar»
-    emulators: marcaEmuladoresCorriendo(lista, await emuladoresArriba()),
+    emulators: filtraPorPlataforma(marcaEmuladoresCorriendo(lista, await emuladoresArriba()), plataformas),
     configs,
   }
 })
