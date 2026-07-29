@@ -1836,14 +1836,21 @@ ipcMain.handle('flutter:project', (_e, cwd) => {
     } catch {}
   }
   const plataformas = r.proyecto ? plataformasDe(r.proyecto) : []
-  // con el listado de la máquina ya en memoria, el cambio de proyecto solo
-  // re-filtra: no hace falta volver a preguntarle a flutter
-  const listas = cacheMaquina
+  // Con el listado de la máquina ya en memoria, el cambio de proyecto solo
+  // re-filtra: no hace falta volver a preguntarle a flutter.
+  //
+  // Sin proyecto Flutter no se ofrece NADA. Esto es distinto de un proyecto
+  // Flutter con una estructura que no reconocemos, donde sí se muestra todo:
+  // ahí filtrar dejaría la lista vacía por un falso negativo, pero aquí la lista
+  // vacía es la respuesta correcta —no hay dónde correr—. Confundir los dos
+  // casos hacía que al pasar a un repo que no es Flutter siguieran saliendo
+  // todos los dispositivos.
+  const listas = r.esFlutter
     ? {
-        devices: filtraPorPlataforma(cacheMaquina.devices, plataformas),
-        emulators: filtraPorPlataforma(cacheMaquina.emulators, plataformas),
+        devices: filtraPorPlataforma(cacheMaquina?.devices || [], plataformas),
+        emulators: filtraPorPlataforma(cacheMaquina?.emulators || [], plataformas),
       }
-    : {}
+    : { devices: [], emulators: [] }
   return { ...r, configs, plataformas, ...listas }
 })
 

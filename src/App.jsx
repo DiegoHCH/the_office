@@ -1765,6 +1765,9 @@ export default function App() {
       // la configuración elegida era del proyecto anterior: si allá no existe, fuera
       const nombres = (r?.configs || []).map((c) => c.name)
       setConfig((c) => (c && nombres.includes(c) ? c : ''))
+      // el proceso principal SIEMPRE manda las listas ya filtradas para este
+      // proyecto (vacías si no es Flutter): tomarlas tal cual, porque conservar
+      // las anteriores dejaba a la vista los dispositivos del proyecto viejo
       const parcheProyecto = (prev) =>
         prev
           ? {
@@ -1773,17 +1776,23 @@ export default function App() {
               proyectos: r?.proyectos || [],
               configs: r?.configs || [],
               plataformas: r?.plataformas || [],
-              // el proceso principal las devuelve ya filtradas para este proyecto:
-              // un proyecto solo web no debe seguir mostrando los móviles del anterior
-              ...(r?.devices ? { devices: r.devices, emulators: r.emulators || [] } : {}),
+              devices: r?.devices || [],
+              emulators: r?.emulators || [],
             }
           : prev
       setTargets(parcheProyecto)
+      if (!r?.esFlutter) {
+        // sin proyecto Flutter el botón desaparece: el panel no puede quedarse
+        // abierto y huérfano, y el vigía no tiene nada que vigilar
+        setDevicesView(null)
+        window.oficina?.flutterWatch?.({ on: false })
+        return
+      }
       // si el panel está abierto, se actualiza en el sitio en vez de quedarse
       // mostrando el proyecto anterior hasta cerrarlo y volver a abrirlo
       setDevicesView((v) => (v && !v.loading ? parcheProyecto(v) : v))
       window.oficina?.flutterWatchCwd?.(project)
-      if (r?.esFlutter) {
+      {
         // revalidar por detrás: pudo cambiarse el cable o el SDK del proyecto
         timer = setTimeout(() => {
           window.oficina?.flutterTargets?.(project).then((tg) => {
