@@ -39,6 +39,32 @@
   --syn-fn: #86bdf2;
   --syn-type: #d8b4f0;
   --syn-attr: #f0b8a8;
+
+  /* Sobre la escena 3D. La sala se renderiza oscura en los dos temas, así que lo
+     que flota encima lleva su propio juego de tokens que NO se invierte: estos
+     se definen solo aquí y los bloques de tema claro no los tocan.
+
+     Antes esos overlays mezclaban un fondo oscuro fijo con texto en --ink, y en
+     tema claro quedaba texto oscuro sobre pastilla oscura: los nombres y las
+     burbujas de los agentes salían en blanco y los valores del monitor no se
+     leían. */
+  --scene-surface: rgba(14, 20, 23, 0.94);
+  --scene-surface-soft: rgba(14, 20, 23, 0.86);
+  --scene-line: #2c3d45;
+  --scene-track: #22303a;
+  --scene-ink: #e9f1ee;
+  --scene-ink-2: #c8d6d1;
+  --scene-muted: #93a6a1;
+  --scene-muted-2: #7e948f;
+  --scene-accent: #2dd4bf;
+  --scene-accent-2: #7ff0dd;
+  --scene-danger: #e05252;
+  --scene-warn: #e08a4a;
+  --scene-claude: #da7756;
+  --scene-violet: #c4b5fd;
+  --scene-accent-soft: #7fd8c8;
+  --scene-muted-3: #6b7f79;
+  --scene-bg: #0e1417;
 }
 /* el sistema manda mientras el usuario no elija (Auto) */
 @media (prefers-color-scheme: light) {
@@ -469,7 +495,7 @@ body {
 }
 .msg.assistant {
   align-self: flex-start; max-width: 100%;
-  background: rgba(18, 26, 31, 0.92); color: var(--ink);
+  background: var(--scene-surface-soft); color: var(--ink);
   border: 1px solid var(--line); border-bottom-left-radius: 6px;
 }
 .msg.system {
@@ -509,7 +535,7 @@ body {
 
 /* badge ⏳ de mensajes en cola, bajo el nametag */
 .queue-badge {
-  background: rgba(245, 165, 36, 0.16); color: var(--warn);
+  background: rgba(245, 165, 36, 0.16); color: var(--scene-warn);
   border: 1px solid rgba(245, 165, 36, 0.7); border-radius: 999px;
   padding: 1px 8px; font-size: 10px; font-weight: 700;
   font-family: ui-monospace, "SF Mono", Menlo, monospace; white-space: nowrap;
@@ -517,19 +543,19 @@ body {
 
 /* checklist del agente (TodoWrite) mientras trabaja */
 .todo-card {
-  background: rgba(14, 20, 23, 0.92); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--scene-surface-soft); border: 1px solid var(--scene-line); border-radius: 12px;
   padding: 6px 10px; font-size: 10px; text-align: left; max-width: 220px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   box-shadow: 0 4px 14px rgba(4, 10, 13, 0.4);
 }
-.todo-head { color: var(--accent-2); font-weight: 700; margin-bottom: 3px; }
-.todo-row { color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.6; }
-.todo-row.completed { color: var(--muted-3); text-decoration: line-through; }
-.todo-row.in_progress { color: var(--ink); font-weight: 600; }
+.todo-head { color: var(--scene-accent-soft); font-weight: 700; margin-bottom: 3px; }
+.todo-row { color: var(--scene-ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: 1.6; }
+.todo-row.completed { color: var(--scene-muted-3); text-decoration: line-through; }
+.todo-row.in_progress { color: var(--scene-ink); font-weight: 600; }
 
 /* etiqueta del ayudante (subagente Task) */
 .helper-tag {
-  background: rgba(139, 92, 246, 0.16); color: var(--violet);
+  background: rgba(139, 92, 246, 0.16); color: var(--scene-violet);
   border: 1px dashed rgba(139, 92, 246, 0.7); border-radius: 999px;
   padding: 1px 8px; font-size: 9.5px; font-weight: 700; white-space: nowrap;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -537,7 +563,7 @@ body {
 
 /* etiqueta de nombre bajo cada personaje */
 .nametag {
-  background: rgba(14, 20, 23, 0.85); color: var(--ink);
+  background: var(--scene-surface-soft); color: var(--scene-ink);
   border: 1px solid; border-radius: 999px;
   padding: 1px 8px; font-size: 10px; letter-spacing: 0.04em;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -574,7 +600,7 @@ body {
 .chat-filter {
   position: sticky; top: 0; z-index: 2; align-self: center; flex: none;
   display: flex; align-items: center; gap: 9px;
-  background: rgba(14, 20, 23, 0.95); border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--scene-surface); border: 1px solid var(--accent); border-radius: 999px;
   padding: 6px 14px; font-size: 11.5px; color: var(--accent-3);
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -595,17 +621,17 @@ body {
 /* globo de estado sobre el personaje */
 .bubble3d {
   position: relative;
-  background: rgba(14, 20, 23, 0.94); color: var(--ink);
-  border: 1px solid var(--line-2); border-radius: 12px;
+  background: var(--scene-surface); color: var(--scene-ink);
+  border: 1px solid var(--scene-line); border-radius: 12px;
   padding: 6px 12px; font-size: 12px; white-space: nowrap;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   box-shadow: 0 4px 14px rgba(10, 20, 25, 0.35);
 }
 .bubble3d::after {
   content: ""; position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
-  border: 7px solid transparent; border-top-color: rgba(14, 20, 23, 0.94); border-bottom: none;
+  border: 7px solid transparent; border-top-color: var(--scene-surface); border-bottom: none;
 }
-.bubble3d.busy { border-color: var(--accent); animation: bubble-pulse 1.6s ease-in-out infinite; }
+.bubble3d.busy { border-color: var(--scene-accent); animation: bubble-pulse 1.6s ease-in-out infinite; }
 @keyframes bubble-pulse {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-3px); }
@@ -736,7 +762,7 @@ select.squad-model {
 }
 .stopchip {
   display: inline-flex; align-items: center; gap: 5px;
-  background: rgba(14, 20, 23, 0.92); color: var(--danger);
+  background: var(--scene-surface-soft); color: var(--scene-danger);
   border: 1px solid rgba(224, 82, 82, 0.55); border-radius: 999px;
   padding: 6px 13px; font-size: 12px; font-weight: 600; cursor: pointer;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
@@ -748,8 +774,8 @@ select.squad-model {
 .toast {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
   max-width: min(90%, 560px);
-  background: rgba(14, 20, 23, 0.94); color: var(--ink);
-  border: 1px solid var(--accent); border-radius: 999px;
+  background: var(--scene-surface); color: var(--scene-ink);
+  border: 1px solid var(--scene-accent); border-radius: 999px;
   padding: 9px 18px; font-size: 12.5px; text-align: center;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   box-shadow: 0 6px 20px rgba(10, 20, 25, 0.35);
@@ -949,7 +975,7 @@ select.squad-model {
   display: flex; flex-direction: column; gap: 10px;
 }
 .sysmon {
-  background: rgba(14, 20, 23, 0.88); border: 1px solid var(--line); border-radius: 16px;
+  background: var(--scene-surface-soft); border: 1px solid var(--scene-line); border-radius: 16px;
   padding: 10px 12px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   backdrop-filter: blur(4px);
@@ -957,23 +983,23 @@ select.squad-model {
 .mon-title {
   display: flex; align-items: center; gap: 6px;
   font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
-  color: var(--muted); margin: 6px 0 5px;
+  color: var(--scene-muted); margin: 6px 0 5px;
 }
 /* el valor del modelo NO hereda el width 42px de las etiquetas de .mon-row:
    ocupa el resto de la fila en una sola línea (con elipsis si no cabe) */
 .mon-row span.mon-model {
-  color: var(--claude); font-size: 10.5px; font-weight: 600;
+  color: var(--scene-claude); font-size: 10.5px; font-weight: 600;
   width: auto; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .mon-title:first-child { margin-top: 0; }
-.mon-row { display: flex; align-items: center; gap: 7px; margin: 4px 0; font-size: 11px; color: var(--ink-3); }
+.mon-row { display: flex; align-items: center; gap: 7px; margin: 4px 0; font-size: 11px; color: var(--scene-ink-2); }
 .mon-row span { width: 42px; flex: none; }
-.mon-row b { font-size: 10.5px; color: var(--ink); white-space: nowrap; }
-.mon-app { color: var(--muted-2); font-size: 10.5px; }
-.mon-bar { flex: 1; height: 5px; background: var(--surface-4); border-radius: 3px; overflow: hidden; }
-.mon-bar div { height: 100%; background: var(--warn-2); border-radius: 3px; transition: width 0.6s ease; }
-.mon-bar div.hot { background: var(--danger); }
-.mon-sub { font-size: 9.5px; color: var(--muted-2); margin: -2px 0 4px 49px; }
+.mon-row b { font-size: 10.5px; color: var(--scene-ink); white-space: nowrap; }
+.mon-app { color: var(--scene-muted-2); font-size: 10.5px; }
+.mon-bar { flex: 1; height: 5px; background: var(--scene-track); border-radius: 3px; overflow: hidden; }
+.mon-bar div { height: 100%; background: var(--scene-warn); border-radius: 3px; transition: width 0.6s ease; }
+.mon-bar div.hot { background: var(--scene-danger); }
+.mon-sub { font-size: 9.5px; color: var(--scene-muted-2); margin: -2px 0 4px 49px; }
 .mon-nodata { margin: 2px 0 1px; font-style: italic; }
 
 /* chip de herramienta en uso, flotando sobre la escena */
@@ -981,8 +1007,8 @@ select.squad-model {
   position: absolute; left: 16px; top: 280px; z-index: 3;
   display: flex; align-items: center; gap: 8px;
   padding: 8px 14px; border-radius: 999px;
-  background: rgba(18, 26, 31, 0.92); color: var(--ink);
-  border: 1px solid var(--accent); font-size: 13px;
+  background: var(--scene-surface-soft); color: var(--scene-ink);
+  border: 1px solid var(--scene-accent); font-size: 13px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
   box-shadow: 0 4px 16px rgba(10, 20, 25, 0.3);
   animation: chip-in 0.25s ease-out;
@@ -1127,7 +1153,7 @@ select.squad-model {
 }
 
 /* intro cinemática (#112): cubre la app hasta que termina */
-.intro { position: fixed; inset: 0; z-index: 20; background: var(--bg); }
+.intro { position: fixed; inset: 0; z-index: 20; background: var(--scene-bg); }
 /* al cruzar la puerta la pantalla funde a NEGRO y de ahí aparece la oficina */
 .intro-flash {
   position: absolute; inset: 0; background: #000000; pointer-events: none;
@@ -1135,7 +1161,7 @@ select.squad-model {
 }
 .intro-skip {
   position: absolute; right: 20px; bottom: 20px; z-index: 21;
-  background: rgba(14, 20, 23, 0.55); color: var(--ink); border: 1px solid rgba(233, 241, 238, 0.35);
+  background: rgba(14, 20, 23, 0.55); color: var(--scene-ink); border: 1px solid rgba(233, 241, 238, 0.35);
   border-radius: 999px; padding: 8px 18px; font-size: 12.5px; cursor: pointer;
   backdrop-filter: blur(6px); font-family: inherit;
 }
