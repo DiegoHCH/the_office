@@ -61,6 +61,7 @@ export default function App() {
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [devicesView, setDevicesView] = useState(null) // null | { loading } | { devices, emulators, error }
   const [flutterProj, setFlutterProj] = useState(null) // { esFlutter, proyecto, proyectos } del proyecto activo
+  const [targets, setTargets] = useState(null) // último listado conocido, precargado al elegir proyecto
   // la app que está corriendo: null | { fase, device, appId, progreso, url, error }
   const [run, setRun] = useState(null)
   const [runLogs, setRunLogs] = useState([])
@@ -1731,10 +1732,31 @@ export default function App() {
   // ── Dónde correr la app: solo aparece si hay un proyecto Flutter a la vista ─
   useEffect(() => {
     let vivo = true
-    if (!project) return setFlutterProj(null)
-    window.oficina?.flutterProject?.(project).then((r) => vivo && setFlutterProj(r || null))
+    let timer = null
+    if (!project) {
+      setFlutterProj(null)
+      setTargets(null)
+      return
+    }
+    window.oficina?.flutterProject?.(project).then((r) => {
+      if (!vivo) return
+      setFlutterProj(r || null)
+      setTargets(null) // el listado que hubiera era de otro proyecto
+      // Precarga en segundo plano: los dos comandos de flutter tardan lo suyo
+      // (arrancan el toolchain), así que se pagan mientras el usuario hace otra
+      // cosa y el panel abre con datos en vez de con un spinner.
+      // con un margen para no pelear CPU con el arranque de la escena 3D
+      if (r?.esFlutter) {
+        timer = setTimeout(() => {
+          window.oficina?.flutterTargets?.(project).then((tg) => {
+            if (vivo && tg?.ok) setTargets(tg)
+          })
+        }, 2500)
+      }
+    })
     return () => {
       vivo = false
+      clearTimeout(timer)
     }
   }, [project])
 
@@ -1794,15 +1816,24 @@ export default function App() {
     // apagar tarda un momento en reflejarse en la lista de dispositivos
     await new Promise((r) => setTimeout(r, 2500))
     const t2 = await window.oficina?.flutterTargets?.(project)
+    if (t2?.ok) setTargets(t2)
     setDevicesView((v) => (v ? (t2?.ok ? t2 : { ...v, cerrando: null }) : v))
   }
 
   const openDevices = async () => {
     if (devicesView) return setDevicesView(null)
-    setDevicesView({ loading: true })
+    // con la precarga hecha se abre con datos y se revalida por detrás; sin ella
+    // (proyecto recién elegido) toca esperar
+    setDevicesView(targets ? { ...targets, refrescando: true } : { loading: true })
     const res = await window.oficina?.flutterTargets?.(project)
-    if (!res?.ok) setDevicesView({ error: res?.error || t('dev.none') })
-    else setDevicesView(res)
+    if (res?.ok) {
+      setTargets(res)
+      setDevicesView((v) => (v ? res : v))
+    } else {
+      setDevicesView((v) =>
+        v?.devices ? { ...v, refrescando: false, error: res?.error || null } : { error: res?.error || t('dev.none') }
+      )
+    }
   }
 
   // Lanzar un emulador. El comando vuelve al disparar, no cuando el emulador ya
@@ -1820,6 +1851,7 @@ export default function App() {
       await new Promise((r) => setTimeout(r, 4000))
       const t2 = await window.oficina?.flutterTargets?.(project)
       if (!t2?.ok) continue
+      setTargets(t2)
       const nuevo = t2.devices.find((d) => !antes.has(d.id))
       setDevicesView((v) => (v ? { ...t2, lanzando: nuevo ? null : em.id } : v))
       if (nuevo) {
@@ -3344,8 +3376,14 @@ export default function App() {
                   project: (devicesView.proyecto || project || '').split('/').pop() || t('panel.theProject'),
                 })}
               </b>
-              <button type="button" className="iconbtn" onClick={openDevices} title={t('dev.refresh')} disabled={devicesView.loading}>
-                <IconRefresh size={15} />
+              <button
+                type="button"
+                className="iconbtn"
+                onClick={openDevices}
+                title={t('dev.refresh')}
+                disabled={devicesView.loading || devicesView.refrescando}
+              >
+                {devicesView.refrescando ? <IconSpinner size={14} /> : <IconRefresh size={15} />}
               </button>
               <button onClick={() => setDevicesView(null)}>
                 <IconClose size={16} />
