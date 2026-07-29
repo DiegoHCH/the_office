@@ -1715,6 +1715,29 @@ ipcMain.handle('mcp:remove', async (_e, { profile, name }) => {
 // Electron no hereda el PATH del shell, y en un proyecto con fvm el SDK que vale
 // es el que fija el proyecto, no el global. `.fvm/flutter_sdk` es un symlink al
 // SDK pinneado: es la vía más directa y no depende de que `fvm` esté en el PATH.
+// Último recurso para encontrar un binario: preguntarle al shell de login del
+// usuario. Una app de GUI en macOS no hereda su PATH, y ahí es donde se declaran
+// las instalaciones que no están en las rutas típicas —asdf, mise, puro, o una
+// carpeta propia—. Es lento (arranca un shell), así que se cachea.
+const cacheShell = new Map()
+async function buscaEnShell(bin) {
+  if (cacheShell.has(bin)) return cacheShell.get(bin)
+  let ruta = null
+  try {
+    const shell = process.env.SHELL || '/bin/zsh'
+    const out = await execFileP(shell, ['-lic', `command -v ${bin}`], { timeout: 20000 })
+    // puede venir con ruido del propio shell: vale la última línea que sea ruta
+    const cand = out
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('/'))
+      .pop()
+    if (cand && fs.existsSync(cand)) ruta = cand
+  } catch {}
+  cacheShell.set(bin, ruta)
+  return ruta
+}
+
 const FVM_CANDIDATES = ['/opt/homebrew/bin/fvm', '/usr/local/bin/fvm']
 const FLUTTER_CANDIDATES = () => [
   '/opt/homebrew/bin/flutter',
@@ -1724,7 +1747,7 @@ const FLUTTER_CANDIDATES = () => [
   path.join(app.getPath('home'), 'fvm', 'default', 'bin', 'flutter'),
 ]
 
-function flutterCmd(cwd) {
+async function flutterCmd(cwd) {
   const conFvm = fs.existsSync(path.join(cwd, '.fvmrc')) || fs.existsSync(path.join(cwd, '.fvm'))
   // 1) el SDK que fija el proyecto, invocado directo
   const link = path.join(cwd, '.fvm', 'flutter_sdk', 'bin', 'flutter')
@@ -1737,11 +1760,11 @@ function flutterCmd(cwd) {
   } catch {}
   // 3) que lo resuelva fvm
   if (conFvm) {
-    const fvm = FVM_CANDIDATES.find((p) => fs.existsSync(p))
+    const fvm = FVM_CANDIDATES.find((p) => fs.existsSync(p)) || (await buscaEnShell('fvm'))
     if (fvm) return { cmd: fvm, base: ['flutter'], via: 'fvm' }
   }
-  // 4) el flutter del sistema
-  const delSistema = FLUTTER_CANDIDATES().find((p) => fs.existsSync(p))
+  // 4) el flutter del sistema, y si no está donde se espera, se le pregunta al shell
+  const delSistema = FLUTTER_CANDIDATES().find((p) => fs.existsSync(p)) || (await buscaEnShell('flutter'))
   if (delSistema) return { cmd: delSistema, base: [], via: 'flutter del sistema' }
   return null
 }
@@ -1795,12 +1818,15 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
   const { esFlutter, proyecto, proyectos } = resuelveProyectoFlutter(cwd)
   if (!esFlutter) return { ok: true, esFlutter: false, devices: [], emulators: [] }
 
-  const bin = flutterCmd(proyecto)
+  const bin = await flutterCmd(proyecto)
   if (!bin) {
     return {
       ok: false,
       esFlutter: true,
-      error: 'No se encontró Flutter. Si el proyecto usa fvm, corre `fvm install` una vez en su carpeta.',
+      error:
+        'No se encontró Flutter. Se buscó el SDK del proyecto (.fvm/flutter_sdk), la versión de .fvmrc, ' +
+        'fvm y flutter en las rutas típicas, y en el PATH de tu shell de login. Si el proyecto usa fvm, ' +
+        'corre `fvm install` una vez en su carpeta.',
     }
   }
   const correr = (args) =>
@@ -1838,7 +1864,7 @@ ipcMain.handle('flutter:launchEmulator', async (_e, { cwd, id, cold } = {}) => {
   if (!cwd || !id) return { ok: false, error: 'Falta el proyecto o el emulador' }
   const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
   if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
-  const bin = flutterCmd(proyecto)
+  const bin = await flutterCmd(proyecto)
   if (!bin) return { ok: false, error: 'No se encontró Flutter' }
   const args = [...bin.base, 'emulators', '--launch', id]
   if (cold) args.push('--cold') // arranque en frío, solo Android
@@ -1859,7 +1885,7 @@ const ADB_CANDIDATES = () => [
   '/opt/homebrew/bin/adb',
   '/usr/local/bin/adb',
 ]
-const adbBin = () => ADB_CANDIDATES().find((p) => fs.existsSync(p)) || null
+const adbBin = async () => ADB_CANDIDATES().find((p) => fs.existsSync(p)) || (await buscaEnShell('adb'))
 
 async function emuladoresArriba() {
   const estado = { ios: false, android: {} }
@@ -1868,7 +1894,7 @@ async function emuladoresArriba() {
     const devs = JSON.parse(out).devices || {}
     estado.ios = Object.values(devs).some((lista) => (lista || []).some((d) => d.state === 'Booted'))
   } catch {}
-  const adb = adbBin()
+  const adb = await adbBin()
   if (adb) {
     try {
       for (const id of idsEmuladorAdb(await execFileP(adb, ['devices'], { timeout: 15000 }))) {
@@ -1895,7 +1921,7 @@ ipcMain.handle('flutter:stopEmulator', async (_e, { platform, deviceId } = {}) =
       } catch {}
       return { ok: true }
     }
-    const adb = adbBin()
+    const adb = await adbBin()
     if (!adb) return { ok: false, error: 'No se encontró adb para cerrar el emulador' }
     if (!deviceId) return { ok: false, error: 'No se supo qué emulador cerrar' }
     await execFileP(adb, ['-s', deviceId, 'emu', 'kill'], { timeout: 20000 })
@@ -1937,7 +1963,7 @@ ipcMain.handle('flutter:run', async (_e, { cwd, deviceId, config, platform, devi
   if (ocupa) return { ok: false, mismaPlataforma: true, device: ocupa.device }
   const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
   if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
-  const bin = flutterCmd(proyecto)
+  const bin = await flutterCmd(proyecto)
   if (!bin) return { ok: false, error: 'No se encontró Flutter' }
 
   // la configuración elegida aporta flavor, dart-defines y entry point
@@ -2117,7 +2143,7 @@ ipcMain.handle('flutter:interpretaCorrer', async (_e, { cwd, texto } = {}) => {
   if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
   const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
   if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
-  const bin = flutterCmd(proyecto)
+  const bin = await flutterCmd(proyecto)
   if (!bin) return { ok: false, error: 'No se encontró Flutter' }
   let configs = []
   try {
