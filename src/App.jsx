@@ -1744,27 +1744,42 @@ export default function App() {
     if (findOpen && findQuery.trim()) gotoHit(0)
   }, [findQuery]) // al escribir, salta a la primera coincidencia
 
-  // ── Dónde correr la app: solo aparece si hay un proyecto Flutter a la vista ─
+  // ── Dónde correr la app ────────────────────────────────────────────────────
+  // Los dispositivos y los emuladores son de la MÁQUINA, no del proyecto: al
+  // cambiar de carpeta o de perfil se conservan y solo se recalcula lo que sí
+  // depende del proyecto —cuál es y qué configuraciones ofrece—, que se lee del
+  // disco al instante. Antes se tiraba todo y había que esperar a que
+  // `flutter devices` volviera a arrancar el toolchain (~8s).
   useEffect(() => {
     let vivo = true
     let timer = null
     if (!project) {
       setFlutterProj(null)
       setTargets(null)
+      setDevicesView(null)
       return
     }
     window.oficina?.flutterProject?.(project).then((r) => {
       if (!vivo) return
       setFlutterProj(r || null)
-      setTargets(null) // el listado que hubiera era de otro proyecto
-      // Precarga en segundo plano: los dos comandos de flutter tardan lo suyo
-      // (arrancan el toolchain), así que se pagan mientras el usuario hace otra
-      // cosa y el panel abre con datos en vez de con un spinner.
-      // con un margen para no pelear CPU con el arranque de la escena 3D
+      // la configuración elegida era del proyecto anterior: si allá no existe, fuera
+      const nombres = (r?.configs || []).map((c) => c.name)
+      setConfig((c) => (c && nombres.includes(c) ? c : ''))
+      const parcheProyecto = (prev) =>
+        prev
+          ? { ...prev, proyecto: r?.proyecto || null, proyectos: r?.proyectos || [], configs: r?.configs || [] }
+          : prev
+      setTargets(parcheProyecto)
+      // si el panel está abierto, se actualiza en el sitio en vez de quedarse
+      // mostrando el proyecto anterior hasta cerrarlo y volver a abrirlo
+      setDevicesView((v) => (v && !v.loading ? parcheProyecto(v) : v))
       if (r?.esFlutter) {
+        // revalidar por detrás: pudo cambiarse el cable o el SDK del proyecto
         timer = setTimeout(() => {
           window.oficina?.flutterTargets?.(project).then((tg) => {
-            if (vivo && tg?.ok) setTargets(tg)
+            if (!vivo || !tg?.ok) return
+            setTargets(tg)
+            setDevicesView((v) => (v && !v.loading ? tg : v))
           })
         }, 2500)
       }
@@ -1773,7 +1788,7 @@ export default function App() {
       vivo = false
       clearTimeout(timer)
     }
-  }, [project])
+  }, [project, profile])
 
   // Eventos del `flutter run`: progreso de compilación, arranque, logs y parada.
   useEffect(() => {
@@ -1894,20 +1909,32 @@ export default function App() {
     setDevicesView((v) => (v ? (t2?.ok ? t2 : { ...v, cerrando: null }) : v))
   }
 
+  // Refrescar NO es lo mismo que abrir: reutilizar el toggle cerraba el panel al
+  // pulsar el botón de refrescar. Y si la consulta falla, el spinner tiene que
+  // apagarse igual o se queda girando para siempre.
+  const refrescaDevices = async () => {
+    setDevicesView((v) => (v ? { ...v, refrescando: true, error: null } : v))
+    try {
+      const res = await window.oficina?.flutterTargets?.(project)
+      if (res?.ok) {
+        setTargets(res)
+        setDevicesView((v) => (v ? res : v))
+      } else {
+        setDevicesView((v) =>
+          v?.devices ? { ...v, refrescando: false, error: res?.error || null } : { error: res?.error || t('dev.none') }
+        )
+      }
+    } catch (err) {
+      setDevicesView((v) => (v ? { ...v, refrescando: false, error: String(err?.message || err).slice(0, 200) } : v))
+    }
+  }
+
   const openDevices = async () => {
     if (devicesView) return setDevicesView(null)
     // con la precarga hecha se abre con datos y se revalida por detrás; sin ella
     // (proyecto recién elegido) toca esperar
     setDevicesView(targets ? { ...targets, refrescando: true } : { loading: true })
-    const res = await window.oficina?.flutterTargets?.(project)
-    if (res?.ok) {
-      setTargets(res)
-      setDevicesView((v) => (v ? res : v))
-    } else {
-      setDevicesView((v) =>
-        v?.devices ? { ...v, refrescando: false, error: res?.error || null } : { error: res?.error || t('dev.none') }
-      )
-    }
+    await refrescaDevices()
   }
 
   // Lanzar un emulador. El comando vuelve al disparar, no cuando el emulador ya
@@ -3571,7 +3598,7 @@ export default function App() {
               <button
                 type="button"
                 className="iconbtn"
-                onClick={openDevices}
+                onClick={refrescaDevices}
                 title={t('dev.refresh')}
                 disabled={devicesView.loading || devicesView.refrescando}
               >

@@ -1808,8 +1808,21 @@ function resuelveProyectoFlutter(cwd) {
   return { esFlutter: proyectos.length > 0, proyecto: proyectos[0] || null, proyectos }
 }
 
-// Chequeo instantáneo para saber si toca mostrar el control de ejecución.
-ipcMain.handle('flutter:project', (_e, cwd) => (cwd ? resuelveProyectoFlutter(cwd) : { esFlutter: false, proyectos: [] }))
+// Chequeo instantáneo (solo disco) de lo que SÍ depende del proyecto: cuál es y
+// qué configuraciones ofrece. Los dispositivos y emuladores no dependen del
+// proyecto —son de la máquina— así que no hace falta volver a descubrirlos al
+// cambiar de carpeta.
+ipcMain.handle('flutter:project', (_e, cwd) => {
+  if (!cwd) return { esFlutter: false, proyectos: [], configs: [] }
+  const r = resuelveProyectoFlutter(cwd)
+  let configs = []
+  if (r.proyecto) {
+    try {
+      configs = parseLaunchConfigs(fs.readFileSync(path.join(r.proyecto, '.vscode', 'launch.json'), 'utf8'))
+    } catch {}
+  }
+  return { ...r, configs }
+})
 
 // Dónde puede correr el proyecto: móviles enchufados, emuladores ya arrancados,
 // escritorio y web, más los emuladores que se pueden lanzar.
