@@ -18,6 +18,12 @@ const {
   buscaProyectosFlutter,
   parseEmuladores,
   resultadoLanzarEmulador,
+  parseLineaDaemon,
+  peticionRecarga,
+  comoCancelar,
+  resultadoRecarga,
+  aplicaProgreso,
+  progresoVisible,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -1828,6 +1834,145 @@ ipcMain.handle('flutter:launchEmulator', async (_e, { cwd, id, cold } = {}) => {
     // aquí solo caen los fallos de verdad del proceso (no encontrado, timeout…)
     return { ok: false, error: String(err.message || 'No se pudo lanzar el emulador').slice(0, 250) }
   }
+})
+
+// ── Correr el proyecto: `flutter run --machine` ───────────────────────────────
+// Un solo proceso a la vez: dos `flutter run` sobre el mismo dispositivo se
+// pelean. Habla el dominio `app` del daemon por stdout/stdin, así que de aquí
+// salen el progreso de compilación, los logs de la app y las respuestas a los
+// hot reload; y hacia allá van las peticiones.
+let corriendo = null // { child, appId, deviceId, proyecto, pendientes, seq, progreso, parando }
+
+const avisaFlutter = (payload) => {
+  if (win && !win.isDestroyed()) win.webContents.send('flutter:event', payload)
+}
+
+function cierraCorrida(motivo) {
+  if (!corriendo) return
+  for (const [, pend] of corriendo.pendientes) pend({ ok: false, error: 'La app se detuvo' })
+  corriendo = null
+  avisaFlutter({ kind: 'run-stop', motivo: motivo || null })
+}
+
+ipcMain.handle('flutter:run', async (_e, { cwd, deviceId } = {}) => {
+  if (corriendo) return { ok: false, error: 'Ya hay una app corriendo' }
+  if (!cwd || !deviceId) return { ok: false, error: 'Falta el proyecto o el dispositivo' }
+  const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
+  if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
+  const bin = flutterCmd(proyecto)
+  if (!bin) return { ok: false, error: 'No se encontró Flutter' }
+
+  const child = spawn(bin.cmd, [...bin.base, 'run', '--machine', '-d', deviceId], {
+    cwd: proyecto,
+    env: sanitizeEnv(process.env, { home: app.getPath('home') }),
+  })
+  corriendo = { child, appId: null, deviceId, proyecto, pendientes: new Map(), seq: 0, progreso: {}, parando: false }
+
+  let resto = ''
+  const alLeer = (buf) => {
+    resto += buf.toString()
+    const lineas = resto.split('\n')
+    resto = lineas.pop() // la última puede venir cortada
+    for (const linea of lineas) {
+      const msg = parseLineaDaemon(linea)
+      if (!msg || !corriendo) continue
+      if (msg.tipo === 'log') {
+        avisaFlutter({ kind: 'run-log', texto: msg.texto })
+      } else if (msg.tipo === 'respuesta') {
+        const pend = corriendo.pendientes.get(msg.id)
+        if (pend) {
+          corriendo.pendientes.delete(msg.id)
+          pend(resultadoRecarga(msg.result, msg.error))
+        }
+      } else if (msg.evento === 'app.start') {
+        corriendo.appId = msg.params.appId || null
+        avisaFlutter({ kind: 'run-start', appId: corriendo.appId, deviceId })
+      } else if (msg.evento === 'app.started') {
+        avisaFlutter({ kind: 'run-started' })
+      } else if (msg.evento === 'app.progress') {
+        corriendo.progreso = aplicaProgreso(corriendo.progreso, msg.params)
+        avisaFlutter({ kind: 'run-progress', progreso: progresoVisible(corriendo.progreso) })
+      } else if (msg.evento === 'app.webLaunchUrl' || msg.evento === 'app.debugPort') {
+        avisaFlutter({ kind: 'run-url', url: msg.params.url || msg.params.wsUri || null })
+      } else if (msg.evento === 'app.stop') {
+        cierraCorrida('app.stop')
+      }
+    }
+  }
+  child.stdout.on('data', alLeer)
+  child.stderr.on('data', (b) => avisaFlutter({ kind: 'run-log', texto: b.toString().trimEnd() }))
+  child.on('error', (err) => {
+    avisaFlutter({ kind: 'run-error', error: String(err.message || err).slice(0, 300) })
+    cierraCorrida('error')
+  })
+  child.on('close', (code) => {
+    // un código != 0 sin haber pedido parar es un fallo de compilación o de arranque
+    if (corriendo && !corriendo.parando && code) avisaFlutter({ kind: 'run-error', error: `flutter run terminó con código ${code}` })
+    cierraCorrida('cerrado')
+  })
+  return { ok: true, proyecto, deviceId }
+})
+
+// Hot reload (completa=false) y hot restart (completa=true): el mismo método del
+// daemon con un flag distinto. Se espera la respuesta para poder decir si falló
+// —un error de compilación devuelve code != 0 con el mensaje del analizador—.
+ipcMain.handle('flutter:reload', async (_e, { completa } = {}) => {
+  if (!corriendo) return { ok: false, error: 'No hay ninguna app corriendo' }
+  if (!corriendo.appId) return { ok: false, error: 'La app todavía está compilando' }
+  const id = ++corriendo.seq
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      corriendo?.pendientes.delete(id)
+      resolve({ ok: false, error: 'El hot reload no respondió' })
+    }, 120000)
+    corriendo.pendientes.set(id, (r) => {
+      clearTimeout(timer)
+      resolve(r)
+    })
+    try {
+      corriendo.child.stdin.write(peticionRecarga(id, corriendo.appId, completa))
+    } catch (err) {
+      clearTimeout(timer)
+      corriendo?.pendientes.delete(id)
+      resolve({ ok: false, error: String(err.message || 'No se pudo escribirle al proceso') })
+    }
+  })
+})
+
+// Detener. Dos rutas: con appId se pide app.stop y la app se cierra ordenada; si
+// todavía compila no hay appId —y es justo cuando más se quiere cancelar, un
+// build de iOS son minutos— así que se mata el proceso.
+ipcMain.handle('flutter:stop', async () => {
+  if (!corriendo) return { ok: true }
+  corriendo.parando = true
+  const ruta = comoCancelar(corriendo.appId)
+  if (ruta === 'app.stop') {
+    const id = ++corriendo.seq
+    try {
+      corriendo.child.stdin.write(mensajeDaemonStop(id, corriendo.appId))
+    } catch {}
+    // si no se cierra solo, se fuerza
+    const child = corriendo.child
+    setTimeout(() => {
+      try {
+        if (child && !child.killed) child.kill('SIGTERM')
+      } catch {}
+    }, 6000)
+  } else {
+    try {
+      corriendo.child.kill('SIGTERM')
+    } catch {}
+  }
+  return { ok: true, ruta }
+})
+
+const mensajeDaemonStop = (id, appId) => `${JSON.stringify([{ id, method: 'app.stop', params: { appId } }])}\n`
+
+// Al cerrar la app no se deja un flutter run huérfano ocupando el dispositivo.
+app.on('before-quit', () => {
+  try {
+    corriendo?.child.kill('SIGTERM')
+  } catch {}
 })
 
 // Raíz del repo que contiene una ruta (null si no hay repo).

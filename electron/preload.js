@@ -42,6 +42,10 @@ contextBridge.exposeInMainWorld('oficina', {
   flutterTargets: (cwd) => ipcRenderer.invoke('flutter:targets', cwd),
   // lanza un emulador; vuelve al disparar, no cuando ya arrancó
   flutterLaunchEmulator: (arg) => ipcRenderer.invoke('flutter:launchEmulator', arg),
+  // correr el proyecto y controlarlo mientras corre
+  flutterRun: (arg) => ipcRenderer.invoke('flutter:run', arg),
+  flutterReload: (arg) => ipcRenderer.invoke('flutter:reload', arg),
+  flutterStop: () => ipcRenderer.invoke('flutter:stop'),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),
@@ -121,5 +125,11 @@ contextBridge.exposeInMainWorld('oficina', {
     const handler = (_e, data) => cb(data)
     ipcRenderer.on('claude:event', handler)
     return () => ipcRenderer.removeListener('claude:event', handler)
+  },
+  // eventos de la app que está corriendo: progreso, logs, arranque y parada
+  onFlutterEvent: (cb) => {
+    const handler = (_e, data) => cb(data)
+    ipcRenderer.on('flutter:event', handler)
+    return () => ipcRenderer.removeListener('flutter:event', handler)
   },
 })

@@ -4,6 +4,8 @@ import core from './core.js'
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
 const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
 const { resultadoLanzarEmulador } = core
+const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
+const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -311,5 +313,119 @@ describe('resultadoLanzarEmulador', () => {
 
   it('no confunde texto informativo con un error', () => {
     expect(resultadoLanzarEmulador('Starting emulator...').ok).toBe(true)
+  })
+})
+
+// ── Protocolo de `flutter run --machine` ─────────────────────────────────────
+// Las líneas de estos tests están CAPTURADAS de una corrida real (flutter
+// 3.44.6, objetivo Chrome): arranque, hot reload, hot restart y stop.
+describe('parseLineaDaemon', () => {
+  it('lee un evento con sus params', () => {
+    const r = parseLineaDaemon(
+      '[{"event":"app.start","params":{"appId":"7b3a6356","deviceId":"chrome","directory":"/tmp/demo"}}]'
+    )
+    expect(r).toMatchObject({ tipo: 'evento', evento: 'app.start' })
+    expect(r.params.appId).toBe('7b3a6356')
+  })
+
+  it('lee la respuesta de un hot reload', () => {
+    expect(parseLineaDaemon('[{"id":1,"result":{"code":0,"message":""}}]')).toEqual({
+      tipo: 'respuesta',
+      id: 1,
+      result: { code: 0, message: '' },
+      error: undefined,
+    })
+  })
+
+  it('app.stop responde un booleano pelado', () => {
+    expect(parseLineaDaemon('[{"id":3,"result":true}]')).toMatchObject({ tipo: 'respuesta', id: 3, result: true })
+  })
+
+  it('los logs de la app pasan como log, no se tiran', () => {
+    // se intercalan con el protocolo y son lo que el usuario quiere leer
+    expect(parseLineaDaemon('Launching lib/main.dart on Chrome in debug mode...')).toEqual({
+      tipo: 'log',
+      texto: 'Launching lib/main.dart on Chrome in debug mode...',
+    })
+    expect(parseLineaDaemon('Recompile complete. No client connected.').tipo).toBe('log')
+  })
+
+  it('un array que no parsea no revienta: cae a log', () => {
+    expect(parseLineaDaemon('[{roto').tipo).toBe('log')
+    expect(parseLineaDaemon('[{"sin":"evento ni id"}]').tipo).toBe('log')
+  })
+
+  it('las líneas vacías se ignoran', () => {
+    expect(parseLineaDaemon('')).toBeNull()
+    expect(parseLineaDaemon('   ')).toBeNull()
+    expect(parseLineaDaemon(null)).toBeNull()
+  })
+})
+
+describe('mensajeDaemon y peticionRecarga', () => {
+  it('hot reload y hot restart son el mismo método con un flag', () => {
+    expect(JSON.parse(peticionRecarga(1, 'abc', false))[0]).toEqual({
+      id: 1,
+      method: 'app.restart',
+      params: { appId: 'abc', fullRestart: false, pause: false, reason: 'manual' },
+    })
+    expect(JSON.parse(peticionRecarga(2, 'abc', true))[0].params.fullRestart).toBe(true)
+  })
+
+  it('cada mensaje va en su propia línea', () => {
+    expect(mensajeDaemon(9, 'app.stop', { appId: 'x' }).endsWith('\n')).toBe(true)
+  })
+})
+
+describe('comoCancelar', () => {
+  it('con appId se pide app.stop; sin appId hay que matar el proceso', () => {
+    // el appId solo llega con app.start: cancelar mientras compila —el caso más
+    // útil, un build de iOS son minutos— no tiene appId todavía
+    expect(comoCancelar('7b3a6356')).toBe('app.stop')
+    expect(comoCancelar(null)).toBe('matar')
+    expect(comoCancelar(undefined)).toBe('matar')
+  })
+})
+
+describe('resultadoRecarga', () => {
+  it('code 0 es éxito', () => {
+    expect(resultadoRecarga({ code: 0, message: '' })).toEqual({ ok: true })
+  })
+
+  it('un código distinto de 0 es fallo y el mensaje llega entero', () => {
+    // el caso real: el agente dejó un error de compilación y el reload falla
+    const r = resultadoRecarga({ code: 1, message: "lib/main.dart:12:3: Error: Expected ';'" })
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/Expected/)
+  })
+
+  it('el booleano de app.stop cuenta como éxito', () => {
+    expect(resultadoRecarga(true)).toEqual({ ok: true })
+  })
+
+  it('un error del protocolo se propaga', () => {
+    expect(resultadoRecarga(null, "app 'x' not found").ok).toBe(false)
+  })
+})
+
+describe('aplicaProgreso', () => {
+  // en la corrida real los ids se solapan: hot.reload (id 1) sigue abierto
+  // mientras se abre y cierra otro (id 2)
+  it('sigue varios progresos a la vez y muestra el último abierto', () => {
+    let m = {}
+    m = aplicaProgreso(m, { id: '1', progressId: 'hot.reload', message: 'Performing hot reload...' })
+    m = aplicaProgreso(m, { id: '2', progressId: null, message: 'Waiting for connection...' })
+    expect(progresoVisible(m).mensaje).toBe('Waiting for connection...')
+    m = aplicaProgreso(m, { id: '2', progressId: null, finished: true })
+    expect(progresoVisible(m).tipo).toBe('hot.reload')
+    m = aplicaProgreso(m, { id: '1', progressId: 'hot.reload', finished: true })
+    expect(progresoVisible(m)).toBeNull()
+  })
+
+  it('ignora un progreso sin id y no muta el mapa que recibe', () => {
+    const antes = { 1: { mensaje: 'x', tipo: null } }
+    expect(aplicaProgreso(antes, {})).toEqual(antes)
+    aplicaProgreso(antes, { id: '1', finished: true })
+    expect(antes['1']).toBeDefined()
   })
 })

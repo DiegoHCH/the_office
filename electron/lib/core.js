@@ -182,6 +182,73 @@ function ordenaDispositivos(devices) {
     .sort((a, b) => ORDEN[a.tipo] - ORDEN[b.tipo] || a.name.localeCompare(b.name))
 }
 
+// ── Protocolo de `flutter run --machine` ─────────────────────────────────────
+// El proceso habla el dominio `app` del daemon de Flutter por stdout/stdin, el
+// mismo que usan los editores. Las líneas del protocolo vienen envueltas en un
+// array —[{"event":"app.start","params":{…}}]— y TODO lo demás es log normal de
+// la app, que también hay que mostrar.
+function parseLineaDaemon(linea) {
+  const txt = String(linea == null ? '' : linea)
+  const t = txt.trim()
+  if (!t) return null
+  if (!(t.startsWith('[{') && t.endsWith('}]'))) return { tipo: 'log', texto: txt }
+  let arr
+  try {
+    arr = JSON.parse(t)
+  } catch {
+    return { tipo: 'log', texto: txt }
+  }
+  const m = Array.isArray(arr) ? arr[0] : null
+  if (!m || typeof m !== 'object') return { tipo: 'log', texto: txt }
+  if (m.event) return { tipo: 'evento', evento: m.event, params: m.params || {} }
+  if (m.id !== undefined) return { tipo: 'respuesta', id: m.id, result: m.result, error: m.error }
+  return { tipo: 'log', texto: txt }
+}
+
+// Una petición al proceso: se escribe en su stdin, una línea por mensaje.
+const mensajeDaemon = (id, method, params) => `${JSON.stringify([{ id, method, params }])}\n`
+
+// Hot reload y hot restart son el MISMO método con un flag distinto.
+const peticionRecarga = (id, appId, completa) =>
+  mensajeDaemon(id, 'app.restart', { appId, fullRestart: !!completa, pause: false, reason: 'manual' })
+
+// Cómo se corta lo que está corriendo. `app.stop` necesita el appId, y el appId
+// solo llega con el evento app.start: si se cancela mientras todavía compila
+// —justo el caso más útil, un build de iOS son minutos— no hay appId y toca
+// matar el proceso. Un botón, dos rutas.
+const comoCancelar = (appId) => (appId ? 'app.stop' : 'matar')
+
+// Resultado de un app.restart (hot reload o hot restart). Medido contra el
+// protocolo real: responde {"code":0,"message":""} y un código distinto de 0 es
+// un fallo de verdad —típicamente un error de compilación en lo que se acaba de
+// editar—, así que el mensaje tiene que llegar a la vista o el usuario se queda
+// mirando una app que no cambió sin saber por qué.
+function resultadoRecarga(result, error) {
+  if (error) return { ok: false, error: String(error).slice(0, 300) }
+  if (result && typeof result === 'object' && 'code' in result) {
+    if (result.code === 0) return { ok: true }
+    return { ok: false, error: String(result.message || `código ${result.code}`).slice(0, 300) }
+  }
+  // app.stop responde `true` pelado, sin objeto
+  if (result === true || result === undefined || result === null) return { ok: true }
+  return { ok: true }
+}
+
+// El progreso viene con ids que se solapan y se cierran por separado, así que se
+// lleva un mapa y lo que se muestra es el último que siga abierto.
+function aplicaProgreso(mapa, params) {
+  const out = { ...mapa }
+  const id = String(params?.id ?? '')
+  if (!id) return out
+  if (params.finished) delete out[id]
+  else out[id] = { mensaje: params.message || '', tipo: params.progressId || null }
+  return out
+}
+const progresoVisible = (mapa) => {
+  const claves = Object.keys(mapa || {})
+  return claves.length ? mapa[claves[claves.length - 1]] : null
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -193,6 +260,13 @@ module.exports = {
   buscaProyectosFlutter,
   parseEmuladores,
   resultadoLanzarEmulador,
+  parseLineaDaemon,
+  mensajeDaemon,
+  peticionRecarga,
+  comoCancelar,
+  resultadoRecarga,
+  aplicaProgreso,
+  progresoVisible,
   ordenaDispositivos,
   tipoDeDispositivo,
 }

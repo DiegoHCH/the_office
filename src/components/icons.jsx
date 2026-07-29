@@ -259,3 +259,26 @@ export const IconClock = (p) => (
     <path d="m612-292 56-56-148-148v-184h-80v216l172 172ZM480-80q-83 0-156-31.5T197-197q-54-54-85.5-127T80-480q0-83 31.5-156T197-763q54-54 127-85.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 83-31.5 156T763-197q-54 54-127 85.5T480-80Zm0-400Zm0 320q133 0 226.5-93.5T800-480q0-133-93.5-226.5T480-800q-133 0-226.5 93.5T160-480q0 133 93.5 226.5T480-160Z" />
   </Svg>
 )
+
+// Controles de la app que está corriendo (barra flotante estilo editor).
+export const IconBolt = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={p.size || 16} height={p.size || 16}>
+    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+  </svg>
+)
+export const IconRestartApp = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={p.size || 16} height={p.size || 16}>
+    <path d="M21 12a9 9 0 1 1-3.5-7.1" />
+    <polyline points="21 3 21 9 15 9" />
+  </svg>
+)
+export const IconStopSquare = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={p.size || 16} height={p.size || 16}>
+    <rect x="5" y="5" width="14" height="14" rx="2" />
+  </svg>
+)
+export const IconPlay = (p) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" width={p.size || 16} height={p.size || 16}>
+    <polygon points="6 4 20 12 6 20 6 4" />
+  </svg>
+)

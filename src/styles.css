@@ -1308,3 +1308,67 @@ select.squad-model {
 }
 .dev-launch:hover:not(:disabled) { background: var(--accent-a40); }
 .dev-launch:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Barra de la app corriendo ─────────────────────────────────────────────────
+   Pastilla flotante sobre la escena, al estilo de la barra de depuración de un
+   editor: iconos parejos y color solo en lo semántico (recargar, reiniciar,
+   detener). Va con los tokens --scene-*: flota sobre la sala, que se renderiza
+   oscura en los dos temas. */
+.runbar {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 4;
+  display: flex; align-items: center; gap: 4px;
+  max-width: min(680px, 88vw);
+  padding: 6px 8px 6px 12px;
+  background: var(--scene-surface); border: 1px solid var(--scene-line);
+  border-radius: 12px; backdrop-filter: blur(6px);
+  box-shadow: 0 8px 24px rgba(6, 12, 15, 0.45);
+}
+.runbar-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex: none;
+  background: var(--scene-warn); animation: runbar-pulse 1.4s ease-in-out infinite;
+}
+.runbar-dot.on { background: var(--ok); animation: none; }
+@keyframes runbar-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+.runbar-label {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11px; color: var(--scene-ink-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 320px;
+}
+.runbar-sep { width: 1px; height: 18px; background: var(--scene-line); margin: 0 4px; flex: none; }
+.runbar-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; flex: none;
+  background: none; border: none; border-radius: 8px;
+  color: var(--scene-muted); cursor: pointer;
+}
+.runbar-btn:hover:not(:disabled) { background: rgba(233, 241, 238, 0.1); color: var(--scene-ink); }
+.runbar-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.runbar-btn:focus-visible { outline: 2px solid var(--scene-accent); outline-offset: 1px; }
+/* el color marca la acción, como en la barra del editor */
+.runbar-btn.reload:not(:disabled) { color: var(--scene-accent); }
+.runbar-btn.restart:not(:disabled) { color: var(--ok); }
+.runbar-btn.stop { color: var(--scene-danger); }
+.runbar-error {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; color: var(--scene-danger); max-width: 220px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+@media (prefers-reduced-motion: reduce) {
+  .runbar-dot { animation: none; }
+}
+@media (max-width: 560px) {
+  .runbar { max-width: 94vw; }
+  .runbar-label { max-width: 120px; }
+}
+.runbar-btn.on { background: rgba(233, 241, 238, 0.12); color: var(--scene-ink); }
+/* la salida cuelga de la barra sin empujarla ni tapar el composer */
+.runbar-logs {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  max-height: min(42vh, 340px); overflow: auto; margin: 0;
+  padding: 10px 12px;
+  background: var(--scene-surface); border: 1px solid var(--scene-line);
+  border-radius: 10px; box-shadow: 0 8px 24px rgba(6, 12, 15, 0.45);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10.5px; line-height: 1.5; color: var(--scene-ink-2);
+  white-space: pre-wrap; word-break: break-word;
+}

@@ -29,6 +29,7 @@ import {
   IconClose, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
   IconCheck, IconWarn, IconSpinner, IconClip, IconBulb, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
   IconCopy, IconRetry, IconShare, IconDiff, IconChat, IconBoard, IconBell, IconBellOff, IconRestore, IconClock,
+  IconBolt, IconRestartApp, IconStopSquare, IconPlay,
 } from './components/icons.jsx'
 
 const standupPrompt = () => t('prompt.standup')
@@ -60,6 +61,10 @@ export default function App() {
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [devicesView, setDevicesView] = useState(null) // null | { loading } | { devices, emulators, error }
   const [flutterProj, setFlutterProj] = useState(null) // { esFlutter, proyecto, proyectos } del proyecto activo
+  // la app que está corriendo: null | { fase, device, appId, progreso, url, error }
+  const [run, setRun] = useState(null)
+  const [runLogs, setRunLogs] = useState([])
+  const [verLogs, setVerLogs] = useState(false)
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
   // citar selección (#97): al soltar el mouse con texto seleccionado dentro de
   // una respuesta, aparece un botón flotante que lo lleva al composer
@@ -1733,6 +1738,49 @@ export default function App() {
     }
   }, [project])
 
+  // Eventos del `flutter run`: progreso de compilación, arranque, logs y parada.
+  useEffect(() => {
+    const off = window.oficina?.onFlutterEvent?.((e) => {
+      if (e.kind === 'run-start') setRun((r) => (r ? { ...r, appId: e.appId, fase: 'compilando' } : r))
+      else if (e.kind === 'run-started') setRun((r) => (r ? { ...r, fase: 'corriendo', progreso: null } : r))
+      else if (e.kind === 'run-progress') setRun((r) => (r ? { ...r, progreso: e.progreso } : r))
+      else if (e.kind === 'run-url') setRun((r) => (r ? { ...r, url: e.url } : r))
+      else if (e.kind === 'run-error') setRun((r) => (r ? { ...r, error: e.error } : r))
+      else if (e.kind === 'run-stop') {
+        setRun(null)
+        showToast(t('run.stopped'))
+      } else if (e.kind === 'run-log') {
+        setRunLogs((l) => [...l.slice(-400), e.texto])
+      }
+    })
+    return off
+  }, [])
+
+  const correrEn = async (d) => {
+    if (run) return showToast(t('run.busy'))
+    setRunLogs([])
+    setRun({ fase: 'compilando', device: d.name, appId: null, progreso: null })
+    const res = await window.oficina?.flutterRun?.({ cwd: project, deviceId: d.id })
+    if (!res?.ok) {
+      setRun(null)
+      showToast(`⚠️ ${res?.error || t('run.busy')}`)
+    } else {
+      setDevicesView(null) // el panel ya cumplió: manda la barra
+    }
+  }
+
+  const recargar = async (completa) => {
+    setRun((r) => (r ? { ...r, error: null, recargando: true } : r))
+    const res = await window.oficina?.flutterReload?.({ completa })
+    setRun((r) => (r ? { ...r, recargando: false, error: res?.ok ? null : res?.error || null } : r))
+    if (res?.ok) showToast(completa ? t('run.restarted') : t('run.reloaded'))
+    else showToast(`⚠️ ${t('run.reloadFailed', { error: (res?.error || '').slice(0, 90) })}`, 7000)
+  }
+
+  const detener = async () => {
+    await window.oficina?.flutterStop?.()
+  }
+
   const openDevices = async () => {
     if (devicesView) return setDevicesView(null)
     setDevicesView({ loading: true })
@@ -3200,6 +3248,78 @@ export default function App() {
             )
           })()}
 
+        {/* Barra de la app corriendo: pastilla flotante sobre la escena, al
+            estilo de la del editor. Solo lleva acciones que el daemon soporta
+            de verdad — pausa y stepping necesitan un debug adapter. */}
+        {run && (
+          <div className="runbar">
+            <span className={run.fase === 'corriendo' ? 'runbar-dot on' : 'runbar-dot'} />
+            <span className="runbar-label">
+              {run.fase === 'corriendo'
+                ? t('run.running', { device: run.device })
+                : run.progreso?.mensaje || t('run.compiling')}
+            </span>
+            <span className="runbar-sep" />
+            <button
+              type="button"
+              className="runbar-btn reload"
+              onClick={() => recargar(false)}
+              disabled={run.fase !== 'corriendo' || run.recargando}
+              title={t('run.reload')}
+              aria-label={t('run.reload')}
+            >
+              <IconBolt size={15} />
+            </button>
+            <button
+              type="button"
+              className="runbar-btn restart"
+              onClick={() => recargar(true)}
+              disabled={run.fase !== 'corriendo' || run.recargando}
+              title={t('run.restart')}
+              aria-label={t('run.restart')}
+            >
+              <IconRestartApp size={15} />
+            </button>
+            <button
+              type="button"
+              className="runbar-btn stop"
+              onClick={detener}
+              title={run.fase === 'corriendo' ? t('run.stop') : t('run.cancel')}
+              aria-label={run.fase === 'corriendo' ? t('run.stop') : t('run.cancel')}
+            >
+              <IconStopSquare size={15} />
+            </button>
+            {run.url && (
+              <button
+                type="button"
+                className="runbar-btn"
+                onClick={() => window.open(run.url, '_blank')}
+                title={t('run.devtools')}
+                aria-label={t('run.devtools')}
+              >
+                <IconLink size={15} />
+              </button>
+            )}
+            <button
+              type="button"
+              className={verLogs ? 'runbar-btn on' : 'runbar-btn'}
+              onClick={() => setVerLogs((v) => !v)}
+              title={t('run.logs')}
+              aria-label={t('run.logs')}
+              aria-expanded={verLogs}
+            >
+              <IconBoard size={15} />
+            </button>
+            {run.error && <span className="runbar-error">{run.error.slice(0, 90)}</span>}
+            {/* la salida del proceso: cuando una compilación falla, el motivo está aquí */}
+            {verLogs && (
+              <pre className="runbar-logs">
+                {runLogs.length ? runLogs.slice(-200).join('\n') : t('run.compiling')}
+              </pre>
+            )}
+          </div>
+        )}
+
         {devicesView && (
           <div className="drawer dev-drawer">
             <div className="drawer-head">
@@ -3244,6 +3364,15 @@ export default function App() {
                       {d.sdk || d.platform}
                       {!d.hotReload && ` · ${t('dev.noHotReload')}`}
                     </span>
+                    <button
+                      type="button"
+                      className="dev-launch"
+                      onClick={() => correrEn(d)}
+                      disabled={!!run}
+                      title={t('run.run', { device: d.name })}
+                    >
+                      <IconPlay size={11} /> {t('dev.launch')}
+                    </button>
                   </div>
                 ))}
                 <div className="dev-group">{t('dev.launchable')}</div>
