@@ -381,6 +381,12 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      // Sin esto, Chromium suspende el render y throttlea los timers cuando la
+      // ventana no está al frente: el trabajo del agente avanzaba igual, pero la
+      // respuesta no se pintaba hasta volver a enfocarla y parecía congelada.
+      // La escena 3D no se dispara por esto: Office.jsx pasa el frameloop a
+      // 'demand' cuando la ventana pierde el foco o se oculta.
+      backgroundThrottling: false,
     },
   })
 

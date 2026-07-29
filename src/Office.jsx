@@ -882,11 +882,21 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   // está minimizada o completamente tapada — recién entonces el render pasa a
   // 'demand', con un ticker que deja terminar los tours en curso (para que
   // nada quede a mitad de caminata ni salte el watchdog de entregas).
-  const [visible, setVisible] = useState(() => document.visibilityState !== 'hidden')
+  // Cuenta como "en pausa" tanto la ventana oculta como la que está detrás de
+  // otra app: ahí nadie mira la escena y el proceso ya no la frena solo (ver
+  // backgroundThrottling: false en electron/main.js), así que la frenamos aquí.
+  const enPausa = () => document.visibilityState === 'hidden' || !document.hasFocus()
+  const [visible, setVisible] = useState(() => !enPausa())
   useEffect(() => {
-    const onVis = () => setVisible(document.visibilityState !== 'hidden')
+    const onVis = () => setVisible(!enPausa())
     document.addEventListener('visibilitychange', onVis)
-    return () => document.removeEventListener('visibilitychange', onVis)
+    window.addEventListener('blur', onVis)
+    window.addEventListener('focus', onVis)
+    return () => {
+      document.removeEventListener('visibilitychange', onVis)
+      window.removeEventListener('blur', onVis)
+      window.removeEventListener('focus', onVis)
+    }
   }, [])
 
   // silla de un miembro (para entregas dirigidas y visitas)
