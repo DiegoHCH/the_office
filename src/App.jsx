@@ -56,6 +56,7 @@ export default function App() {
   const editedRef = useRef({})
   const editedPathsRef = useRef([]) // rutas tocadas en la conversación → en qué repos pedir el diff
   const ultimoRef = useRef(null) // último rol que respondió → afinidad de los seguimientos
+  const hubotextoRef = useRef({}) // role → true si el turno llegó a decir algo
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
   // citar selección (#97): al soltar el mouse con texto seleccionado dentro de
@@ -555,6 +556,7 @@ export default function App() {
           return copy
         })
         setRS(who, 'talking')
+        hubotextoRef.current[who] = true
         if (isP) setStatus(t('status.answering'))
         setMessages((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
@@ -624,21 +626,34 @@ export default function App() {
           delete copy[who]
           return copy
         })
-        ultimoRef.current = who
-        dingSound()
+        // ¿este turno llegó a pintar algo? Si no, no se anuncia como respuesta:
+        // el chip decía «X respondió» y sonaba el ding igual cuando el turno
+        // terminaba sin texto, así que parecía que la respuesta se había perdido.
+        const respondio = !!hubotextoRef.current[who] || !!(e.result || '').trim()
+        delete hubotextoRef.current[who]
+        if (respondio) {
+          ultimoRef.current = who
+          dingSound()
+        }
         window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
         // chip transitorio anunciando la respuesta final (con duración si fue larga)
         const doneName = squadRef.current.find((m) => m.id === who)?.name || who
         const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
         recordStat(who, usage, dur) // acumulado diario para 📈 Estadísticas
         setDoneChip(
-          `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
+          respondio
+            ? `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
+            : `⚠️ ${doneName} terminó sin respuesta`
         )
+        // sin texto el turno no dejaría rastro en el chat: queda la línea
+        if (!respondio)
+          setMessages((ms) => [...ms, { role: 'system', text: `⚠️ ${doneName} terminó el turno sin decir nada` }])
         clearTimeout(doneChipTimer.current)
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
         if (isP) setStatus(t('status.waiting'))
       } else if (e.kind === 'stopped') {
         delete editedRef.current[who]
+        delete hubotextoRef.current[who]
         // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
         setMessages((ms) => {
           const aIdx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
@@ -670,6 +685,7 @@ export default function App() {
         if (isP) setStatus(t('status.waiting'))
       } else if (e.kind === 'error') {
         delete editedRef.current[who]
+        delete hubotextoRef.current[who]
         // ¿error transitorio (rate limit, red, timeout)? un reintento
         // automático con backoff — solo UNO por job; si repite, error normal
         const transient = /(\b429\b|\b529\b|rate.?limit|timeout|etimedout|econnreset|enotfound|eai_again|socket hang up|network|overloaded)/i.test(

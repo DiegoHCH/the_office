@@ -264,7 +264,8 @@ function notify(displayName, body) {
   } catch {}
   const n = new Notification({
     title: `${displayName} terminó`,
-    body: (body || '').replace(/\s+/g, ' ').slice(0, 140) || 'Tarea completada',
+    // sin texto no se anuncia como respuesta: el turno terminó, y ya
+    body: (body || '').replace(/\s+/g, ' ').slice(0, 140) || 'Terminó sin respuesta',
     silent: true, // ya tenemos nuestro "ding" dentro de la app
   })
   n.on('click', () => {
