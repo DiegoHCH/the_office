@@ -30,6 +30,7 @@ const {
   parseLaunchConfigs,
   argsDeLaunchConfig,
   interpretaCorrer,
+  plataformaOcupada,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -1926,9 +1927,14 @@ function cierraCorrida(deviceId, motivo) {
 // Una corrida por dispositivo. `flutter run --machine` NO admite `-d all`
 // —run.dart lo rechaza a propósito— así que correr en varios es un proceso por
 // dispositivo, cada uno con su appId, igual que hacen los editores.
-ipcMain.handle('flutter:run', async (_e, { cwd, deviceId, config } = {}) => {
+ipcMain.handle('flutter:run', async (_e, { cwd, deviceId, config, platform, deviceName } = {}) => {
   if (!cwd || !deviceId) return { ok: false, error: 'Falta el proyecto o el dispositivo' }
   if (corriendo.has(deviceId)) return { ok: false, error: 'Ya está corriendo en ese dispositivo' }
+  // Dos corridas de la misma plataforma comparten el directorio de build del
+  // proyecto y se pisan. Cruzadas (iOS + Android) conviven. Se corta aquí para
+  // no gastar minutos de compilación descubriéndolo.
+  const ocupa = plataformaOcupada(Object.fromEntries(corriendo), platform)
+  if (ocupa) return { ok: false, mismaPlataforma: true, device: ocupa.device }
   const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
   if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
   const bin = flutterCmd(proyecto)
@@ -1950,7 +1956,7 @@ ipcMain.handle('flutter:run', async (_e, { cwd, deviceId, config } = {}) => {
     cwd: proyecto,
     env: sanitizeEnv(process.env, { home: app.getPath('home') }),
   })
-  const c = { child, appId: null, deviceId, proyecto, pendientes: new Map(), seq: 0, progreso: {}, parando: false }
+  const c = { child, appId: null, deviceId, device: deviceName || deviceId, platform: platform || null, proyecto, pendientes: new Map(), seq: 0, progreso: {}, parando: false }
   corriendo.set(deviceId, c)
 
   let resto = ''

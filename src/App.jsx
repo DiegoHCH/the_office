@@ -1830,18 +1830,20 @@ export default function App() {
 
   const correrEnCon = async (d, cfgNombre) => {
     if (runs[d.id]) return showToast(t('run.busy'))
+    // dos corridas de la misma plataforma comparten el directorio de build y se
+    // pisan; lo hace cumplir el proceso principal, que es quien sabe qué corre
     setRuns((rs) => ({
       ...rs,
-      [d.id]: { fase: 'compilando', device: d.name, appId: null, progreso: null, config: cfgNombre || null },
+      [d.id]: { fase: 'compilando', device: d.name, platform: d.platform, appId: null, progreso: null, config: cfgNombre || null },
     }))
-    const res = await window.oficina?.flutterRun?.({ cwd: project, deviceId: d.id, config: cfgNombre })
+    const res = await window.oficina?.flutterRun?.({ cwd: project, deviceId: d.id, config: cfgNombre, platform: d.platform, deviceName: d.name })
     if (!res?.ok) {
       setRuns((rs) => {
         const copia = { ...rs }
         delete copia[d.id]
         return copia
       })
-      showToast(`⚠️ ${res?.error || t('run.busy')}`)
+      showToast(res?.mismaPlataforma ? t('run.samePlatform', { device: res.device }) : `⚠️ ${res?.error || t('run.busy')}`, 8000)
     } else {
       setDevicesView(null) // el panel ya cumplió: manda la barra
     }
@@ -2086,15 +2088,26 @@ export default function App() {
       ;(async () => {
         const r = await window.oficina?.flutterInterpretaCorrer?.({ cwd: project, texto: frase })
         if (!r?.ok) return showToast(`⚠️ ${r?.error || ''}`)
+        if (r.config) setConfig(r.config.name)
+        const cfgTxt = r.config ? ` · ${r.config.name}` : ''
+        // Abrir el panel en vez de adivinar: lanzar en el dispositivo equivocado
+        // cuesta una compilación de minutos, y el panel ya lista todo con su
+        // botón de correr. La configuración interpretada queda preseleccionada.
+        const alPanel = (aviso) => {
+          setTargets(r)
+          setDevicesView({ ...r, refrescando: false })
+          showToast(aviso, 8000)
+        }
+        if (r.ambiguo) {
+          return alPanel(t('cmd.runAmbiguous', { list: r.candidatos.map((c) => c.name).join(' · ') }))
+        }
         let objetivo = r.objetivo
         // sin pistas: si hay un solo físico, es obvio a qué se refería
         if (!objetivo) {
           const fisicos = r.devices.filter((d) => d.tipo === 'fisico')
           if (fisicos.length === 1) objetivo = { tipo: 'dispositivo', item: fisicos[0] }
         }
-        if (!objetivo) return showToast(t('cmd.runNoTarget'), 8000)
-        if (r.config) setConfig(r.config.name)
-        const cfgTxt = r.config ? ` · ${r.config.name}` : ''
+        if (!objetivo) return alPanel(t('cmd.runPickDevice', { config: cfgTxt }))
 
         if (objetivo.tipo === 'emulador') {
           const em = objetivo.item
@@ -2112,13 +2125,19 @@ export default function App() {
             setTargets(tg)
             const nuevo = tg.devices.find((d) => !antes.has(d.id)) || tg.devices.find((d) => d.tipo === 'emulador')
             if (nuevo) {
-              showToast(t('cmd.runStarting', { device: nuevo.name, config: cfgTxt }))
+              setMessages((ms) => [
+                ...ms,
+                { role: 'system', text: t('cmd.runResolved', { device: nuevo.name, config: cfgTxt }) },
+              ])
               return correrEnCon(nuevo, r.config?.name)
             }
           }
           return showToast(t('dev.slowBoot'), 8000)
         }
-        showToast(t('cmd.runStarting', { device: objetivo.item.name, config: cfgTxt }))
+        setMessages((ms) => [
+          ...ms,
+          { role: 'system', text: t('cmd.runResolved', { device: objetivo.item.name, config: cfgTxt }) },
+        ])
         correrEnCon(objetivo.item, r.config?.name)
       })()
       return true

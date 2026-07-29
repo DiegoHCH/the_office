@@ -7,7 +7,7 @@ const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = co
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
 const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 const { decideRecarga } = core
-const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer } = core
+const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer, plataformaOcupada } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -688,11 +688,82 @@ describe('interpretaCorrer', () => {
   })
 
   it('las palabras de relleno no eligen nada', () => {
-    expect(interpretaCorrer('en el de la app', CTX)).toEqual({ objetivo: null, config: null })
-    expect(interpretaCorrer('', CTX)).toEqual({ objetivo: null, config: null })
+    for (const frase of ['en el de la app', '']) {
+      const r = interpretaCorrer(frase, CTX)
+      expect(r.objetivo).toBeNull()
+      expect(r.config).toBeNull()
+      expect(r.ambiguo).toBe(false)
+    }
   })
 
   it('sin candidatos no revienta', () => {
-    expect(interpretaCorrer('iphone', {})).toEqual({ objetivo: null, config: null })
+    const r = interpretaCorrer('iphone', {})
+    expect(r.objetivo).toBeNull()
+    expect(r.candidatos).toEqual([])
+  })
+})
+
+describe('interpretaCorrer: ambigüedad', () => {
+  const CTX = {
+    devices: [
+      { id: 'a', name: 'iPhone', platform: 'ios' },
+      { id: 'b', name: 'iPhone 15', platform: 'ios' },
+    ],
+    emulators: [
+      { id: 'Small_Phone', name: 'Small Phone', platform: 'android' },
+      { id: 'Medium_Phone_API_36.1', name: 'Medium Phone API 36.1', platform: 'android' },
+    ],
+    configs: [{ name: 'Global66 (ci)' }, { name: 'Global66 (prod)' }],
+  }
+
+  it('con dos candidatos igual de buenos no elige: avisa y lista entre cuáles dudaba', () => {
+    // adivinar cuesta una compilación de minutos
+    const r = interpretaCorrer('iphone', CTX)
+    expect(r.ambiguo).toBe(true)
+    expect(r.objetivo).toBeNull()
+    expect(r.candidatos.map((c) => c.name)).toEqual(['iPhone', 'iPhone 15'])
+  })
+
+  it('«phone» empata entre los dos emuladores', () => {
+    const r = interpretaCorrer('phone', CTX)
+    expect(r.ambiguo).toBe(true)
+    expect(r.candidatos).toHaveLength(2)
+  })
+
+  it('una palabra que desempata sí resuelve', () => {
+    const r = interpretaCorrer('small phone', CTX)
+    expect(r.ambiguo).toBe(false)
+    expect(r.objetivo.item.id).toBe('Small_Phone')
+  })
+
+  it('una configuración ambigua tampoco se asume', () => {
+    const r = interpretaCorrer('global66', CTX)
+    expect(r.configAmbigua).toBe(true)
+    expect(r.config).toBeNull()
+  })
+})
+
+describe('plataformaOcupada', () => {
+  // dos corridas de la misma plataforma comparten el directorio de build del
+  // proyecto y se pisan; cruzadas (iOS + Android) conviven
+  const CORRIENDO = { 'iphone-1': { device: 'iPhone', platform: 'ios' } }
+
+  it('otra corrida de la misma plataforma bloquea', () => {
+    expect(plataformaOcupada(CORRIENDO, 'ios')?.device).toBe('iPhone')
+  })
+
+  it('normaliza la familia: android-arm64 es android', () => {
+    const c = { x: { device: 'Pixel', platform: 'android-arm64' } }
+    expect(plataformaOcupada(c, 'android-x64')?.device).toBe('Pixel')
+  })
+
+  it('plataformas distintas conviven', () => {
+    expect(plataformaOcupada(CORRIENDO, 'android-arm64')).toBeNull()
+    expect(plataformaOcupada(CORRIENDO, 'darwin')).toBeNull()
+  })
+
+  it('sin corridas nunca bloquea', () => {
+    expect(plataformaOcupada({}, 'ios')).toBeNull()
+    expect(plataformaOcupada(null, 'ios')).toBeNull()
   })
 })

@@ -497,13 +497,43 @@ function eligePorTexto(texto, candidatos, nombreDe = (x) => x) {
 // «iPhone», que solo coincide en una palabra.
 function interpretaCorrer(texto, { devices = [], emulators = [], configs = [] } = {}) {
   const t = String(texto || '').trim()
-  const d = eligePorTexto(t, devices, (x) => `${x.name} ${x.platform} ${x.id}`)
-  const e = eligePorTexto(t, emulators, (x) => `${x.name} ${x.platform} ${x.id}`)
-  const c = eligePorTexto(t, configs, (x) => x.name)
-  let objetivo = null
-  if (d && (!e || d.punt >= e.punt)) objetivo = { tipo: 'dispositivo', ...d }
-  else if (e) objetivo = { tipo: 'emulador', ...e }
-  return { objetivo, config: c?.item || null }
+  // se puntúa TODO junto para poder comparar: un empate significa que la frase no
+  // alcanza para decidir, y adivinar cuesta una compilación de minutos
+  const candidatos = [
+    ...devices.map((x) => ({ tipo: 'dispositivo', item: x, nombre: `${x.name} ${x.platform} ${x.id}` })),
+    ...emulators.map((x) => ({ tipo: 'emulador', item: x, nombre: `${x.name} ${x.platform} ${x.id}` })),
+  ].map((c) => ({ ...c, punt: puntua(t, c.nombre) }))
+  const conPunto = candidatos.filter((c) => c.punt > 0).sort((a, b) => b.punt - a.punt)
+  const objetivo = conPunto[0] || null
+  // dos candidatos igual de buenos: no hay forma de saber a cuál se refería
+  const empatados = conPunto.filter((c) => c.punt === conPunto[0]?.punt)
+  const ambiguo = empatados.length > 1
+
+  const cs = configs.map((x) => ({ item: x, punt: puntua(t, x.name) })).filter((c) => c.punt > 0).sort((a, b) => b.punt - a.punt)
+  const configAmbigua = cs.filter((c) => c.punt === cs[0]?.punt).length > 1
+
+  return {
+    objetivo: ambiguo ? null : objetivo,
+    config: configAmbigua ? null : cs[0]?.item || null,
+    ambiguo,
+    configAmbigua,
+    // para poder mostrar entre qué dudaba en vez de un error seco
+    candidatos: (ambiguo ? empatados : conPunto).map((c) => ({ tipo: c.tipo, id: c.item.id, name: c.item.name })),
+  }
+}
+
+// Dos corridas de la misma plataforma no funcionan: comparten el directorio de
+// build del proyecto y se pisan. iPhone + Android sí conviven, porque cada uno
+// escribe en su subdirectorio. Devuelve el dispositivo que ya la ocupa, o null.
+const familiaDe = (plataforma) => String(plataforma || '').split('-')[0]
+
+function plataformaOcupada(corridas, plataforma) {
+  const fam = familiaDe(plataforma)
+  if (!fam) return null
+  for (const c of Object.values(corridas || {})) {
+    if (c && familiaDe(c.platform) === fam) return c
+  }
+  return null
 }
 
 module.exports = {
@@ -531,6 +561,8 @@ module.exports = {
   parseLaunchConfigs,
   argsDeLaunchConfig,
   interpretaCorrer,
+  plataformaOcupada,
+  familiaDe,
   eligePorTexto,
   puntua,
   lineasCambiadas,
