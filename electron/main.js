@@ -475,6 +475,15 @@ function toolDetail(name, input = {}) {
   }
 }
 
+// Ruta COMPLETA del archivo que toca una herramienta de edición. El detalle que
+// se pinta en la burbuja es solo el nombre del archivo, pero la vista de cambios
+// necesita la ruta entera para saber en qué repo cae (ver el handler git:diff).
+function rutaEditada(name, input = {}) {
+  if (name === 'Edit' || name === 'Write' || name === 'MultiEdit') return input.file_path || null
+  if (name === 'NotebookEdit') return input.notebook_path || null
+  return null
+}
+
 // Parser de una línea NDJSON del stream, ligado al rol que la produce.
 function makeLineHandler(role, claveSesion, displayName) {
   return (line) => {
@@ -524,7 +533,13 @@ function makeLineHandler(role, claveSesion, displayName) {
         }
         if (block.type === 'tool_use') {
           // aquí ya viene el input completo → detalle de QUÉ hace exactamente
-          emit({ kind: 'tool', role, name: block.name, detail: toolDetail(block.name, block.input) })
+          emit({
+            kind: 'tool',
+            role,
+            name: block.name,
+            detail: toolDetail(block.name, block.input),
+            path: rutaEditada(block.name, block.input),
+          })
           // la checklist del agente, tal cual la va actualizando
           if (block.name === 'TodoWrite' && Array.isArray(block.input?.todos)) {
             emit({
@@ -1670,20 +1685,105 @@ ipcMain.handle('mcp:remove', async (_e, { profile, name }) => {
   }
 })
 
-// Diff del proyecto (staged + unstaged) para la vista de cambios del agente.
-ipcMain.handle('git:diff', async (_e, cwd) => {
+// Raíz del repo que contiene una ruta (null si no hay repo).
+async function repoRoot(dir) {
+  try {
+    const out = await execFileP('git', ['-C', dir, 'rev-parse', '--show-toplevel'], { timeout: 5000 })
+    return out.trim() || null
+  } catch {
+    return null
+  }
+}
+
+// Diff de un repo: cambios contra HEAD + los archivos nuevos sin trackear.
+async function diffDeRepo(root) {
+  let diff = ''
+  try {
+    diff = await execFileP('git', ['diff', 'HEAD'], { cwd: root, maxBuffer: 4 * 1024 * 1024 })
+  } catch (err) {
+    // un repo sin commits todavía no tiene HEAD: se queda sin diff y ya, pero
+    // cualquier otro fallo de git sí importa y se propaga
+    if (!/unknown revision|bad revision|ambiguous argument/i.test(String(err.message || ''))) throw err
+  }
+  let untracked = []
+  try {
+    const out = await execFileP('git', ['ls-files', '--others', '--exclude-standard'], { cwd: root })
+    untracked = out.split('\n').filter(Boolean)
+  } catch {}
+  return { root, diff, untracked }
+}
+
+// Diff de los cambios pendientes para la vista del agente.
+//
+// El diff se pide donde están los cambios, NO en la raíz del proyecto: cuando el
+// proyecto apunta a una carpeta padre (p. ej. un workspace con varios repos
+// dentro, elegido así para que los agentes tomen su contexto), esa raíz no es un
+// repo y `git diff` fallaba con «Not a git repository». Así que se resuelve el
+// repo de cada archivo que el agente editó, y solo si no hay ninguno se cae a la
+// raíz del proyecto y, en último caso, a los repos de primer nivel con cambios.
+ipcMain.handle('git:diff', async (_e, arg) => {
+  const cwd = typeof arg === 'string' ? arg : arg?.cwd
+  const editados = (Array.isArray(arg?.paths) ? arg.paths : []).filter((p) => typeof p === 'string' && p)
   if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
-  return new Promise((resolve) => {
-    execFile('git', ['diff', 'HEAD'], { cwd, maxBuffer: 4 * 1024 * 1024 }, (err, out) => {
-      if (err && !out) return resolve({ ok: false, error: String(err.message || 'git diff falló').slice(0, 300) })
-      let diff = out || ''
-      if (diff.length > 300000) diff = diff.slice(0, 300000) + '\n… (recortado)'
-      // los archivos nuevos sin trackear no salen en el diff: listarlos aparte
-      execFile('git', ['ls-files', '--others', '--exclude-standard'], { cwd }, (_e2, untracked) => {
-        resolve({ ok: true, diff, untracked: (untracked || '').split('\n').filter(Boolean) })
-      })
-    })
-  })
+
+  const roots = []
+  const add = (r) => {
+    if (r && !roots.includes(r)) roots.push(r)
+  }
+
+  // 1) los repos de los archivos que el agente tocó en este turno
+  for (const p of editados) {
+    let dir = p
+    try {
+      if (!fs.statSync(p).isDirectory()) dir = path.dirname(p)
+    } catch {
+      dir = path.dirname(p) // el archivo pudo borrarse: su carpeta sigue sirviendo
+    }
+    add(await repoRoot(dir))
+  }
+  // 2) el proyecto, si es repo
+  if (!roots.length) add(await repoRoot(cwd))
+  // 3) carpeta padre sin repo: los repos de primer nivel que tengan cambios
+  if (!roots.length) {
+    let hijos = []
+    try {
+      hijos = fs
+        .readdirSync(cwd, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+        .map((d) => path.join(cwd, d.name))
+    } catch {}
+    for (const h of hijos.slice(0, 40)) {
+      if (!fs.existsSync(path.join(h, '.git'))) continue
+      const r = await repoRoot(h)
+      if (!r) continue
+      try {
+        const est = await execFileP('git', ['-C', r, 'status', '--porcelain'], { timeout: 8000 })
+        if (est.trim()) add(r)
+      } catch {}
+    }
+  }
+  if (!roots.length) {
+    return {
+      ok: false,
+      error: `«${path.basename(cwd)}» no es un repo git y no se encontraron repos con cambios dentro. Sin git no hay diff que mostrar.`,
+    }
+  }
+
+  try {
+    const partes = await Promise.all(roots.map(diffDeRepo))
+    const varios = partes.length > 1
+    let diff = partes
+      .filter((p) => p.diff.trim())
+      .map((p) => (varios ? `=== ${path.basename(p.root)} ===\n${p.diff}` : p.diff))
+      .join('\n')
+    if (diff.length > 300000) diff = diff.slice(0, 300000) + '\n… (recortado)'
+    const untracked = partes.flatMap((p) =>
+      p.untracked.map((f) => (varios ? `${path.basename(p.root)}/${f}` : f))
+    )
+    return { ok: true, diff, untracked, repos: roots.map((r) => path.basename(r)) }
+  } catch (err) {
+    return { ok: false, error: String(err.message || 'git diff falló').slice(0, 300) }
+  }
 })
 
 // Data URL de una imagen adjunta (miniaturas del chat). Solo sirve archivos

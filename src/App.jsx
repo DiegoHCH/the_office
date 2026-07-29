@@ -54,6 +54,7 @@ export default function App() {
   const autoRetryRef = useRef(() => {}) // re-despacho con closures frescas
   // vista de diff: qué roles editaron archivos en su tarea actual
   const editedRef = useRef({})
+  const editedPathsRef = useRef([]) // rutas tocadas en la conversación → en qué repos pedir el diff
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
   // citar selección (#97): al soltar el mouse con texto seleccionado dentro de
@@ -531,7 +532,12 @@ export default function App() {
         setTool({ role: who, name: e.name, detail: e.detail || null })
         setAgentTool((prev) => ({ ...prev, [who]: e.name }))
         // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
-        if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name)) editedRef.current[who] = true
+        if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name)) {
+          editedRef.current[who] = true
+          // la ruta completa se guarda para la vista de cambios: el diff se pide
+          // en el repo del archivo, no en la raíz del proyecto (que puede no serlo)
+          if (e.path && !editedPathsRef.current.includes(e.path)) editedPathsRef.current.push(e.path)
+        }
         // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
         if (e.name === 'Write' && /\.html?$/i.test(e.detail || '')) {
           pendingArtifactRef.current[who] = true
@@ -950,6 +956,7 @@ export default function App() {
       localStorage.removeItem('oficina-pending-queue')
     } catch {}
     handoffsRef.current = []
+    editedPathsRef.current = []
     window.oficina?.reset?.()
   }
 
@@ -973,6 +980,7 @@ export default function App() {
       convId: convIdRef.current,
       sessions: { ...sessionsRef.current },
       queues: { ...queuesRef.current },
+      editedPaths: [...editedPathsRef.current],
       tokens: convTokens,
     }
   }
@@ -984,6 +992,7 @@ export default function App() {
     convIdRef.current = st.convId || null
     sessionsRef.current = st.sessions || {}
     queuesRef.current = st.queues || {}
+    editedPathsRef.current = st.editedPaths || []
     syncQueues()
     await window.oficina?.setSession?.({ sessions: st.sessions || {}, profile, cwd: project })
   }
@@ -1694,9 +1703,9 @@ export default function App() {
   // ── Vista de diff: cambios pendientes del proyecto (git diff HEAD) ───────
   const openDiff = async () => {
     setDiffView({ loading: true })
-    const res = await window.oficina?.gitDiff?.(project)
+    const res = await window.oficina?.gitDiff?.({ cwd: project, paths: editedPathsRef.current })
     if (!res?.ok) setDiffView({ error: res?.error || t('err.noDiff') })
-    else setDiffView({ diff: res.diff, untracked: res.untracked || [] })
+    else setDiffView({ diff: res.diff, untracked: res.untracked || [], repos: res.repos || [] })
   }
   const diffLineClass = (l) =>
     l.startsWith('+++') || l.startsWith('---')
@@ -3113,7 +3122,15 @@ export default function App() {
         {diffView && (
           <div className="drawer diff-drawer">
             <div className="drawer-head">
-              <b>{t('panel.changesIn', { project: project?.split('/').pop() || t('panel.theProject') })}</b>
+              {/* con el proyecto en una carpeta padre, el diff sale de los repos
+                  de dentro: se nombran ellos, no la carpeta */}
+              <b>
+                {t('panel.changesIn', {
+                  project: diffView.repos?.length
+                    ? diffView.repos.join(' · ')
+                    : project?.split('/').pop() || t('panel.theProject'),
+                })}
+              </b>
               <button onClick={() => setDiffView(null)}><IconClose size={16} /></button>
             </div>
             {diffView.loading && <div className="hist-empty">{t('diff.loading')}</div>}

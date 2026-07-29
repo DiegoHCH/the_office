@@ -34,7 +34,8 @@ contextBridge.exposeInMainWorld('oficina', {
   // ¿la ruta es archivo o carpeta? (para el chip y el prompt)
   pathInfo: (p) => ipcRenderer.invoke('path:info', p),
   // Diff del proyecto (cambios de los agentes en modo edición).
-  gitDiff: (cwd) => ipcRenderer.invoke('git:diff', cwd),
+  // acepta la ruta del proyecto o { cwd, paths } con los archivos editados
+  gitDiff: (arg) => ipcRenderer.invoke('git:diff', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),
