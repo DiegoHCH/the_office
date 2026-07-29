@@ -27,6 +27,9 @@ const {
   aplicaProgreso,
   progresoVisible,
   decideRecarga,
+  parseLaunchConfigs,
+  argsDeLaunchConfig,
+  interpretaCorrer,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -1809,6 +1812,11 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
     return { ok: false, esFlutter: true, via: bin.via, proyecto, error: String(devs.reason?.message || '').slice(0, 300) }
   }
   const lista = emus.status === 'fulfilled' ? parseEmuladores(emus.value) : []
+  // las mismas configuraciones que ofrece el editor: flavor, dart-defines, entry
+  let configs = []
+  try {
+    configs = parseLaunchConfigs(fs.readFileSync(path.join(proyecto, '.vscode', 'launch.json'), 'utf8'))
+  } catch {}
   return {
     ok: true,
     esFlutter: true,
@@ -1818,6 +1826,7 @@ ipcMain.handle('flutter:targets', async (_e, cwd) => {
     devices: ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : []),
     // cuáles ya están arriba: ahí el botón no es «lanzar» sino «cerrar»
     emulators: marcaEmuladoresCorriendo(lista, await emuladoresArriba()),
+    configs,
   }
 })
 
@@ -1917,7 +1926,7 @@ function cierraCorrida(deviceId, motivo) {
 // Una corrida por dispositivo. `flutter run --machine` NO admite `-d all`
 // —run.dart lo rechaza a propósito— así que correr en varios es un proceso por
 // dispositivo, cada uno con su appId, igual que hacen los editores.
-ipcMain.handle('flutter:run', async (_e, { cwd, deviceId } = {}) => {
+ipcMain.handle('flutter:run', async (_e, { cwd, deviceId, config } = {}) => {
   if (!cwd || !deviceId) return { ok: false, error: 'Falta el proyecto o el dispositivo' }
   if (corriendo.has(deviceId)) return { ok: false, error: 'Ya está corriendo en ese dispositivo' }
   const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
@@ -1925,7 +1934,19 @@ ipcMain.handle('flutter:run', async (_e, { cwd, deviceId } = {}) => {
   const bin = flutterCmd(proyecto)
   if (!bin) return { ok: false, error: 'No se encontró Flutter' }
 
-  const child = spawn(bin.cmd, [...bin.base, 'run', '--machine', '-d', deviceId], {
+  // la configuración elegida aporta flavor, dart-defines y entry point
+  let extra = []
+  if (config) {
+    let cfgs = []
+    try {
+      cfgs = parseLaunchConfigs(fs.readFileSync(path.join(proyecto, '.vscode', 'launch.json'), 'utf8'))
+    } catch {}
+    const elegida = cfgs.find((c) => c.name === config)
+    if (!elegida) return { ok: false, error: `No existe la configuración «${config}»` }
+    extra = argsDeLaunchConfig(elegida, { workspaceFolder: proyecto })
+  }
+
+  const child = spawn(bin.cmd, [...bin.base, 'run', '--machine', '-d', deviceId, ...extra], {
     cwd: proyecto,
     env: sanitizeEnv(process.env, { home: app.getPath('home') }),
   })
@@ -1976,7 +1997,7 @@ ipcMain.handle('flutter:run', async (_e, { cwd, deviceId } = {}) => {
     }
     cierraCorrida(deviceId, 'cerrado')
   })
-  return { ok: true, proyecto, deviceId }
+  return { ok: true, proyecto, deviceId, config: config || null }
 })
 
 // Hot reload (completa=false) y hot restart (completa=true): el mismo método del
@@ -2081,6 +2102,31 @@ ipcMain.handle('flutter:autoReload', async (_e, { paths } = {}) => {
   if (decision.accion === 'recompilar') return { ok: false, ...decision }
   const rs = await Promise.all([...corriendo.values()].map((c) => pideRecarga(c, decision.accion === 'restart')))
   return { ok: rs.every((r) => r.ok), ...decision, resultados: rs }
+})
+
+// «/correr …» desde el composer: interpreta la frase contra lo que hay conectado
+// y devuelve qué haría, sin ejecutarlo. Decidir aquí evita duplicar en el
+// renderer la lectura del launch.json y del listado.
+ipcMain.handle('flutter:interpretaCorrer', async (_e, { cwd, texto } = {}) => {
+  if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
+  const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
+  if (!esFlutter) return { ok: false, error: 'No hay un proyecto Flutter en esta carpeta' }
+  const bin = flutterCmd(proyecto)
+  if (!bin) return { ok: false, error: 'No se encontró Flutter' }
+  let configs = []
+  try {
+    configs = parseLaunchConfigs(fs.readFileSync(path.join(proyecto, '.vscode', 'launch.json'), 'utf8'))
+  } catch {}
+  const correr = (args) =>
+    execFileP(bin.cmd, [...bin.base, ...args], { cwd: proyecto, timeout: 180000, maxBuffer: 8 * 1024 * 1024 })
+  const [devs, emus] = await Promise.allSettled([correr(['devices', '--machine']), correr(['emulators'])])
+  const devices = ordenaDispositivos(devs.status === 'fulfilled' ? jsonDeLaSalida(devs.value) : [])
+  const emulators = marcaEmuladoresCorriendo(
+    emus.status === 'fulfilled' ? parseEmuladores(emus.value) : [],
+    await emuladoresArriba()
+  )
+  const { objetivo, config } = interpretaCorrer(texto, { devices, emulators, configs })
+  return { ok: true, objetivo, config, devices, emulators, configs }
 })
 
 // Al cerrar la app no se dejan `flutter run` huérfanos ocupando los dispositivos.

@@ -1405,3 +1405,17 @@ select.squad-model {
   font-size: 9.5px; letter-spacing: 0.06em; text-transform: uppercase;
 }
 .runbar-btn.auto.on { background: var(--scene-accent); color: #04201c; }
+/* selector de configuración de lanzamiento */
+.dev-config { display: flex; align-items: center; gap: 8px; margin: 2px 0 4px; }
+.dev-config > span {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); flex: none;
+}
+.dev-config select {
+  flex: 1; min-width: 0;
+  background: var(--surface-2); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 5px 8px; font-size: 12px; font-family: inherit; cursor: pointer;
+}
+.dev-config select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

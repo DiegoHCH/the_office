@@ -7,6 +7,7 @@ const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = co
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
 const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 const { decideRecarga } = core
+const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -527,5 +528,171 @@ describe('decideRecarga', () => {
   it('sin diff cae a reload, que es lo barato y reversible', () => {
     expect(decideRecarga(['lib/a.dart'], '').accion).toBe('reload')
     expect(decideRecarga([], null).accion).toBe('reload')
+  })
+})
+
+// ── Configuraciones de lanzamiento ───────────────────────────────────────────
+// El fragmento es literal del launch.json de front-mobile-b2c: trae comentarios
+// «//» en medio de un array y ${workspaceFolder}, que es lo que rompe un
+// JSON.parse a secas.
+describe('parseLaunchConfigs', () => {
+  const REAL = `{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Global66 (ci)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "args": [
+        "--flavor",
+        "ci",
+        "--dart-define-from-file=config/ci.json",
+        "--dart-define",
+        "ENABLE_RIVERPOD_DEVTOOLS=true"
+        // "--dart-define",
+        // "ENABLE_NETWORK_LOGGING=true"
+      ]
+    },
+    {
+      "name": "Global66 (ci + Debug Dashboard)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "flutterMode": "debug",
+      "args": [
+        "--flavor",
+        "ci",
+        // Repo root para la tab Docs.
+        "--dart-define",
+        "PROJECT_ROOT=\${workspaceFolder}"
+      ]
+    },
+    { "name": "un test", "request": "launch", "type": "node", "program": "x.js" }
+  ]
+}`
+
+  it('lee las configuraciones aunque el archivo tenga comentarios', () => {
+    const cs = parseLaunchConfigs(REAL)
+    expect(cs.map((c) => c.name)).toEqual(['Global66 (ci)', 'Global66 (ci + Debug Dashboard)'])
+  })
+
+  it('deja fuera lo que no es Flutter/Dart', () => {
+    expect(parseLaunchConfigs(REAL).some((c) => c.name === 'un test')).toBe(false)
+  })
+
+  it('los args comentados no se cuelan', () => {
+    const [ci] = parseLaunchConfigs(REAL)
+    expect(ci.args).toEqual([
+      '--flavor',
+      'ci',
+      '--dart-define-from-file=config/ci.json',
+      '--dart-define',
+      'ENABLE_RIVERPOD_DEVTOOLS=true',
+    ])
+    expect(ci.args.join(' ')).not.toMatch(/NETWORK_LOGGING/)
+  })
+
+  it('un archivo roto o ausente no revienta', () => {
+    expect(parseLaunchConfigs('{roto')).toEqual([])
+    expect(parseLaunchConfigs('')).toEqual([])
+    expect(parseLaunchConfigs(null)).toEqual([])
+  })
+
+  it('no destroza una URL dentro de una cadena', () => {
+    // quitar «//» a lo bruto rompería esto
+    const cs = parseLaunchConfigs(
+      '{"configurations":[{"name":"x","type":"dart","args":["--dart-define","API=https://api.global66.com"]}]}'
+    )
+    expect(cs[0].args[1]).toBe('API=https://api.global66.com')
+  })
+
+  it('tolera comas finales', () => {
+    const cs = parseLaunchConfigs('{"configurations":[{"name":"x","type":"dart","args":["a",],},],}')
+    expect(cs[0].name).toBe('x')
+    expect(cs[0].args).toEqual(['a'])
+  })
+})
+
+describe('argsDeLaunchConfig', () => {
+  it('arma los argumentos de flutter run con el entry point y el flavor', () => {
+    const [ci] = parseLaunchConfigs(
+      '{"configurations":[{"name":"ci","type":"dart","program":"lib/main.dart","flutterMode":"debug","args":["--flavor","ci"]}]}'
+    )
+    expect(argsDeLaunchConfig(ci, { workspaceFolder: '/w/app' })).toEqual(['-t', 'lib/main.dart', '--flavor', 'ci'])
+  })
+
+  it('sustituye ${workspaceFolder}', () => {
+    const [c] = parseLaunchConfigs(
+      '{"configurations":[{"name":"x","type":"dart","args":["--dart-define","PROJECT_ROOT=${workspaceFolder}"]}]}'
+    )
+    expect(argsDeLaunchConfig(c, { workspaceFolder: '/w/app' })).toEqual([
+      '--dart-define',
+      'PROJECT_ROOT=/w/app',
+    ])
+  })
+
+  it('profile y release añaden su flag; debug no', () => {
+    const arma = (modo) =>
+      argsDeLaunchConfig({ name: 'x', program: null, modo, args: [] }, {})
+    expect(arma('profile')).toEqual(['--profile'])
+    expect(arma('release')).toEqual(['--release'])
+    expect(arma('debug')).toEqual([])
+  })
+
+  it('sin configuración no aporta argumentos', () => {
+    expect(argsDeLaunchConfig(null, {})).toEqual([])
+  })
+})
+
+describe('interpretaCorrer', () => {
+  const CTX = {
+    devices: [
+      { id: '00008030-000C', name: 'iPhone', platform: 'ios' },
+      { id: 'macos', name: 'macOS', platform: 'darwin' },
+    ],
+    emulators: [
+      { id: 'apple_ios_simulator', name: 'iOS Simulator', platform: 'ios' },
+      { id: 'Medium_Phone_API_36.1', name: 'Medium Phone API 36.1', platform: 'android' },
+    ],
+    configs: [
+      { name: 'Global66 (ci + mock PayIn Chile)' },
+      { name: 'Global66 (prod)' },
+      { name: 'Global66 (ci + Device Preview)' },
+    ],
+  }
+
+  it('saca configuración y dispositivo de una frase suelta', () => {
+    const r = interpretaCorrer('ci mock chile en el iphone', CTX)
+    expect(r.config.name).toBe('Global66 (ci + mock PayIn Chile)')
+    expect(r.objetivo).toMatchObject({ tipo: 'dispositivo' })
+    expect(r.objetivo.item.name).toBe('iPhone')
+  })
+
+  it('«medium phone» no se confunde con «iPhone»', () => {
+    // sin límite de palabra, «phone» encaja dentro de «iPhone» y elegía mal
+    const r = interpretaCorrer('en medium phone', CTX)
+    expect(r.objetivo.tipo).toBe('emulador')
+    expect(r.objetivo.item.id).toBe('Medium_Phone_API_36.1')
+  })
+
+  it('entiende «simulador» aunque el dispositivo se llame «Simulator»', () => {
+    expect(interpretaCorrer('en el simulador', CTX).objetivo.item.name).toBe('iOS Simulator')
+  })
+
+  it('solo la configuración, sin dispositivo, es válido', () => {
+    const r = interpretaCorrer('prod', CTX)
+    expect(r.config.name).toBe('Global66 (prod)')
+    expect(r.objetivo).toBeNull()
+  })
+
+  it('las palabras de relleno no eligen nada', () => {
+    expect(interpretaCorrer('en el de la app', CTX)).toEqual({ objetivo: null, config: null })
+    expect(interpretaCorrer('', CTX)).toEqual({ objetivo: null, config: null })
+  })
+
+  it('sin candidatos no revienta', () => {
+    expect(interpretaCorrer('iphone', {})).toEqual({ objetivo: null, config: null })
   })
 })

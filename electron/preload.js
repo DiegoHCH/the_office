@@ -50,6 +50,8 @@ contextBridge.exposeInMainWorld('oficina', {
   flutterStop: (arg) => ipcRenderer.invoke('flutter:stop', arg),
   // recarga automática tras un turno del agente: decide reload/restart/recompilar
   flutterAutoReload: (arg) => ipcRenderer.invoke('flutter:autoReload', arg),
+  // «/correr …»: interpreta la frase contra lo que hay conectado
+  flutterInterpretaCorrer: (arg) => ipcRenderer.invoke('flutter:interpretaCorrer', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),

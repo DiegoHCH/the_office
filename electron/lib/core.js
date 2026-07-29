@@ -328,6 +328,184 @@ function decideRecarga(rutas, diff) {
   return { accion: 'reload', motivo: null }
 }
 
+// ── Configuraciones de lanzamiento (.vscode/launch.json) ─────────────────────
+// El proyecto define cómo se lanza: flavor, dart-defines, entry point. Son las
+// mismas que ofrece el editor, y sin ellas «correr» solo sirve para el flavor
+// por defecto — en un proyecto con ci/dev/prod y mocks, eso es casi inútil.
+//
+// El archivo es JSON CON COMENTARIOS y suele traer comas finales, así que
+// JSON.parse a secas revienta. Se limpia respetando las cadenas: quitar «//» a
+// lo bruto rompería cualquier "https://…" dentro de un valor.
+function limpiaJsonc(txt) {
+  let out = ''
+  let cadena = false
+  let escape = false
+  let linea = false
+  let bloque = false
+  const s = String(txt || '')
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i]
+    const sig = s[i + 1]
+    if (linea) {
+      if (c === '\n') {
+        linea = false
+        out += c
+      }
+      continue
+    }
+    if (bloque) {
+      if (c === '*' && sig === '/') {
+        bloque = false
+        i++
+      }
+      continue
+    }
+    if (cadena) {
+      out += c
+      if (escape) escape = false
+      else if (c === '\\') escape = true
+      else if (c === '"') cadena = false
+      continue
+    }
+    if (c === '"') {
+      cadena = true
+      out += c
+      continue
+    }
+    if (c === '/' && sig === '/') {
+      linea = true
+      continue
+    }
+    if (c === '/' && sig === '*') {
+      bloque = true
+      i++
+      continue
+    }
+    out += c
+  }
+  // comas finales, también respetando cadenas
+  let limpio = ''
+  cadena = false
+  escape = false
+  for (let i = 0; i < out.length; i++) {
+    const c = out[i]
+    if (cadena) {
+      limpio += c
+      if (escape) escape = false
+      else if (c === '\\') escape = true
+      else if (c === '"') cadena = false
+      continue
+    }
+    if (c === '"') {
+      cadena = true
+      limpio += c
+      continue
+    }
+    if (c === ',') {
+      const resto = out.slice(i + 1)
+      const sigNoBlanco = resto.match(/^\s*(.)/)
+      if (sigNoBlanco && (sigNoBlanco[1] === '}' || sigNoBlanco[1] === ']')) continue
+    }
+    limpio += c
+  }
+  return limpio
+}
+
+// Configuraciones de Flutter/Dart que se pueden lanzar.
+function parseLaunchConfigs(txt) {
+  let j
+  try {
+    j = JSON.parse(limpiaJsonc(txt))
+  } catch {
+    return []
+  }
+  const lista = Array.isArray(j?.configurations) ? j.configurations : []
+  return lista
+    .filter((c) => c && c.type === 'dart' && (c.request || 'launch') === 'launch')
+    .map((c) => ({
+      name: String(c.name || 'sin nombre'),
+      program: c.program || null,
+      modo: c.flutterMode || 'debug',
+      args: Array.isArray(c.args) ? c.args.map(String) : [],
+    }))
+}
+
+// Argumentos para `flutter run` a partir de una configuración. Sustituye las
+// variables del editor que sí se pueden resolver aquí.
+function argsDeLaunchConfig(config, { workspaceFolder } = {}) {
+  if (!config) return []
+  const sustituye = (v) =>
+    String(v)
+      .replace(/\$\{workspaceFolder\}/g, workspaceFolder || '')
+      .replace(/\$\{workspaceRoot\}/g, workspaceFolder || '')
+  const out = []
+  if (config.program) out.push('-t', sustituye(config.program))
+  if (config.modo === 'profile') out.push('--profile')
+  else if (config.modo === 'release') out.push('--release')
+  for (const a of config.args || []) out.push(sustituye(a))
+  return out
+}
+
+// Qué pidió el usuario con «/correr …». El texto puede nombrar la configuración,
+// el dispositivo, o los dos, en cualquier orden y sin acertar el nombre exacto:
+// «/correr ci mock chile en el iphone».
+const normaliza = (s) =>
+  String(s || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    // el usuario escribe en español y los dispositivos se llaman en inglés
+    .replace(/\bsimulador\b/g, 'simulator')
+    .replace(/\bemulador\b/g, 'emulator')
+    .replace(/\btelefono\b/g, 'phone')
+
+const PALABRAS_VACIAS = new Set(['en', 'el', 'la', 'los', 'las', 'de', 'del', 'con', 'un', 'una', 'mi', 'app'])
+
+const palabrasDe = (texto) =>
+  normaliza(texto)
+    .split(/[^a-z0-9.+]+/)
+    .filter((p) => p.length > 1 && !PALABRAS_VACIAS.has(p))
+
+// Puntúa por palabras encontradas, exigiendo límite de palabra: si no, «phone»
+// de «medium phone» encaja dentro de «iPhone» y se elige el dispositivo
+// equivocado.
+function puntua(texto, nombre) {
+  const nom = normaliza(nombre)
+  let punt = 0
+  for (const p of palabrasDe(texto)) {
+    const re = new RegExp(`\\b${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`)
+    if (re.test(nom)) punt += p.length
+  }
+  return punt
+}
+
+function eligePorTexto(texto, candidatos, nombreDe = (x) => x) {
+  let mejor = null
+  let mejorPunt = 0
+  for (const c of candidatos || []) {
+    const punt = puntua(texto, nombreDe(c))
+    if (punt > mejorPunt) {
+      mejorPunt = punt
+      mejor = c
+    }
+  }
+  return mejor ? { item: mejor, punt: mejorPunt } : null
+}
+
+// Interpreta «/correr …» para poder lanzar sin abrir el panel. Dispositivos y
+// emuladores compiten en la MISMA puntuación: «medium phone» tiene que ganarle a
+// «iPhone», que solo coincide en una palabra.
+function interpretaCorrer(texto, { devices = [], emulators = [], configs = [] } = {}) {
+  const t = String(texto || '').trim()
+  const d = eligePorTexto(t, devices, (x) => `${x.name} ${x.platform} ${x.id}`)
+  const e = eligePorTexto(t, emulators, (x) => `${x.name} ${x.platform} ${x.id}`)
+  const c = eligePorTexto(t, configs, (x) => x.name)
+  let objetivo = null
+  if (d && (!e || d.punt >= e.punt)) objetivo = { tipo: 'dispositivo', ...d }
+  else if (e) objetivo = { tipo: 'emulador', ...e }
+  return { objetivo, config: c?.item || null }
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -349,6 +527,12 @@ module.exports = {
   aplicaProgreso,
   progresoVisible,
   decideRecarga,
+  limpiaJsonc,
+  parseLaunchConfigs,
+  argsDeLaunchConfig,
+  interpretaCorrer,
+  eligePorTexto,
+  puntua,
   lineasCambiadas,
   ordenaDispositivos,
   tipoDeDispositivo,

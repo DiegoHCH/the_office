@@ -70,6 +70,7 @@ export default function App() {
   const [runs, setRuns] = useState({})
   const [foco, setFoco] = useState(null) // deviceId enfocado, null = todas
   const [autoReload, setAutoReload] = useState(false)
+  const [config, setConfig] = useState('') // configuración de .vscode/launch.json elegida
   const [runLogs, setRunLogs] = useState([])
   const [verLogs, setVerLogs] = useState(false)
   const [lightbox, setLightbox] = useState(null) // data URL de la imagen ampliada
@@ -1825,10 +1826,15 @@ export default function App() {
     }
   }, [autoReload, runs, project])
 
-  const correrEn = async (d) => {
+  const correrEn = (d) => correrEnCon(d, config || undefined)
+
+  const correrEnCon = async (d, cfgNombre) => {
     if (runs[d.id]) return showToast(t('run.busy'))
-    setRuns((rs) => ({ ...rs, [d.id]: { fase: 'compilando', device: d.name, appId: null, progreso: null } }))
-    const res = await window.oficina?.flutterRun?.({ cwd: project, deviceId: d.id })
+    setRuns((rs) => ({
+      ...rs,
+      [d.id]: { fase: 'compilando', device: d.name, appId: null, progreso: null, config: cfgNombre || null },
+    }))
+    const res = await window.oficina?.flutterRun?.({ cwd: project, deviceId: d.id, config: cfgNombre })
     if (!res?.ok) {
       setRuns((rs) => {
         const copia = { ...rs }
@@ -2065,6 +2071,56 @@ export default function App() {
       const resolved = MODEL_ALIASES[arg] ?? arg
       setModel(resolved)
       showToast(t('toast.modelSet', { label: modelLabelOf(resolved) }))
+      return true
+    }
+    // «/correr …» — lanzar sin abrir el panel. Si lo que se nombra es un
+    // emulador que no está arriba, se arranca primero y se espera a que aparezca
+    // como dispositivo; luego corre la app.
+    if (cmd === '/correr' || cmd === '/run') {
+      if (!flutterProj?.esFlutter) {
+        showToast(t('cmd.runNotFlutter'))
+        return true
+      }
+      const frase = rest.join(' ')
+      showToast(t('cmd.runLooking'))
+      ;(async () => {
+        const r = await window.oficina?.flutterInterpretaCorrer?.({ cwd: project, texto: frase })
+        if (!r?.ok) return showToast(`⚠️ ${r?.error || ''}`)
+        let objetivo = r.objetivo
+        // sin pistas: si hay un solo físico, es obvio a qué se refería
+        if (!objetivo) {
+          const fisicos = r.devices.filter((d) => d.tipo === 'fisico')
+          if (fisicos.length === 1) objetivo = { tipo: 'dispositivo', item: fisicos[0] }
+        }
+        if (!objetivo) return showToast(t('cmd.runNoTarget'), 8000)
+        if (r.config) setConfig(r.config.name)
+        const cfgTxt = r.config ? ` · ${r.config.name}` : ''
+
+        if (objetivo.tipo === 'emulador') {
+          const em = objetivo.item
+          if (!em.corriendo) {
+            showToast(t('cmd.runBooting', { name: em.name }), 6000)
+            const res = await window.oficina?.flutterLaunchEmulator?.({ cwd: project, id: em.id })
+            if (!res?.ok) return showToast(t('cmd.runBootFailed', { name: em.name, error: res?.error || '' }), 8000)
+          }
+          // el emulador tarda en estar listo: se espera a que aparezca
+          const antes = new Set(r.devices.map((d) => d.id))
+          for (let i = 0; i < 20; i++) {
+            await new Promise((res2) => setTimeout(res2, 4000))
+            const tg = await window.oficina?.flutterTargets?.(project)
+            if (!tg?.ok) continue
+            setTargets(tg)
+            const nuevo = tg.devices.find((d) => !antes.has(d.id)) || tg.devices.find((d) => d.tipo === 'emulador')
+            if (nuevo) {
+              showToast(t('cmd.runStarting', { device: nuevo.name, config: cfgTxt }))
+              return correrEnCon(nuevo, r.config?.name)
+            }
+          }
+          return showToast(t('dev.slowBoot'), 8000)
+        }
+        showToast(t('cmd.runStarting', { device: objetivo.item.name, config: cfgTxt }))
+        correrEnCon(objetivo.item, r.config?.name)
+      })()
       return true
     }
     if (cmd === '/clear' || cmd === '/nueva') {
@@ -3391,7 +3447,9 @@ export default function App() {
                         .filter(Boolean)
                         .join(' ')}
                       onClick={() => setFoco((f) => (f === id ? null : id))}
-                      title={r.fase === 'corriendo' ? t('run.running', { device: r.device }) : t('run.compiling')}
+                      title={`${
+                        r.fase === 'corriendo' ? t('run.running', { device: r.device }) : t('run.compiling')
+                      }${r.config ? ` · ${r.config}` : ''}`}
                     >
                       <span className="runbar-dot" />
                       {r.device}
@@ -3522,6 +3580,21 @@ export default function App() {
                         .join(' · '),
                     })}
                   </div>
+                )}
+                {/* las mismas configuraciones que ofrece el editor: sin esto,
+                    «correr» solo serviría para el flavor por defecto */}
+                {devicesView.configs?.length > 0 && (
+                  <label className="dev-config">
+                    <span>{t('run.config')}</span>
+                    <select value={config} onChange={(e) => setConfig(e.target.value)}>
+                      <option value="">{t('run.configDefault')}</option>
+                      {devicesView.configs.map((c) => (
+                        <option key={c.name} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 )}
                 <div className="dev-group">{t('dev.connected')}</div>
                 {devicesView.devices.length === 0 && <div className="hist-empty">{t('dev.none')}</div>}
