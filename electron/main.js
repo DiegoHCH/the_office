@@ -1731,8 +1731,9 @@ async function buscaEnShell(bin) {
   if (cacheShell.has(bin)) return cacheShell.get(bin)
   let ruta = null
   try {
-    const shell = process.env.SHELL || '/bin/zsh'
-    const out = await execFileP(shell, ['-lic', `command -v ${bin}`], { timeout: 20000 })
+    // ojo: `shell` a secas pisaría el módulo shell de electron importado arriba
+    const elShell = process.env.SHELL || '/bin/zsh'
+    const out = await execFileP(elShell, ['-lic', `command -v ${bin}`], { timeout: 20000 })
     // puede venir con ruido del propio shell: vale la última línea que sea ruta
     const cand = out
       .split('\n')
