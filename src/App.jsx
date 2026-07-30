@@ -628,6 +628,9 @@ export default function App() {
         pendingThinkingRef.current[who] = (pendingThinkingRef.current[who] || '') + e.text
       } else if (e.kind === 'done') {
         const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
+        // cuánto tardó: se guarda en el mensaje, junto a los tokens, para poder
+        // mirar atrás y no solo verlo pasar en el chip
+        const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
         const edited = !!editedRef.current[who]
         delete editedRef.current[who]
         const thinking = pendingThinkingRef.current[who] || null
@@ -636,10 +639,10 @@ export default function App() {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
             const copy = [...ms]
-            copy[idx] = { ...copy[idx], streaming: false, usage, edited, thinking }
+            copy[idx] = { ...copy[idx], streaming: false, usage, dur, edited, thinking }
             return copy
           }
-          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, edited, thinking }] : ms
+          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, dur, edited, thinking }] : ms
         })
         // ocupación del contexto: lo enviado en ESTE turno, no el acumulado
         if (usage) setCtxUsado(contextoUsado(usage))
@@ -701,7 +704,6 @@ export default function App() {
         window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
         // chip transitorio anunciando la respuesta final (con duración si fue larga)
         const doneName = squadRef.current.find((m) => m.id === who)?.name || who
-        const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
         recordStat(who, usage, dur) // acumulado diario para 📈 Estadísticas
         setDoneChip(
           respondio
@@ -1639,7 +1641,18 @@ export default function App() {
       model,
       sessions: { ...sessionsRef.current },
       updatedAt: Date.now(),
-      messages: messages.map(({ role, text, who, to, artifact, atts, usage }) => ({ role, text, who, to, artifact, atts, usage })),
+      // `dur` viaja con el mensaje: si no, al reabrir la conversación del
+      // historial se verían los tokens pero no lo que tardó
+      messages: messages.map(({ role, text, who, to, artifact, atts, usage, dur }) => ({
+        role,
+        text,
+        who,
+        to,
+        artifact,
+        atts,
+        usage,
+        dur,
+      })),
     })
   }, [busy, messages, profile, project, model])
 
@@ -4310,9 +4323,11 @@ export default function App() {
                   m.text
                 )}
                 {m.streaming ? '▍' : ''}
-                {m.usage && (
-                  <div className="msg-tokens" title={usageTitle(m.usage)}>
-                    {t('chat.tokens', { n: fmtTokens(usageTotal(m.usage)) })}
+                {(m.usage || m.dur > 0) && (
+                  <div className="msg-tokens" title={m.usage ? usageTitle(m.usage) : ''}>
+                    {m.usage && t('chat.tokens', { n: fmtTokens(usageTotal(m.usage)) })}
+                    {m.usage && m.dur > 0 && ' · '}
+                    {m.dur > 0 && <span title={t('chat.tookTitle')}>⏱ {fmtElapsed(m.dur)}</span>}
                   </div>
                 )}
                 {m.role === 'assistant' && !m.streaming && !m.error && (
