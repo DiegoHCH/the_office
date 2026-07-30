@@ -118,3 +118,34 @@ export function extractOptions(text) {
   }
   return opts.length >= 2 && opts.length <= 6 ? opts : []
 }
+
+// ── ¿Este bloque de código es un comando para la terminal? ──────────────────
+// Se usa para ofrecer «correr en la terminal» junto a lo que el agente dice que
+// no puede hacer él (logins OAuth, comandos interactivos). Conservador a
+// propósito: es mejor no ofrecer el botón que ofrecerlo sobre un fragmento de
+// Dart o un JSON.
+const COMANDOS = /^(npm|npx|yarn|pnpm|bun|node|git|gh|make|flutter|fvm|dart|pod|bundle|brew|firebase|fastlane|adb|xcrun|xcodebuild|gradlew|\.\/gradlew|curl|open|cd|export|source|chmod|ssh|docker|python3?|pip3?|ruby|gem|rbenv|nvm|code)\b/
+const LENGUAJES_SHELL = new Set(['bash', 'sh', 'zsh', 'shell', 'console', 'terminal'])
+
+export function esComandoDeShell(texto, lang) {
+  // `t` a secas pisaría la función de traducción importada arriba
+  const txt = String(texto || '').trim()
+  if (!txt) return false
+  const lineas = txt.split('\n').filter((l) => l.trim())
+  // varias líneas ya no es «un comando»: es un script, y ahí conviene mirarlo
+  if (lineas.length > 3) return false
+  // señales de que es código y no shell
+  if (/[{};]\s*$/.test(txt) || /=>|function\s|class\s|import\s+\{/.test(txt)) return false
+  if (LENGUAJES_SHELL.has(String(lang || '').toLowerCase())) return true
+  // sin lenguaje declarado hay que ser más estricto: solo si arranca por un
+  // comando conocido, y en una sola línea
+  return lineas.length === 1 && COMANDOS.test(lineas[0].trim().replace(/^\$\s*/, ''))
+}
+
+// El texto listo para pegar: sin el «$ » que a veces acompaña a los ejemplos.
+export const limpiaComando = (texto) =>
+  String(texto || '')
+    .split('\n')
+    .map((l) => l.replace(/^\s*\$\s+/, ''))
+    .join('\n')
+    .trim()

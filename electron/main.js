@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell, Tray, Menu, nativeImage, globalShortcut, powerSaveBlocker, powerMonitor } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell, clipboard, Tray, Menu, nativeImage, globalShortcut, powerSaveBlocker, powerMonitor } = require('electron')
 const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -595,8 +595,19 @@ function makeLineHandler(role, claveSesion, displayName) {
         sessions.set(claveSesion, msg.session_id)
         rememberSession(claveSesion, msg.session_id)
       }
-      console.log('[claude:result]', role, JSON.stringify({ cost: msg.total_cost_usd, session: msg.session_id }))
-      emit({ kind: 'done', role, result: msg.result ?? '', cost: msg.total_cost_usd ?? null, usage: msg.usage ?? null })
+      console.log('[claude:result]', role, JSON.stringify({ cost: msg.total_cost_usd, session: msg.session_id, subtype: msg.subtype, is_error: msg.is_error }))
+      // is_error y subtype vienen en el result y se estaban tirando: sin ellos, un
+      // turno que acabó MAL era indistinguible de uno que acabó sin decir nada, y
+      // se anunciaba como «terminó el turno sin decir nada» ocultando el error.
+      emit({
+        kind: 'done',
+        role,
+        result: msg.result ?? '',
+        isError: !!msg.is_error,
+        subtype: msg.subtype || null,
+        cost: msg.total_cost_usd ?? null,
+        usage: msg.usage ?? null,
+      })
       notify(displayName, msg.result)
     }
   }
@@ -2900,6 +2911,46 @@ ipcMain.handle('board:open', (_e, cwd) => {
     return { ok: true, path: file }
   } catch (err) {
     return { ok: false, error: err.message }
+  }
+})
+
+// Correr un comando en la terminal del usuario. Nace de lo que el agente NO
+// puede hacer: un `firebase login:add` abre un navegador para el OAuth y en
+// headless no hay forma de completarlo.
+//
+// Se ejecuta en Terminal.app con `do script`, que es lo único scriptable de
+// serie en macOS. Deliberadamente en una terminal VISIBLE y no en segundo
+// plano: el comando queda a la vista, con su salida, y se puede cortar con
+// Ctrl-C. Además se copia al portapapeles, que sirve de red si el usuario
+// prefiere pegarlo en Warp o iTerm.
+ipcMain.handle('terminal:run', async (_e, { cmd, cwd } = {}) => {
+  const comando = String(cmd || '').trim()
+  if (!comando) return { ok: false, error: 'Sin comando' }
+  // ni saltos de línea ni encadenados a escondidas: lo que se ve es lo que corre
+  if (/[\n\r]/.test(comando)) return { ok: false, error: 'Solo se puede correr una línea' }
+  const dir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
+  try {
+    clipboard.writeText(comando)
+  } catch {}
+  // las comillas dobles y las barras hay que escaparlas para AppleScript
+  const escapa = (x) => x.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  const linea = `cd ${JSON.stringify(dir)} && ${comando}`
+  // NO se espera al osascript: medido, el `do script` corre el comando enseguida
+  // pero la llamada puede quedarse colgada en el `activate` (y la primera vez,
+  // en el permiso de automatización de macOS). Esperarla daría un «no se pudo»
+  // sobre algo que ya se ejecutó.
+  try {
+    const hijo = spawn('/usr/bin/osascript', [
+      '-e',
+      `tell application "Terminal" to do script "${escapa(linea)}"`,
+      '-e',
+      'tell application "Terminal" to activate',
+    ], { detached: true, stdio: 'ignore' })
+    hijo.unref()
+    return { ok: true }
+  } catch (err) {
+    // si ni siquiera arrancó, al menos queda copiado para pegarlo a mano
+    return { ok: false, copiado: true, error: String(err.message || err).slice(0, 200) }
   }
 })
 

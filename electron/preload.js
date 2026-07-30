@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('oficina', {
   // targets de Makefile, agrupados por módulo
   makeProject: (cwd) => ipcRenderer.invoke('make:project', cwd),
   makeRun: (arg) => ipcRenderer.invoke('make:run', arg),
+  // correr un comando en la terminal del usuario (lo que el agente no puede)
+  terminalRun: (arg) => ipcRenderer.invoke('terminal:run', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: (profile) => ipcRenderer.invoke('artifacts:getDir', profile),

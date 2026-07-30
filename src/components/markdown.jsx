@@ -1,6 +1,7 @@
 // Render de markdown del chat: bloques de código con copiar y resaltado
 // de sintaxis controlado (refactor #94).
 import { useMemo, useRef, useState } from 'react'
+import { esComandoDeShell, limpiaComando } from '../lib/helpers.js'
 // highlight.js: solo el core + los lenguajes que realmente aparecen en el chat
 import hljs from 'highlight.js/lib/core'
 import hljsJs from 'highlight.js/lib/languages/javascript'
@@ -31,10 +32,24 @@ hljs.registerLanguage('java', hljsJava)
 // alias frecuentes en los fences de Claude
 const HLJS_ALIASES = { js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript', ts: 'typescript', tsx: 'typescript', py: 'python', sh: 'bash', shell: 'bash', zsh: 'bash', html: 'xml', yml: 'yaml', md: 'markdown' }
 
+// La carpeta del proyecto activo, para poder correr un comando ahí. La pone App
+// al cambiar de proyecto: los componentes del markdown son estáticos y no tienen
+// forma de recibir props desde ReactMarkdown.
+let ctxTerminal = { cwd: null, correr: null }
+export const configuraTerminal = (ctx) => {
+  ctxTerminal = { ...ctxTerminal, ...ctx }
+}
+
 // Bloque de código del markdown con botón de copiar (visible al hover).
 function CodePre({ children, ...props }) {
   const ref = useRef(null)
   const [copied, setCopied] = useState(false)
+  // ¿esto es un comando que se puede correr? El lenguaje viene en la clase del
+  // <code> hijo, y el texto en sus children.
+  const hijo = Array.isArray(children) ? children[0] : children
+  const lang = (hijo?.props?.className || '').match(/language-([\w-]+)/)?.[1] || ''
+  const texto = typeof hijo?.props?.children === 'string' ? hijo.props.children : ''
+  const esComando = esComandoDeShell(texto, lang)
   return (
     <div className="pre-wrap">
       <pre ref={ref} {...props}>
@@ -52,6 +67,16 @@ function CodePre({ children, ...props }) {
       >
         {copied ? '✓ Copiado' : '📋'}
       </button>
+      {esComando && (
+        <button
+          type="button"
+          className="run-btn"
+          title={`Correr en la terminal: ${limpiaComando(texto)}`}
+          onClick={() => ctxTerminal.correr?.(limpiaComando(texto))}
+        >
+          ▶ Terminal
+        </button>
+      )}
     </div>
   )
 }

@@ -15,7 +15,7 @@ import { routeMessage, detectHandoff } from './lib/routing.js'
 import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n.js'
 import { prefKey, leerPref } from './lib/prefs.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
-import { MD_COMPONENTS } from './components/markdown.jsx'
+import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
 import Tour from './components/Tour.jsx'
 const Intro = lazy(() => import('./scene/Intro.jsx'))
@@ -711,6 +711,18 @@ export default function App() {
         // terminaba sin texto, así que parecía que la respuesta se había perdido.
         const respondio = !!hubotextoRef.current[who] || !!(e.result || '').trim()
         delete hubotextoRef.current[who]
+        // un turno que acabó MAL no es un turno callado: se dice qué pasó
+        if (e.isError) {
+          enTab(who, (ms) => [
+            ...ms,
+            {
+              role: 'assistant',
+              who,
+              error: true,
+              text: `⚠️ ${(e.result || '').trim() || t('run.turnError', { motivo: e.subtype || 'error' })}`,
+            },
+          ])
+        }
         // Recarga automática: solo al terminar el turno y con debounce. En cada
         // Write recargaría con el código a medias de un multi-edit.
         const tocadas = turnoPathsRef.current[who] || []
@@ -729,10 +741,12 @@ export default function App() {
         setDoneChip(
           respondio
             ? `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
-            : `⚠️ ${doneName} terminó sin respuesta`
+            : e.isError
+              ? `⚠️ ${doneName}: ${e.subtype || 'error'}`
+              : `⚠️ ${doneName} terminó sin respuesta`
         )
         // sin texto el turno no dejaría rastro en el chat: queda la línea
-        if (!respondio)
+        if (!respondio && !e.isError)
           enTab(who, (ms) => [...ms, { role: 'system', text: `⚠️ ${doneName} terminó el turno sin decir nada` }])
         clearTimeout(doneChipTimer.current)
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
@@ -1044,6 +1058,23 @@ export default function App() {
     clearTimeout(toastTimer.current)
     toastTimer.current = setTimeout(() => setToast(null), ms)
   }
+
+  // El botón «▶ Terminal» de los bloques de código necesita saber dónde correr.
+  // Va DESPUÉS de showToast y de project a propósito: el array de dependencias
+  // se evalúa durante el render, así que colocarlo antes de sus declaraciones
+  // reventaba el arranque con «Cannot access 'project' before initialization»
+  // —minificado, y con el stack apuntando a otro chunk, que despista—.
+  useEffect(() => {
+    configuraTerminal({
+      cwd: project,
+      correr: async (cmd) => {
+        const res = await window.oficina?.terminalRun?.({ cmd, cwd: project })
+        if (res?.ok) showToast(t('term.sent'))
+        else showToast(`⚠️ ${res?.copiado ? t('term.copied') : res?.error || ''}`, 7000)
+      },
+    })
+  }, [project])
+
 
   // Descarta todo lo pendiente de la conversación actual: mensajes en cola y
   // handoffs a medias no deben dispararse dentro de la conversación siguiente.
