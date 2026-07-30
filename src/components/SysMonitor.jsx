@@ -31,7 +31,7 @@ function Bar({ pct }) {
   )
 }
 
-export default function SysMonitor({ modelLabel, model, profile, tokens, contexto = 0 }) {
+export default function SysMonitor({ modelLabel, model, profile, tokens, contexto = 0, innerRef }) {
   const tokTotal = tokens ? tokens.in + tokens.out + tokens.cache : 0
   const [s, setS] = useState(null)
   useEffect(() => {
@@ -59,7 +59,7 @@ export default function SysMonitor({ modelLabel, model, profile, tokens, context
   const ramPct = (s.ramUsed / s.ramTotal) * 100
   // dos burbujas independientes apiladas: sistema arriba, claude debajo
   return (
-    <div className="sysmon-stack">
+    <div className="sysmon-stack" ref={innerRef}>
       <div className="sysmon">
         <div className="mon-title">
           <AppleIcon /> {t('mon.system')}

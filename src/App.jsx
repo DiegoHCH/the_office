@@ -148,6 +148,18 @@ export default function App() {
   const [input, setInput] = useState('')
   const [cfg, setCfg] = useState(null)
   const [profile, setProfile] = useState('work')
+  // alto real del monitor, para colocar los chips justo debajo sin acoplarlos
+  const monRef = useRef(null)
+  const [monAlto, setMonAlto] = useState(0)
+  useEffect(() => {
+    const el = monRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => setMonAlto(el.getBoundingClientRect().height))
+    ro.observe(el)
+    setMonAlto(el.getBoundingClientRect().height)
+    return () => ro.disconnect()
+  }, [])
+
   const profileRef = useRef(profile)
   useEffect(() => {
     profileRef.current = profile
@@ -2670,29 +2682,34 @@ export default function App() {
       </header>
 
       <div className="stage">
-        {/* Columna izquierda: los monitores y, debajo, quién está trabajando.
-            Los chips estaban arriba al centro, donde chocaban con la barra de la
-            app corriendo; aquí acompañan al monitor aunque este cambie de alto. */}
-        <div className="leftstack">
-          <SysMonitor profile={profile} model={model} modelLabel={modelLabelOf(model)} tokens={convTokens} contexto={ctxUsado} />
-          {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
-            <div className="stopbar">
-              {running
-                .filter((r) => roleStates[r] !== 'delivering')
-                .map((r) => (
-                  <button
-                    key={r}
-                    className="stopchip"
-                    onClick={() => window.oficina?.stop?.(r)}
-                    title={t('chat.stop', { name: memberOf(r).name })}
-                  >
-                    ⏹ {memberOf(r).name}
-                    {elapsed[r] ? ` · ${elapsed[r]}` : ''}
-                  </button>
-                ))}
-            </div>
-          )}
-        </div>
+        <SysMonitor
+          innerRef={monRef}
+          profile={profile}
+          model={model}
+          modelLabel={modelLabelOf(model)}
+          tokens={convTokens}
+          contexto={ctxUsado}
+        />
+        {/* Quién está trabajando: contenedor propio, justo debajo del monitor.
+            El alto del monitor cambia (sesión, semana, aviso de cuota), así que
+            se mide en vez de fijar un top a ojo. */}
+        {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
+          <div className="stopbar" style={{ top: 14 + monAlto + 10 }}>
+            {running
+              .filter((r) => roleStates[r] !== 'delivering')
+              .map((r) => (
+                <button
+                  key={r}
+                  className="stopchip"
+                  onClick={() => window.oficina?.stop?.(r)}
+                  title={t('chat.stop', { name: memberOf(r).name })}
+                >
+                  ⏹ {memberOf(r).name}
+                  {elapsed[r] ? ` · ${elapsed[r]}` : ''}
+                </button>
+              ))}
+          </div>
+        )}
         <Suspense fallback={null}>
         <Office
           roleStates={roleStates}
