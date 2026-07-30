@@ -7,6 +7,9 @@ import { t } from '../lib/i18n.js'
 const TOUR_STEPS = [
   { sel: '.ctxbtn', k: 'ctx' },
   { sel: '.hud', k: 'hud' },
+  // solo aparece si la carpeta tiene un proyecto que se pueda correr, así que el
+  // paso se salta cuando no hay botón: señalar un hueco no explica nada
+  { sel: '.devbtn', k: 'run', opcional: true },
   { sel: '.sysmon-stack', k: 'mon' },
   { sel: 'canvas', k: 'office' },
   { sel: '.perm-chip', k: 'perm' },
@@ -35,13 +38,16 @@ export function colocar(rect, altoTarjeta, vw, vh) {
 }
 
 export default function Tour({ onDone }) {
+  // los pasos opcionales se resuelven una vez, al arrancar: así el contador
+  // «3 / 6» no cuenta un paso que nunca se va a ver
+  const [TOUR] = useState(() => TOUR_STEPS.filter((p) => !p.opcional || document.querySelector(p.sel)))
   const [i, setI] = useState(0)
   const [rect, setRect] = useState(null)
   const [alto, setAlto] = useState(185) // hasta medirla; el texto varía por idioma
   const cardRef = useRef(null)
   useEffect(() => {
     const measure = () => {
-      const el = document.querySelector(TOUR_STEPS[i].sel)
+      const el = document.querySelector(TOUR[i].sel)
       setRect(el ? el.getBoundingClientRect() : null)
     }
     measure()
@@ -52,7 +58,7 @@ export default function Tour({ onDone }) {
   useLayoutEffect(() => {
     if (cardRef.current) setAlto(cardRef.current.getBoundingClientRect().height)
   }, [i, rect])
-  const s = TOUR_STEPS[i]
+  const s = TOUR[i]
   const cardStyle = colocar(rect, alto, window.innerWidth, window.innerHeight)
   return (
     <div className="tour">
@@ -64,14 +70,14 @@ export default function Tour({ onDone }) {
       )}
       <div className="tour-card" ref={cardRef} style={cardStyle}>
         <div className="tour-step">
-          {i + 1} / {TOUR_STEPS.length}
+          {i + 1} / {TOUR.length}
         </div>
         <b>{t(`tour.${s.k}.title`)}</b>
         <p>{t(`tour.${s.k}.text`)}</p>
         <div className="tour-actions">
           <button type="button" onClick={onDone}>{t('tour.skip')}</button>
-          <button type="button" className="tour-next" onClick={() => (i < TOUR_STEPS.length - 1 ? setI(i + 1) : onDone())}>
-            {i < TOUR_STEPS.length - 1 ? t('tour.next') : t('tour.done')}
+          <button type="button" className="tour-next" onClick={() => (i < TOUR.length - 1 ? setI(i + 1) : onDone())}>
+            {i < TOUR.length - 1 ? t('tour.next') : t('tour.done')}
           </button>
         </div>
       </div>

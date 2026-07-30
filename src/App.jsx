@@ -2692,7 +2692,7 @@ export default function App() {
           {(flutterProj?.esFlutter || npmProj?.esNpm) && (
             <button
               type="button"
-              className={devicesView ? 'iconbtn on' : 'iconbtn'}
+              className={devicesView ? 'iconbtn devbtn on' : 'iconbtn devbtn'}
               aria-label={t('hud.devicesLabel')}
               onClick={openDevices}
               title={t('hud.devices')}

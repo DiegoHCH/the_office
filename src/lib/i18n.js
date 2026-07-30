@@ -477,6 +477,9 @@ Si no tienes contexto previo conmigo en este proyecto, dilo en una línea y sugi
   'tour.hud.title': 'La barra',
   'tour.hud.text':
     'Documentos que genera el squad, historial de conversaciones (⌘Y), conversación nueva (⌘K) y Configuración (⌘,) — ahí viven Agentes, Skills y MCP.',
+  'tour.run.title': 'Correr tu app 📱',
+  'tour.run.text':
+    'Si la carpeta tiene un proyecto Flutter o npm, aquí salen los dispositivos, los emuladores o los scripts. Lanzas un emulador, eliges dónde correr y aparece una barra con hot reload, hot restart y detener. También con «/correr el emulador android».',
   'tour.mon.title': 'Monitores',
   'tour.mon.text':
     'CPU y RAM reales del Mac, y tu cuota de Claude: modelo en uso, tokens de la conversación y % de la sesión de 5h y la semana.',
@@ -1046,6 +1049,9 @@ If you have no previous context with me on this project, say so in one line and 
   'tour.hud.title': 'The bar',
   'tour.hud.text':
     'Documents the squad creates, conversation history (⌘Y), new conversation (⌘K) and Settings (⌘,) — that is where Agents, Skills and MCP live.',
+  'tour.run.title': 'Running your app 📱',
+  'tour.run.text':
+    'If the folder holds a Flutter or npm project, this lists devices, emulators or scripts. Launch an emulator, pick where to run, and a bar shows up with hot reload, hot restart and stop. Also with "/correr the android emulator".',
   'tour.mon.title': 'Monitors',
   'tour.mon.text':
     "Your Mac's real CPU and RAM, plus your Claude quota: model in use, conversation tokens and % of the 5h session and the week.",
