@@ -2670,7 +2670,29 @@ export default function App() {
       </header>
 
       <div className="stage">
-        <SysMonitor profile={profile} model={model} modelLabel={modelLabelOf(model)} tokens={convTokens} contexto={ctxUsado} />
+        {/* Columna izquierda: los monitores y, debajo, quién está trabajando.
+            Los chips estaban arriba al centro, donde chocaban con la barra de la
+            app corriendo; aquí acompañan al monitor aunque este cambie de alto. */}
+        <div className="leftstack">
+          <SysMonitor profile={profile} model={model} modelLabel={modelLabelOf(model)} tokens={convTokens} contexto={ctxUsado} />
+          {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
+            <div className="stopbar">
+              {running
+                .filter((r) => roleStates[r] !== 'delivering')
+                .map((r) => (
+                  <button
+                    key={r}
+                    className="stopchip"
+                    onClick={() => window.oficina?.stop?.(r)}
+                    title={t('chat.stop', { name: memberOf(r).name })}
+                  >
+                    ⏹ {memberOf(r).name}
+                    {elapsed[r] ? ` · ${elapsed[r]}` : ''}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
         <Suspense fallback={null}>
         <Office
           roleStates={roleStates}
@@ -4098,20 +4120,6 @@ export default function App() {
         {toast && (
           <div className="toast" key={toast}>
             {toast}
-          </div>
-        )}
-
-        {/* chips para detener a quien esté trabajando */}
-        {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
-          <div className="stopbar">
-            {running
-              .filter((r) => roleStates[r] !== 'delivering')
-              .map((r) => (
-                <button key={r} className="stopchip" onClick={() => window.oficina?.stop?.(r)} title={t('chat.stop', { name: memberOf(r).name })}>
-                  ⏹ {memberOf(r).name}
-                  {elapsed[r] ? ` · ${elapsed[r]}` : ''}
-                </button>
-              ))}
           </div>
         )}
 

@@ -756,10 +756,7 @@ select.squad-model {
 .linkish { color: var(--accent); cursor: pointer; text-decoration: underline; }
 
 /* chips para detener tareas en curso */
-.stopbar {
-  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-  display: flex; gap: 8px; z-index: 6;
-}
+.stopbar { display: flex; gap: 8px; flex-wrap: wrap; }
 .stopchip {
   display: inline-flex; align-items: center; gap: 5px;
   background: var(--scene-surface-soft); color: var(--scene-danger);
@@ -970,10 +967,16 @@ select.squad-model {
 .help-btn:hover { background: rgba(45, 212, 191, 0.1); }
 
 /* monitores (arriba a la izquierda): dos burbujas apiladas — sistema y claude */
-.sysmon-stack {
-  position: absolute; left: 14px; top: 14px; width: 210px; z-index: 4;
-  display: flex; flex-direction: column; gap: 10px;
+/* Columna izquierda: monitores arriba y, debajo, quién está trabajando. La
+   posición la da el contenedor, así los chips acompañan al monitor aunque este
+   crezca —antes vivían arriba al centro y chocaban con la barra del runner—. */
+.leftstack {
+  position: absolute; left: 14px; top: 14px; z-index: 6;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 10px;
+  max-width: min(340px, 40vw); pointer-events: none;
 }
+.leftstack > * { pointer-events: auto; }
+.sysmon-stack { width: 210px; display: flex; flex-direction: column; gap: 10px; }
 .sysmon {
   background: var(--scene-surface-soft); border: 1px solid var(--scene-line); border-radius: 16px;
   padding: 10px 12px;
@@ -989,11 +992,16 @@ select.squad-model {
    ocupa el resto de la fila en una sola línea (con elipsis si no cabe) */
 .mon-row span.mon-model {
   color: var(--scene-claude); font-size: 10.5px; font-weight: 600;
-  width: auto; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  width: auto; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+/* el dato de tokens es más largo que el ancho del panel: mejor dos líneas que
+   cortarlo con puntos suspensivos, que es justo donde va el número */
+.mon-row.mon-wrap { align-items: flex-start; }
+.mon-row.mon-wrap span.mon-model { white-space: normal; overflow: visible; line-height: 1.35; }
 .mon-title:first-child { margin-top: 0; }
 .mon-row { display: flex; align-items: center; gap: 7px; margin: 4px 0; font-size: 11px; color: var(--scene-ink-2); }
-.mon-row span { width: 42px; flex: none; }
+/* «Contexto» no cabía en 42px y la barra se le montaba encima */
+.mon-row span { width: 56px; flex: none; }
 .mon-row b { font-size: 10.5px; color: var(--scene-ink); white-space: nowrap; }
 .mon-app { color: var(--scene-muted-2); font-size: 10.5px; }
 .mon-bar { flex: 1; height: 5px; background: var(--scene-track); border-radius: 3px; overflow: hidden; }

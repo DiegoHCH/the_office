@@ -96,7 +96,7 @@ export default function SysMonitor({ modelLabel, model, profile, tokens, context
         )}
         {tokTotal > 0 && (
           <div
-            className="mon-row"
+            className="mon-row mon-wrap"
             title={t('mon.tokTitle', { in: fmtTokens(tokens.in), out: fmtTokens(tokens.out), cache: fmtTokens(tokens.cache) })}
           >
             <span>{t('mon.tokens')}</span>
