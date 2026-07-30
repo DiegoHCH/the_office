@@ -748,6 +748,24 @@ function agrupaTargets(targets) {
   return [...mapa.entries()].map(([modulo, items]) => ({ modulo, items }))
 }
 
+// El PATH tal como lo imprime el shell de login del usuario. La mayoría lo dan
+// separado por «:», pero en fish $PATH es una lista y sale separado por
+// espacios: sin distinguirlo, un usuario de fish no ganaba nada.
+//
+// El shell puede escupir ruido de su propio arranque, así que vale la última
+// línea que parezca un PATH.
+function parsePathDeShell(salida) {
+  const linea =
+    String(salida || '')
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.includes('/'))
+      .pop() || ''
+  // con «:» manda «:», que además admite carpetas con espacios; sin él, fish
+  const trozos = linea.includes(':') ? linea.split(':') : linea.split(/\s+/)
+  return [...new Set(trozos.map((d) => d.trim()).filter((d) => d.startsWith('/')))]
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -782,6 +800,7 @@ module.exports = {
   argsDeScript,
   urlDeSalida,
   interpretaScript,
+  parsePathDeShell,
   parseMakefile,
   agrupaTargets,
   familiaPlataforma,

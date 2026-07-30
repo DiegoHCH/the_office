@@ -10,7 +10,7 @@ const { decideRecarga } = core
 const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer, plataformaOcupada } = core
 const { plataformasDelProyecto, filtraPorPlataforma, familiaPlataforma, dispositivoDeDaemon } = core
 const { scriptsDelProyecto, gestorDePaquetes, argsDeScript, urlDeSalida, interpretaScript } = core
-const { parseMakefile, agrupaTargets } = core
+const { parseMakefile, agrupaTargets, parsePathDeShell } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -1125,4 +1125,36 @@ describe('agrupaTargets', () => {
     { nombre: 'dev.mk', texto: 'a: ## uno\nb: ## dos\n' },
     { nombre: 'ios.mk', texto: 'c: ## tres\n' },
   ]
+})
+
+describe('parsePathDeShell', () => {
+  it('lee el formato normal, separado por «:»', () => {
+    // salida real de zsh en esta máquina
+    expect(parsePathDeShell('/Users/x/.rbenv/shims:/usr/bin:/bin')).toEqual([
+      '/Users/x/.rbenv/shims',
+      '/usr/bin',
+      '/bin',
+    ])
+  })
+
+  it('entiende fish, donde $PATH es una lista y sale con espacios', () => {
+    expect(parsePathDeShell('/usr/local/bin /usr/bin /bin')).toEqual(['/usr/local/bin', '/usr/bin', '/bin'])
+  })
+
+  it('con «:» no parte por espacios: una carpeta puede llevarlos', () => {
+    expect(parsePathDeShell('/Applications/Mi App/bin:/usr/bin')).toEqual(['/Applications/Mi App/bin', '/usr/bin'])
+  })
+
+  it('descarta el ruido de arranque del shell y se queda con la última línea', () => {
+    expect(parsePathDeShell('bienvenido a mi shell\ncargando /etc/algo\n/usr/bin:/bin')).toEqual(['/usr/bin', '/bin'])
+  })
+
+  it('no duplica ni deja entradas relativas', () => {
+    expect(parsePathDeShell('/usr/bin:/usr/bin:relativo:/bin')).toEqual(['/usr/bin', '/bin'])
+  })
+
+  it('sin salida devuelve lista vacía', () => {
+    expect(parsePathDeShell('')).toEqual([])
+    expect(parsePathDeShell(null)).toEqual([])
+  })
 })

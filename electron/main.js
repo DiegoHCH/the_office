@@ -39,6 +39,7 @@ const {
   argsDeScript,
   urlDeSalida,
   interpretaScript,
+  parsePathDeShell,
   parseMakefile,
   agrupaTargets,
   ordenaDispositivos,
@@ -1501,9 +1502,7 @@ async function pathDelShell() {
     // `shell` a secas pisaría el módulo shell de electron importado arriba
     const elShell = process.env.SHELL || '/bin/zsh'
     const out = await execFileP(elShell, ['-lic', 'printf "%s" "$PATH"'], { timeout: 20000 })
-    // el shell puede escupir ruido de su propio arranque: vale la última línea
-    const linea = out.split('\n').filter((l) => l.includes('/')).pop() || ''
-    pathShell = linea.split(':').filter((d) => d.startsWith('/'))
+    pathShell = parsePathDeShell(out)
   } catch {}
   return pathShell
 }
