@@ -730,7 +730,7 @@ ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd })
   return { ok: true }
 })
 
-ipcMain.handle('claude:ask', (_e, payload) => {
+ipcMain.handle('claude:ask', async (_e, payload) => {
   const { prompt, profile = 'work', cwd, writeMode = false, model = '', role = 'dev', standup = false } =
     typeof payload === 'string' ? { prompt: payload } : payload
 
@@ -795,6 +795,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
   const env = sanitizeEnv(process.env, {
     home: app.getPath('home'),
     profileDir: PROFILE_DIRS[profile] ? PROFILE_DIRS[profile]() : null,
+    extraPath: await rutasDelProyecto(workdir),
   })
 
   let child
@@ -1485,6 +1486,43 @@ ipcMain.handle('skills:remove', (_e, { profile, id }) => {
 
 // ── Plugins de Claude Code por perfil (marketplaces) ─────────────────────────
 // Mismo entorno que los agentes headless: el CLI opera sobre el perfil elegido.
+// ── El PATH que reciben los agentes ─────────────────────────────────────────
+// Una app de GUI en macOS no hereda el PATH del shell de login, así que los
+// agentes veían una versión mutilada: sin rbenv (y por tanto sin CocoaPods), sin
+// el node de nvm, sin el Java de temurin… y sin Flutter, que en muchas máquinas
+// solo existe vía fvm o vía el SDK que fija el proyecto.
+let pathShell = null
+async function pathDelShell() {
+  if (pathShell !== null) return pathShell
+  pathShell = []
+  try {
+    // `shell` a secas pisaría el módulo shell de electron importado arriba
+    const elShell = process.env.SHELL || '/bin/zsh'
+    const out = await execFileP(elShell, ['-lic', 'printf "%s" "$PATH"'], { timeout: 20000 })
+    // el shell puede escupir ruido de su propio arranque: vale la última línea
+    const linea = out.split('\n').filter((l) => l.includes('/')).pop() || ''
+    pathShell = linea.split(':').filter((d) => d.startsWith('/'))
+  } catch {}
+  return pathShell
+}
+
+// Rutas extra para un proyecto: el PATH del usuario más el SDK que fije, si lo
+// hay, para que `flutter …` funcione sin que el agente sepa nada de fvm.
+async function rutasDelProyecto(cwd) {
+  const rutas = [...(await pathDelShell())]
+  try {
+    if (cwd) {
+      const { esFlutter, proyecto } = resuelveProyectoFlutter(cwd)
+      if (esFlutter) {
+        const bin = await flutterCmd(proyecto)
+        // solo si es un SDK real en disco, no `fvm flutter`
+        if (bin && !bin.base.length) rutas.unshift(path.dirname(bin.cmd))
+      }
+    }
+  } catch {}
+  return rutas
+}
+
 function claudeEnvFor(profile) {
   return sanitizeEnv(process.env, {
     home: app.getPath('home'),

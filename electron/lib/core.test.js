@@ -32,6 +32,27 @@ describe('sanitizeEnv', () => {
     expect(PATH.split(':')).toEqual(['/usr/bin', '/bin', '/opt/homebrew/bin', '/usr/local/bin', '/Users/x/.local/bin'])
   })
 
+  it('las rutas extra van delante, para que los shims tapen al sistema', () => {
+    // el PATH del shell de login del usuario: rbenv o nvm deben ganarle a
+    // /usr/bin, o el agente usa el ruby y el node del sistema
+    const { PATH } = sanitizeEnv(
+      { PATH: '/usr/bin:/bin' },
+      { home: '/Users/x', extraPath: ['/Users/x/.rbenv/shims', '/Users/x/.nvm/versions/node/v22/bin'] }
+    )
+    expect(PATH.split(':').slice(0, 3)).toEqual(['/Users/x/.rbenv/shims', '/Users/x/.nvm/versions/node/v22/bin', '/usr/bin'])
+  })
+
+  it('extraPath tampoco duplica lo que ya estaba', () => {
+    const { PATH } = sanitizeEnv({ PATH: '/usr/bin:/opt/homebrew/bin' }, { extraPath: ['/opt/homebrew/bin'] })
+    expect(PATH.split(':').filter((p) => p === '/opt/homebrew/bin')).toHaveLength(1)
+  })
+
+  it('sin extraPath se comporta igual que antes', () => {
+    expect(sanitizeEnv({ PATH: '/usr/bin' }, { home: '/Users/x' }).PATH).toBe(
+      '/usr/bin:/opt/homebrew/bin:/usr/local/bin:/Users/x/.local/bin'
+    )
+  })
+
   it('no duplica rutas que ya venían en el PATH', () => {
     const { PATH } = sanitizeEnv({ PATH: '/opt/homebrew/bin:/usr/bin' }, { home: '/Users/x' })
     expect(PATH.split(':').filter((p) => p === '/opt/homebrew/bin')).toHaveLength(1)

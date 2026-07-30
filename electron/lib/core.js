@@ -10,12 +10,16 @@
 // Sin API key en el entorno, Claude Code usa el login de la suscripción; si se
 // cuela, cobra por token. El PATH del shell de login no llega a Electron, así
 // que se añaden las rutas típicas para que encuentren gh, acli, node…
-function sanitizeEnv(base, { home, profileDir } = {}) {
+function sanitizeEnv(base, { home, profileDir, extraPath } = {}) {
   const env = { ...base }
   delete env.ANTHROPIC_API_KEY
   delete env.ANTHROPIC_AUTH_TOKEN
+  // `extraPath` va DELANTE: son las rutas del shell de login del usuario y el
+  // SDK que fija el proyecto, y su orden es intencionado —los shims de rbenv o
+  // nvm tienen que tapar a los binarios del sistema, no al revés—.
+  const delante = (extraPath || []).filter(Boolean)
   const extra = ['/opt/homebrew/bin', '/usr/local/bin', home ? `${home}/.local/bin` : null].filter(Boolean)
-  env.PATH = [...new Set([...(env.PATH || '').split(':').filter(Boolean), ...extra])].join(':')
+  env.PATH = [...new Set([...delante, ...(env.PATH || '').split(':').filter(Boolean), ...extra])].join(':')
   // un perfil (work/private) fija su CLAUDE_CONFIG_DIR; sin perfil se quita,
   // porque heredarlo del shell mezclaría las cuentas
   if (profileDir) env.CLAUDE_CONFIG_DIR = profileDir
