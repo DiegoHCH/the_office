@@ -59,6 +59,9 @@ contextBridge.exposeInMainWorld('oficina', {
   npmProject: (cwd) => ipcRenderer.invoke('npm:project', cwd),
   npmRun: (arg) => ipcRenderer.invoke('npm:run', arg),
   npmInterpreta: (arg) => ipcRenderer.invoke('npm:interpreta', arg),
+  // targets de Makefile, agrupados por módulo
+  makeProject: (cwd) => ipcRenderer.invoke('make:project', cwd),
+  makeRun: (arg) => ipcRenderer.invoke('make:run', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: (profile) => ipcRenderer.invoke('artifacts:getDir', profile),

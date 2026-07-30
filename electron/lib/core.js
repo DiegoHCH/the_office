@@ -702,6 +702,52 @@ function interpretaScript(texto, scripts) {
   }
 }
 
+// ── Targets de Makefile ─────────────────────────────────────────────────────
+// Un Makefile auto-documentado (`target: ## descripción`) es una lista de
+// comandos con nombre, igual que los scripts de npm. Se lee del archivo, sin
+// ejecutar `make help`: preguntarle a make obligaría a evaluar el Makefile, que
+// puede tener side effects.
+//
+// Convención de argumentos, tomada del proyecto real:
+//   build-preprod-apk: ## … Uso: make build-preprod-apk [ENABLE_NETWORK_LOGGING=true]
+//   generate-mod:      ## … Uso: make generate-mod MOD=auth
+// Entre corchetes = opcional; suelto = obligatorio, y sin él el target falla.
+function parseMakefile(archivos) {
+  const out = []
+  for (const { nombre, texto } of archivos || []) {
+    const modulo = /^[Mm]akefile$/.test(nombre || '') ? 'general' : String(nombre || '').replace(/\.mk$/, '')
+    for (const linea of String(texto || '').split('\n')) {
+      // el nombre puede llevar prerrequisitos antes del ##; `:=` no es un target
+      const m = linea.match(/^([a-zA-Z0-9_.%/-]+)\s*:[^=#]*?##\s*(.*)$/)
+      if (!m) continue
+      const [, name, descRaw] = m
+      if (name.startsWith('.')) continue // .PHONY y compañía
+      const uso = (descRaw.match(/Uso:\s*(.+)$/) || [])[1] || ''
+      const opcionales = [...uso.matchAll(/\[\s*([A-Z][A-Z0-9_]*)\s*=/g)].map((x) => x[1])
+      const todos = [...uso.matchAll(/([A-Z][A-Z0-9_]*)\s*=/g)].map((x) => x[1])
+      out.push({
+        name,
+        modulo,
+        desc: descRaw.replace(/\s*Uso:.*$/, '').trim(),
+        args: todos.filter((a) => !opcionales.includes(a)),
+        argsOpt: opcionales,
+      })
+    }
+  }
+  return out
+}
+
+// Agrupados por módulo, que es como ya los organiza el proyecto: 127 targets en
+// una lista plana no se leen.
+function agrupaTargets(targets) {
+  const mapa = new Map()
+  for (const t of targets || []) {
+    if (!mapa.has(t.modulo)) mapa.set(t.modulo, [])
+    mapa.get(t.modulo).push(t)
+  }
+  return [...mapa.entries()].map(([modulo, items]) => ({ modulo, items }))
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -736,6 +782,8 @@ module.exports = {
   argsDeScript,
   urlDeSalida,
   interpretaScript,
+  parseMakefile,
+  agrupaTargets,
   familiaPlataforma,
   familiaDe,
   eligePorTexto,

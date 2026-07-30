@@ -66,6 +66,8 @@ export default function App() {
   const [flutterProj, setFlutterProj] = useState(null) // { esFlutter, proyecto, proyectos } del proyecto activo
   const [targets, setTargets] = useState(null) // último listado conocido, precargado al elegir proyecto
   const [npmProj, setNpmProj] = useState(null) // { esNpm, proyecto, scripts, gestor } — web/escritorio
+  const [makeProj, setMakeProj] = useState(null) // { esMake, grupos, total } — targets del Makefile
+  const [makeAbierto, setMakeAbierto] = useState({}) // módulos desplegados
   // las apps corriendo: deviceId → { fase, device, appId, progreso, url, error }
   // `flutter run --machine` no admite -d all, así que es un proceso por
   // dispositivo y las acciones de la barra van a todas salvo que se enfoque una.
@@ -1865,12 +1867,14 @@ export default function App() {
     if (!project) {
       setFlutterProj(null)
       setNpmProj(null)
+      setMakeProj(null)
       setTargets(null)
       setDevicesView(null)
       return
     }
     // web/escritorio: sin dispositivos, el objetivo es un script del package.json
     window.oficina?.npmProject?.(project).then((n) => vivo && setNpmProj(n?.esNpm ? n : null))
+    window.oficina?.makeProject?.(project).then((mk) => vivo && setMakeProj(mk?.esMake ? mk : null))
     window.oficina?.flutterProject?.(project).then((r) => {
       if (!vivo) return
       setFlutterProj(r || null)
@@ -2082,6 +2086,30 @@ export default function App() {
     }
   }
 
+  const correrTarget = async (tg) => {
+    const clave = `make:${tg.name}`
+    if (runs[clave]) return showToast(t('run.busy'))
+    // los que piden argumentos no se lanzan a ciegas: se preguntan
+    const vars = {}
+    for (const a of tg.args || []) {
+      const v = window.prompt(t('make.needsArg', { target: tg.name, arg: a }), '')
+      if (!v) return
+      vars[a] = v
+    }
+    setRuns((rs) => ({ ...rs, [clave]: { fase: 'corriendo', device: tg.name, tipo: 'make', appId: null } }))
+    const res = await window.oficina?.makeRun?.({ cwd: project, target: tg.name, vars })
+    if (!res?.ok) {
+      setRuns((rs) => {
+        const copia = { ...rs }
+        delete copia[clave]
+        return copia
+      })
+      showToast(`⚠️ ${res?.error || ''}`)
+    } else {
+      setDevicesView(null)
+    }
+  }
+
   const openDevices = async () => {
     if (devicesView) {
       setDevicesView(null)
@@ -2090,7 +2118,7 @@ export default function App() {
     }
     // un proyecto npm no tiene dispositivos que descubrir: se abre directo con
     // sus scripts, sin arrancar el toolchain ni el vigía
-    if (!flutterProj?.esFlutter) return setDevicesView({ npm: npmProj })
+    if (!flutterProj?.esFlutter) return setDevicesView({ npm: npmProj, make: makeProj })
     // el vigía de enchufar/desenchufar vive con el panel: es un proceso Dart y
     // tenerlo siempre arriba costaría memoria para nada
     window.oficina?.flutterWatch?.({ cwd: project, on: true })
@@ -2689,7 +2717,7 @@ export default function App() {
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
           {/* solo con un proyecto Flutter delante: en un microservicio no pinta nada */}
-          {(flutterProj?.esFlutter || npmProj?.esNpm) && (
+          {(flutterProj?.esFlutter || npmProj?.esNpm || makeProj?.esMake) && (
             <button
               type="button"
               className={devicesView ? 'iconbtn devbtn on' : 'iconbtn devbtn'}
@@ -3862,7 +3890,9 @@ export default function App() {
           <div className="drawer dev-drawer">
             <div className="drawer-head">
               <b>
-                {npmProj?.esNpm && !flutterProj?.esFlutter
+                {makeProj?.esMake && !flutterProj?.esFlutter && !npmProj?.esNpm
+                  ? t('make.title')
+                  : npmProj?.esNpm && !flutterProj?.esFlutter
                   ? t('npm.title')
                   : t('panel.devices', {
                       project: (devicesView.proyecto || project || '').split('/').pop() || t('panel.theProject'),
@@ -3910,6 +3940,46 @@ export default function App() {
                       </button>
                     </div>
                   ))}
+              </>
+            )}
+            {/* Targets del Makefile, agrupados por módulo: 127 en una lista
+                plana no se leen, y el proyecto ya los organiza así */}
+            {makeProj?.esMake && (
+              <>
+                <div className="dev-sdk">{t('make.total', { n: makeProj.total, g: makeProj.grupos.length })}</div>
+                {makeProj.grupos.map((g) => (
+                  <div key={g.modulo}>
+                    <button
+                      type="button"
+                      className="make-mod"
+                      onClick={() => setMakeAbierto((v) => ({ ...v, [g.modulo]: !v[g.modulo] }))}
+                      aria-expanded={!!makeAbierto[g.modulo]}
+                    >
+                      <span>{makeAbierto[g.modulo] ? '▾' : '▸'}</span>
+                      {g.modulo}
+                      <span className="make-count">{g.items.length}</span>
+                    </button>
+                    {makeAbierto[g.modulo] &&
+                      g.items.map((tg) => (
+                        <div key={tg.name} className="dev-row fisico">
+                          <span className="dev-name">{tg.name}</span>
+                          <span className="dev-meta">
+                            {tg.desc.slice(0, 60)}
+                            {tg.args.length > 0 && ` · ${tg.args.join(', ')}`}
+                            {tg.argsOpt.length > 0 && ` · ${tg.argsOpt.join(', ')} (${t('make.optional')})`}
+                          </span>
+                          <button
+                            type="button"
+                            className="dev-launch"
+                            onClick={() => correrTarget(tg)}
+                            disabled={!!runs[`make:${tg.name}`]}
+                          >
+                            <IconPlay size={11} /> {t('make.run')}
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                ))}
               </>
             )}
             {devicesView.devices && (

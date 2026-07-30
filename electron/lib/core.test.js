@@ -10,6 +10,7 @@ const { decideRecarga } = core
 const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer, plataformaOcupada } = core
 const { plataformasDelProyecto, filtraPorPlataforma, familiaPlataforma, dispositivoDeDaemon } = core
 const { scriptsDelProyecto, gestorDePaquetes, argsDeScript, urlDeSalida, interpretaScript } = core
+const { parseMakefile, agrupaTargets } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -1045,4 +1046,83 @@ describe('interpretaScript', () => {
   it('sin scripts no revienta', () => {
     expect(interpretaScript('dev', null).objetivo).toBeNull()
   })
+})
+
+// ── Targets de Makefile ─────────────────────────────────────────────────────
+// Líneas literales del Makefile de front-mobile-b2c.
+describe('parseMakefile', () => {
+  const ARCHIVOS = [
+    {
+      nombre: 'Makefile',
+      texto: `.DEFAULT_GOAL := help
+ENABLE_NETWORK_LOGGING ?=
+help: ## Muestra esta ayuda.
+	@awk '...'
+`,
+    },
+    {
+      nombre: 'dev.mk',
+      texto: `generate: ## Genera el código de Riverpod/Freezed una sola vez.
+generate-mod: ## Genera solo un módulo. Uso: make generate-mod MOD=auth (filtra lib/modules/{MOD}/**).
+prepare: clean install ## (Reset) Limpia, instala, genera y analiza el proyecto.
+_interno:
+	@echo sin doble almohadilla
+`,
+    },
+    {
+      nombre: 'build.mk',
+      texto: `build-preprod-apk: ## Genera APK de release. Uso: make build-preprod-apk [ENABLE_NETWORK_LOGGING=true]
+`,
+    },
+  ]
+
+  it('lee los targets documentados y los ubica en su módulo', () => {
+    const ts = parseMakefile(ARCHIVOS)
+    expect(ts.map((t) => t.name)).toEqual(['help', 'generate', 'generate-mod', 'prepare', 'build-preprod-apk'])
+    expect(ts.find((t) => t.name === 'generate').modulo).toBe('dev')
+    expect(ts.find((t) => t.name === 'help').modulo).toBe('general')
+  })
+
+  it('un target con prerrequisitos sigue siendo un target', () => {
+    // `prepare: clean install ## …`
+    expect(parseMakefile(ARCHIVOS).find((t) => t.name === 'prepare').desc).toMatch(/Limpia, instala/)
+  })
+
+  it('ignora asignaciones y lo que no está documentado', () => {
+    const ts = parseMakefile(ARCHIVOS)
+    expect(ts.some((t) => t.name === '.DEFAULT_GOAL')).toBe(false)
+    expect(ts.some((t) => t.name === 'ENABLE_NETWORK_LOGGING')).toBe(false)
+    expect(ts.some((t) => t.name === '_interno')).toBe(false)
+  })
+
+  it('distingue argumento obligatorio de opcional por los corchetes', () => {
+    const ts = parseMakefile(ARCHIVOS)
+    const mod = ts.find((t) => t.name === 'generate-mod')
+    expect(mod.args).toEqual(['MOD'])
+    expect(mod.argsOpt).toEqual([])
+    const apk = ts.find((t) => t.name === 'build-preprod-apk')
+    expect(apk.args).toEqual([]) // entre corchetes: no bloquea
+    expect(apk.argsOpt).toEqual(['ENABLE_NETWORK_LOGGING'])
+  })
+
+  it('la descripción no arrastra el «Uso:»', () => {
+    expect(parseMakefile(ARCHIVOS).find((t) => t.name === 'generate-mod').desc).toBe('Genera solo un módulo.')
+  })
+
+  it('sin archivos no revienta', () => {
+    expect(parseMakefile([])).toEqual([])
+    expect(parseMakefile(null)).toEqual([])
+  })
+})
+
+describe('agrupaTargets', () => {
+  it('agrupa por módulo conservando el orden de aparición', () => {
+    const g = agrupaTargets(parseMakefile(ARCHIVOS_G))
+    expect(g.map((x) => x.modulo)).toEqual(['dev', 'ios'])
+    expect(g[0].items).toHaveLength(2)
+  })
+  const ARCHIVOS_G = [
+    { nombre: 'dev.mk', texto: 'a: ## uno\nb: ## dos\n' },
+    { nombre: 'ios.mk', texto: 'c: ## tres\n' },
+  ]
 })

@@ -39,6 +39,8 @@ const {
   argsDeScript,
   urlDeSalida,
   interpretaScript,
+  parseMakefile,
+  agrupaTargets,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -2162,6 +2164,102 @@ ipcMain.handle('flutter:stopEmulator', async (_e, { platform, deviceId } = {}) =
   } catch (err) {
     return { ok: false, error: String(err.message || 'No se pudo cerrar el emulador').slice(0, 250) }
   }
+})
+
+// ── Targets de Makefile ─────────────────────────────────────────────────────
+// Se leen del archivo, no de `make help`: preguntarle a make obligaría a evaluar
+// el Makefile entero, y eso puede tener side effects.
+function resuelveProyectoMake(cwd) {
+  const tiene = (dir) => ['Makefile', 'makefile', 'GNUmakefile'].some((f) => fs.existsSync(path.join(dir, f)))
+  if (tiene(cwd)) return cwd
+  try {
+    return (
+      fs
+        .readdirSync(cwd, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !d.name.startsWith('.') && d.name !== 'node_modules')
+        .map((d) => path.join(cwd, d.name))
+        .slice(0, 40)
+        .find(tiene) || null
+    )
+  } catch {
+    return null
+  }
+}
+
+ipcMain.handle('make:project', (_e, cwd) => {
+  if (!cwd) return { esMake: false, grupos: [] }
+  const proyecto = resuelveProyectoMake(cwd)
+  if (!proyecto) return { esMake: false, grupos: [] }
+  const archivos = []
+  for (const f of ['Makefile', 'makefile', 'GNUmakefile']) {
+    try {
+      archivos.push({ nombre: f, texto: fs.readFileSync(path.join(proyecto, f), 'utf8') })
+      break // los tres son el mismo archivo en macOS (case-insensitive)
+    } catch {}
+  }
+  // los módulos incluidos, que es donde vive la mayoría
+  for (const dir of ['make', 'makefiles', 'scripts/make']) {
+    try {
+      for (const f of fs.readdirSync(path.join(proyecto, dir)).filter((x) => x.endsWith('.mk')).sort()) {
+        archivos.push({ nombre: f, texto: fs.readFileSync(path.join(proyecto, dir, f), 'utf8') })
+      }
+    } catch {}
+  }
+  const targets = parseMakefile(archivos)
+  return { esMake: targets.length > 0, proyecto, grupos: agrupaTargets(targets), total: targets.length }
+})
+
+ipcMain.handle('make:run', async (_e, { cwd, target, vars } = {}) => {
+  if (!cwd || !target) return { ok: false, error: 'Falta el proyecto o el target' }
+  const clave = `make:${target}`
+  if (corriendo.has(clave)) return { ok: false, error: 'Ese target ya está corriendo' }
+  const proyecto = resuelveProyectoMake(cwd)
+  if (!proyecto) return { ok: false, error: 'No hay Makefile en esta carpeta' }
+  const args = [target]
+  for (const [k, v] of Object.entries(vars || {})) {
+    if (/^[A-Z][A-Z0-9_]*$/.test(k) && v) args.push(`${k}=${v}`)
+  }
+  // make vive en /usr/bin, pero los targets llaman a flutter, pod o fastlane:
+  // sin el PATH del usuario fallarían igual que le fallaban a los agentes
+  const child = spawn('/usr/bin/make', args, {
+    cwd: proyecto,
+    env: sanitizeEnv(process.env, { home: app.getPath('home'), extraPath: await rutasDelProyecto(proyecto) }),
+  })
+  const c = {
+    child,
+    tipo: 'make',
+    deviceId: clave,
+    device: target,
+    platform: null,
+    appId: null,
+    proyecto,
+    pendientes: new Map(),
+    seq: 0,
+    progreso: {},
+    parando: false,
+  }
+  corriendo.set(clave, c)
+  avisaFlutter({ kind: 'run-start', deviceId: clave, appId: null, tipo: 'make' })
+  avisaFlutter({ kind: 'run-started', deviceId: clave })
+  const alSalir = (buf) => {
+    for (const linea of buf.toString().split('\n')) {
+      if (linea.trim()) avisaFlutter({ kind: 'run-log', deviceId: clave, texto: linea.trimEnd() })
+    }
+  }
+  child.stdout.on('data', alSalir)
+  child.stderr.on('data', alSalir)
+  child.on('error', (err) => {
+    avisaFlutter({ kind: 'run-error', deviceId: clave, error: String(err.message || err).slice(0, 300) })
+    cierraCorrida(clave, 'error')
+  })
+  child.on('close', (code) => {
+    const cc = corriendo.get(clave)
+    if (cc && !cc.parando && code) {
+      avisaFlutter({ kind: 'run-error', deviceId: clave, error: `make ${target} terminó con código ${code}` })
+    }
+    cierraCorrida(clave, 'cerrado')
+  })
+  return { ok: true, proyecto, target }
 })
 
 // ── Correr el proyecto: `flutter run --machine` ───────────────────────────────
