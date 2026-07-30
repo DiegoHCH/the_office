@@ -79,10 +79,35 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Firma con Developer ID y notarización. Sin los secrets, el build sigue
+      # saliendo (sin firmar, como hasta ahora) en vez de romper el release.
       - name: Construir DMG
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERT_P12 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         # --publish never: electron-builder intenta auto-publicar al ver el tag;
         # de subir el asset se encarga el paso siguiente con gh
-        run: npm run dist:mac -- --publish never
+        run: |
+          if [ -z "$CSC_LINK" ]; then
+            echo "::warning::Sin certificado: el DMG saldrá sin firmar y pedirá xattr -cr"
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          npm run dist:mac -- --publish never
+
+      - name: Verificar firma y notarización
+        run: |
+          APP="release/mac-arm64/La Oficina.app"
+          [ -d "$APP" ] || APP="release/mac/La Oficina.app"
+          echo "— firma —"
+          codesign -dv --verbose=2 "$APP" 2>&1 | grep -E "Authority|TeamIdentifier|Signature" || true
+          echo "— gatekeeper —"
+          spctl -a -vvv -t install "$APP" 2>&1 || echo "sin notarizar (esperado si no hay secrets)"
+          echo "— ticket de notarización —"
+          xcrun stapler validate "$APP" 2>&1 || echo "sin ticket"
+
       - name: Subir DMG al release del tag
         env:
           GH_TOKEN: ${{ github.token }}

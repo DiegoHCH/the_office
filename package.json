@@ -11,7 +11,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "NODE_ENV=production electron .",
-    "dist:app": "vite build && electron-builder --mac dir",
+    "dist:app": "vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
     "dist:mac": "vite build && electron-builder --mac dmg",
     "dist:win": "vite build && electron-builder --win nsis",
     "test": "vitest run",
@@ -40,9 +40,12 @@
         "dir",
         "dmg"
       ],
-      "identity": "-",
-      "hardenedRuntime": false,
-      "icon": "build/icon.icns"
+      "hardenedRuntime": true,
+      "icon": "build/icon.icns",
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "notarize": true
     },
     "dmg": {
       "title": "La Oficina"

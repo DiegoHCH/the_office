@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Permisos del hardened runtime. Firmar con Developer ID exige activarlo, y con
+  él Electron deja de arrancar salvo que se declare lo siguiente.
+
+  NO se activa el App Sandbox: la app lanza claude, git, make, flutter y la
+  Terminal (43 lanzamientos de proceso), y el sandbox lo prohíbe. Por eso esta
+  app se distribuye firmada y notarizada, no por la Mac App Store.
+-->
+<plist version="1.0">
+  <dict>
+    <!-- V8 compila a código máquina en tiempo de ejecución -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <!-- Electron carga sus propios frameworks, no firmados por Apple -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <!-- los agentes heredan PATH y CLAUDE_CONFIG_DIR del proceso principal -->
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <!-- lanzar procesos hijo (claude, git, make, flutter…) -->
+    <key>com.apple.security.inherit</key>
+    <true/>
+    <!-- pedir la URL de cuota a la API y hablar con el daemon de Flutter -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
+    <!-- «▶ Terminal» y cerrar el simulador van por AppleScript -->
+    <key>com.apple.security.automation.apple-events</key>
+    <true/>
+  </dict>
+</plist>
