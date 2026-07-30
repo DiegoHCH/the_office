@@ -1581,6 +1581,52 @@ ipcMain.handle('config:backups', () => {
   }
 })
 
+// Copiar la configuración de un perfil a otro, directo en disco. Nace de un
+// malentendido razonable: exportar e importar parecía servir para esto, pero el
+// export lleva SIEMPRE los tres perfiles y el import devuelve cada uno a su
+// sitio —sirve para respaldar y migrar de máquina, no para llevarse el squad de
+// «work» a «private»—. Esto es lo que la gente quería de verdad.
+ipcMain.handle('config:copyProfile', async (_e, { desde, hacia } = {}) => {
+  if (!CONFIG_PROFILES.includes(desde) || !CONFIG_PROFILES.includes(hacia)) {
+    return { ok: false, error: 'Perfil inválido' }
+  }
+  if (desde === hacia) return { ok: false, error: 'Origen y destino son el mismo perfil' }
+  const ans = await dialog.showMessageBox(win, {
+    type: 'warning',
+    buttons: [`Copiar «${desde}» en «${hacia}»`, 'Cancelar'],
+    defaultId: 0,
+    cancelId: 1,
+    message: `Copiar la configuración de «${desde}»`,
+    detail: `Se llevan el squad, las personalidades y los proyectos agregados de «${desde}» a «${hacia}», sobrescribiendo los de «${hacia}». Las conversaciones, las sesiones y las credenciales no se tocan.`,
+  })
+  if (ans.response !== 0) return { ok: false, canceled: true }
+  try {
+    // squad
+    try {
+      const squad = fs.readFileSync(squadFile(desde), 'utf8')
+      fs.writeFileSync(squadFile(hacia), squad)
+    } catch {}
+    // proyectos agregados a mano
+    try {
+      fs.writeFileSync(customProjectsFile(hacia), JSON.stringify(getCustomProjects(desde), null, 2))
+    } catch {}
+    // personalidades: se reemplazan las del destino por las del origen
+    const dirDesde = path.join(app.getPath('userData'), 'personas', desde)
+    const dirHacia = path.join(app.getPath('userData'), 'personas', hacia)
+    try {
+      fs.rmSync(dirHacia, { recursive: true, force: true })
+    } catch {}
+    try {
+      const files = fs.readdirSync(dirDesde).filter((f) => f.endsWith('.md'))
+      if (files.length) fs.mkdirSync(dirHacia, { recursive: true })
+      for (const f of files) fs.copyFileSync(path.join(dirDesde, f), path.join(dirHacia, f))
+    } catch {}
+    return { ok: true, desde, hacia }
+  } catch (err) {
+    return { ok: false, error: String(err.message || err).slice(0, 250) }
+  }
+})
+
 ipcMain.handle('config:export', async (_e, extras) => {
   const res = await dialog.showSaveDialog(win, {
     defaultPath: 'la-oficina-config.json',

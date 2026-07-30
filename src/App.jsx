@@ -147,6 +147,11 @@ export default function App() {
   const [input, setInput] = useState('')
   const [cfg, setCfg] = useState(null)
   const [profile, setProfile] = useState('work')
+  useEffect(() => {
+    try {
+      if (profile) localStorage.setItem('oficina-profile', profile)
+    } catch {}
+  }, [profile])
   const [project, setProject] = useState('')
   const [writeMode, setWriteMode] = useState(true)
   const [model, setModel] = useState(FALLBACK_MODEL)
@@ -463,7 +468,13 @@ export default function App() {
   useEffect(() => {
     window.oficina?.getConfig?.().then((c) => {
       setCfg(c)
-      const first = c.profiles[0]
+      // se retoma el perfil en el que se estaba: volver siempre al primero
+      // obligaba a cambiarlo a mano en cada arranque
+      let guardado = null
+      try {
+        guardado = localStorage.getItem('oficina-profile')
+      } catch {}
+      const first = c.profiles.includes(guardado) ? guardado : c.profiles[0]
       setProfile(first)
       setProject(c.projectsByProfile[first]?.[0]?.path || '')
       // el modelo persistido gana sobre el default de settings.json
@@ -1324,6 +1335,24 @@ export default function App() {
     if (res?.ok) showToast(t('toast.exported', { file: res.path.split('/').pop() }))
     else if (!res?.canceled) showToast(`⚠️ ${res?.error || t('toast.noExport')}`)
   }
+  // Copiar la configuración de otro perfil al de ahora, sin pasar por un archivo:
+  // exportar/importar sirve para respaldar y migrar, no para esto.
+  const copyProfileConfig = async () => {
+    const otros = (cfg?.profiles || []).filter((p) => p !== profile)
+    if (!otros.length) return showToast(t('toast.noOtherProfile'))
+    const desde =
+      otros.length === 1
+        ? otros[0]
+        : window.prompt(`${t('menu.copyProfile')}: ${otros.join(' · ')}`, otros[0])
+    if (!desde || !otros.includes(desde)) return
+    const res = await window.oficina?.config?.copyProfile?.({ desde, hacia: profile })
+    if (!res?.ok) {
+      if (!res?.canceled) showToast(`⚠️ ${res?.error || ''}`, 6000)
+      return
+    }
+    showToast(t('toast.copiedProfile', { desde, hacia: profile }), 8000)
+  }
+
   const importConfig = async () => {
     // si hay respaldos automáticos, ofrecerlos antes del selector de archivo
     const bks = (await window.oficina?.config?.backups?.()) || []
@@ -2714,6 +2743,11 @@ export default function App() {
               >
                 <span className="mi-icon"><IconTerminal /></span>
                 <span className="mi-label">{t('menu.terminal')}</span>
+                <span className="mi-chev"><IconChevron /></span>
+              </button>
+              <button type="button" className="menu-item" onClick={copyProfileConfig}>
+                <span className="mi-icon"><IconCopy /></span>
+                <span className="mi-label">{t('menu.copyProfile')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
               <button type="button" className="menu-item" onClick={exportConfig}>
