@@ -148,7 +148,9 @@ export default function App() {
   const [input, setInput] = useState('')
   const [cfg, setCfg] = useState(null)
   const [profile, setProfile] = useState('work')
+  const profileRef = useRef(profile)
   useEffect(() => {
+    profileRef.current = profile
     try {
       if (profile) localStorage.setItem('oficina-profile', profile)
     } catch {}
@@ -408,8 +410,16 @@ export default function App() {
     if (project) window.oficina?.hasClaudeMd?.(project).then(setHasClaudeMd)
   }, [project])
 
+  // los documentos son por perfil: al cambiarlo, la carpeta y el listado cambian
   useEffect(() => {
-    window.oficina?.artifacts?.getDir?.().then(setArtsDir)
+    if (!profile) return
+    window.oficina?.artifacts?.getDir?.(profile).then(setArtsDir)
+    window.oficina?.artifacts?.list?.(profile).then((l) => setArtsList(l || []))
+    if (histOpen) window.oficina?.history?.list(profile).then((l) => setHistList(l || []))
+  }, [profile])
+
+  useEffect(() => {
+    window.oficina?.artifacts?.getDir?.(profile).then(setArtsDir)
     window.oficina?.getVersion?.().then((v) => setAppVersion(v || ''))
     // nota pendiente de un import (skills fuera del catálogo que no se migran solas)
     try {
@@ -421,7 +431,7 @@ export default function App() {
     } catch {}
   }, [])
 
-  const refreshArtifacts = async () => setArtsList((await window.oficina?.artifacts?.list?.()) || [])
+  const refreshArtifacts = async () => setArtsList((await window.oficina?.artifacts?.list?.(profile)) || [])
   // cierra todos los paneles laterales (cada toggle abre el suyo encima)
   const closePanels = () => {
     setHistOpen(false)
@@ -459,7 +469,7 @@ export default function App() {
     setArtsOpen(next)
   }
   const pickArtsDir = async () => {
-    const res = await window.oficina?.artifacts?.pickDir?.()
+    const res = await window.oficina?.artifacts?.pickDir?.(profile)
     if (res?.ok) {
       setArtsDir(res.dir)
       showToast(t('toast.docsDir'))
@@ -626,7 +636,7 @@ export default function App() {
         // si generó un artifact este turno, adjuntar su enlace al mensaje del agente
         if (pendingArtifactRef.current[who]) {
           delete pendingArtifactRef.current[who]
-          window.oficina?.artifacts?.list?.().then((list) => {
+          window.oficina?.artifacts?.list?.(profileRef.current).then((list) => {
             const art = list?.[0]
             if (!art) return
             setMessages((ms) => {
@@ -1618,7 +1628,7 @@ export default function App() {
 
   const toggleHist = async () => {
     if (!histOpen) {
-      setHistList((await window.oficina?.history?.list()) || [])
+      setHistList((await window.oficina?.history?.list(profile)) || [])
       setHistQuery('') // el filtro arranca limpio en cada apertura
     }
     const next = !histOpen
@@ -1634,7 +1644,7 @@ export default function App() {
       setHistContent({})
       return
     }
-    const timer = setTimeout(async () => setHistContent((await window.oficina?.history?.search(q)) || {}), 300)
+    const timer = setTimeout(async () => setHistContent((await window.oficina?.history?.search(q, profile)) || {}), 300)
     return () => clearTimeout(timer)
   }, [histQuery, histOpen])
 
@@ -1652,13 +1662,13 @@ export default function App() {
     setRenaming(null)
     if (!val.trim()) return
     await window.oficina?.history?.rename(id, val)
-    setHistList((await window.oficina?.history?.list()) || [])
+    setHistList((await window.oficina?.history?.list(profile)) || [])
   }
 
   const togglePin = async (e, h) => {
     e.stopPropagation()
     await window.oficina?.history?.pin(h.id, !h.pinned)
-    setHistList((await window.oficina?.history?.list()) || [])
+    setHistList((await window.oficina?.history?.list(profile)) || [])
     showToast(h.pinned ? t('toast.unpinned') : t('toast.pinned'))
   }
 
@@ -1686,7 +1696,7 @@ export default function App() {
     e.stopPropagation()
     await window.oficina?.history?.remove(id)
     if (id === convIdRef.current) newChat()
-    setHistList((await window.oficina?.history?.list()) || [])
+    setHistList((await window.oficina?.history?.list(profile)) || [])
   }
 
   const exportConvo = async (e, id) => {

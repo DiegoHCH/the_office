@@ -749,7 +749,7 @@ ipcMain.handle('claude:ask', (_e, payload) => {
     : `Eres ${displayName}, ${member?.focus?.trim() || 'parte del squad'}. Preséntate como ${displayName} cuando te saluden.`
   // instrucción de artifacts: si el usuario pide un "artifact"/página/dashboard/visual,
   // generar un HTML autocontenido (CSS/JS inline) en esta carpeta.
-  const artDir = getArtifactsDir()
+  const artDir = getArtifactsDir(profile)
   try {
     fs.mkdirSync(artDir, { recursive: true })
   } catch {}
@@ -864,7 +864,10 @@ ipcMain.handle('history:save', (_e, convo) => {
   }
 })
 
-ipcMain.handle('history:list', () => {
+// El historial se filtra por perfil: work y private no deben verse la
+// conversación del otro. Cada conversación ya guardaba su `profile`, así que no
+// hay que mover nada — solo dejar de mostrarlas todas juntas.
+ipcMain.handle('history:list', (_e, profile) => {
   try {
     return fs
       .readdirSync(HIST_DIR)
@@ -886,6 +889,9 @@ ipcMain.handle('history:list', () => {
         }
       })
       .filter(Boolean)
+      // las viejas sin perfil marcado cuentan como «work», que era el default
+      // histórico: dejarlas visibles en todos los perfiles sería la misma fuga
+      .filter((c) => !profile || (c.profile || 'work') === profile)
       .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
   } catch {
     return []
@@ -915,7 +921,7 @@ ipcMain.handle('history:rename', (_e, { id, title }) => {
 })
 
 // Busca DENTRO del texto de los mensajes: {id: extracto} de las que matchean.
-ipcMain.handle('history:search', (_e, q) => {
+ipcMain.handle('history:search', (_e, q, profile) => {
   const needle = String(q || '').toLowerCase()
   if (needle.length < 3) return {}
   const out = {}
@@ -923,6 +929,7 @@ ipcMain.handle('history:search', (_e, q) => {
     for (const f of fs.readdirSync(HIST_DIR).filter((x) => x.endsWith('.json'))) {
       try {
         const c = JSON.parse(fs.readFileSync(path.join(HIST_DIR, f), 'utf8'))
+        if (profile && (c.profile || 'work') !== profile) continue
         for (const m of c.messages || []) {
           const t = String(m.text || '')
           const i = t.toLowerCase().indexOf(needle)
@@ -1178,23 +1185,75 @@ ipcMain.handle('help:open', (_e, lang) => openHelp(lang))
 
 // ── Artifacts locales ────────────────────────────────────────────────────────
 // Carpeta donde el squad guarda los artifacts HTML (configurable desde ⚙️).
-const artifactsDirFile = () => path.join(app.getPath('userData'), 'artifacts-dir.txt')
-function getArtifactsDir() {
+// Los documentos se guardan por perfil: los de «work» no tienen por qué
+// aparecer en «private». La carpeta elegida a mano también es por perfil; la
+// global de antes se conserva como base y cada perfil escribe en su subcarpeta.
+const artifactsDirFile = (profile) =>
+  path.join(app.getPath('userData'), profile ? `artifacts-dir-${profile}.txt` : 'artifacts-dir.txt')
+
+function baseArtifacts() {
   try {
     const d = fs.readFileSync(artifactsDirFile(), 'utf8').trim()
-    if (d && fs.existsSync(d)) return d
+    if (d) return d
   } catch {}
-  return path.join(app.getPath('userData'), 'artifacts') // por defecto
+  return path.join(app.getPath('userData'), 'artifacts')
 }
-ipcMain.handle('artifacts:getDir', () => getArtifactsDir())
-ipcMain.handle('artifacts:pickDir', async () => {
+
+// Una vez: los documentos sueltos en la raíz de la carpeta base son anteriores a
+// la separación por perfil y pertenecen a «work». Se mueven ahí en lugar de
+// dejarlos invisibles para todos.
+let migrado = false
+function migraArtifactsAWork() {
+  if (migrado) return
+  migrado = true
+  const base = baseArtifacts()
+  const destino = path.join(base, 'work')
+  try {
+    const sueltos = fs.readdirSync(base, { withFileTypes: true }).filter((d) => d.isFile() && /\.html?$/i.test(d.name))
+    if (!sueltos.length) return
+    fs.mkdirSync(destino, { recursive: true })
+    for (const f of sueltos) {
+      const desde = path.join(base, f.name)
+      const hacia = path.join(destino, f.name)
+      if (!fs.existsSync(hacia)) fs.renameSync(desde, hacia)
+    }
+  } catch {}
+}
+
+function getArtifactsDir(profile) {
+  const prof = profile || 'work'
+  try {
+    const d = fs.readFileSync(artifactsDirFile(prof), 'utf8').trim()
+    if (d) return d
+  } catch {}
+  migraArtifactsAWork()
+  return path.join(baseArtifacts(), prof)
+}
+ipcMain.handle('artifacts:getDir', (_e, profile) => getArtifactsDir(profile))
+
+// Un documento solo se abre, revela, exporta o borra si está DENTRO de la
+// carpeta del perfil que lo pide. Antes bastaba con que la ruta existiera, así
+// que la separación dependía de que el renderer pidiera la lista correcta.
+function dentroDeArtifacts(file, profile) {
+  if (!file) return false
+  try {
+    const dir = path.resolve(getArtifactsDir(profile))
+    const f = path.resolve(file)
+    return (f === dir || f.startsWith(dir + path.sep)) && fs.existsSync(f)
+  } catch {
+    return false
+  }
+}
+// La carpeta elegida vale solo para el perfil actual: si se guardara global,
+// los documentos volverían a mezclarse.
+ipcMain.handle('artifacts:pickDir', async (_e, profile) => {
   const res = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })
   if (res.canceled || !res.filePaths[0]) return { ok: false }
-  fs.writeFileSync(artifactsDirFile(), res.filePaths[0])
+  fs.writeFileSync(artifactsDirFile(profile || 'work'), res.filePaths[0])
   return { ok: true, dir: res.filePaths[0] }
 })
-ipcMain.handle('artifacts:list', () => {
-  const dir = getArtifactsDir()
+ipcMain.handle('artifacts:list', (_e, profile) => {
+  const dir = getArtifactsDir(profile)
   try {
     return fs
       .readdirSync(dir)
@@ -1208,8 +1267,8 @@ ipcMain.handle('artifacts:list', () => {
     return []
   }
 })
-ipcMain.handle('artifacts:open', (_e, file) => {
-  if (!file || !fs.existsSync(file)) return { ok: false }
+ipcMain.handle('artifacts:open', (_e, file, profile) => {
+  if (!dentroDeArtifacts(file, profile)) return { ok: false }
   const w = new BrowserWindow({ width: 1000, height: 780, backgroundColor: '#ffffff', title: path.basename(file) })
   w.loadFile(file)
   // El visor local se queda en el archivo; links externos dentro del artifact van al navegador.
@@ -1226,14 +1285,14 @@ ipcMain.handle('artifacts:open', (_e, file) => {
   return { ok: true }
 })
 // Revela el artifact en Finder (seleccionado).
-ipcMain.handle('artifacts:reveal', (_e, file) => {
-  if (!file || !fs.existsSync(file)) return { ok: false }
+ipcMain.handle('artifacts:reveal', (_e, file, profile) => {
+  if (!dentroDeArtifacts(file, profile)) return { ok: false }
   require('electron').shell.showItemInFolder(file)
   return { ok: true }
 })
 // Exporta el artifact + su carpeta assets/ en un .zip para compartir.
-ipcMain.handle('artifacts:zip', async (_e, file) => {
-  if (!file || !fs.existsSync(file)) return { ok: false }
+ipcMain.handle('artifacts:zip', async (_e, file, profile) => {
+  if (!dentroDeArtifacts(file, profile)) return { ok: false }
   const base = path.basename(file, path.extname(file))
   const res = await dialog.showSaveDialog(win, { defaultPath: `${base}.zip` })
   if (res.canceled || !res.filePath) return { ok: false }
@@ -1250,8 +1309,8 @@ ipcMain.handle('artifacts:zip', async (_e, file) => {
 
 // Borra un documento (a la papelera, no destrucción directa: se puede recuperar
 // desde Finder si fue un error). Pide confirmación antes.
-ipcMain.handle('artifacts:delete', async (_e, file) => {
-  if (!file || !fs.existsSync(file)) return { ok: false }
+ipcMain.handle('artifacts:delete', async (_e, file, profile) => {
+  if (!dentroDeArtifacts(file, profile)) return { ok: false }
   const res = await dialog.showMessageBox(win, {
     type: 'warning',
     buttons: ['Cancelar', 'Mover a la papelera'],

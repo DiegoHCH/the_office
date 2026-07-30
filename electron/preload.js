@@ -61,13 +61,13 @@ contextBridge.exposeInMainWorld('oficina', {
   npmInterpreta: (arg) => ipcRenderer.invoke('npm:interpreta', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
-    getDir: () => ipcRenderer.invoke('artifacts:getDir'),
-    pickDir: () => ipcRenderer.invoke('artifacts:pickDir'),
-    list: () => ipcRenderer.invoke('artifacts:list'),
-    open: (file) => ipcRenderer.invoke('artifacts:open', file),
-    reveal: (file) => ipcRenderer.invoke('artifacts:reveal', file),
-    zip: (file) => ipcRenderer.invoke('artifacts:zip', file),
-    delete: (file) => ipcRenderer.invoke('artifacts:delete', file),
+    getDir: (profile) => ipcRenderer.invoke('artifacts:getDir', profile),
+    pickDir: (profile) => ipcRenderer.invoke('artifacts:pickDir', profile),
+    list: (profile) => ipcRenderer.invoke('artifacts:list', profile),
+    open: (file, profile) => ipcRenderer.invoke('artifacts:open', file, profile),
+    reveal: (file, profile) => ipcRenderer.invoke('artifacts:reveal', file, profile),
+    zip: (file, profile) => ipcRenderer.invoke('artifacts:zip', file, profile),
+    delete: (file, profile) => ipcRenderer.invoke('artifacts:delete', file, profile),
   },
   // Abre la guía de uso en su propia ventana (en el idioma de la interfaz).
   openHelp: (lang) => ipcRenderer.invoke('help:open', lang),
@@ -128,13 +128,13 @@ contextBridge.exposeInMainWorld('oficina', {
   // Historial de conversaciones.
   history: {
     save: (convo) => ipcRenderer.invoke('history:save', convo),
-    list: () => ipcRenderer.invoke('history:list'),
+    list: (profile) => ipcRenderer.invoke('history:list', profile),
     get: (id) => ipcRenderer.invoke('history:get', id),
     remove: (id) => ipcRenderer.invoke('history:delete', id),
     export: (id) => ipcRenderer.invoke('history:export', id),
     pin: (id, pinned) => ipcRenderer.invoke('history:pin', { id, pinned }),
     rename: (id, title) => ipcRenderer.invoke('history:rename', { id, title }),
-    search: (q) => ipcRenderer.invoke('history:search', q),
+    search: (q, profile) => ipcRenderer.invoke('history:search', q, profile),
   },
   // Suscripción a eventos del stream: init | text | tool | done | error.
   onEvent: (cb) => {
