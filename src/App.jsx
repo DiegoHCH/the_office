@@ -165,6 +165,20 @@ export default function App() {
     return () => ro.disconnect()
   }, [monNodo])
 
+  // Qué pestaña lanzó cada trabajo: sin esto, la respuesta de un agente que
+  // sigue trabajando aterrizaría en la pestaña que estés mirando, no en la suya.
+  const tabDeRolRef = useRef({}) // role → tabId
+  const activeTabRef = useRef(null)
+
+  // Aplica un cambio de mensajes a la pestaña DUEÑA del trabajo: a la lista viva
+  // si es la que se está mirando, o a su snapshot si es otra.
+  const enTab = (role, fn) => {
+    const suya = tabDeRolRef.current[role]
+    if (!suya || suya === activeTabRef.current) return setMessages(fn)
+    const st = tabStateRef.current[suya]
+    if (st) st.messages = fn(st.messages || [])
+  }
+
   const profileRef = useRef(profile)
   useEffect(() => {
     profileRef.current = profile
@@ -581,7 +595,11 @@ export default function App() {
       const who = e.role || principalRef.current
       const isP = who === principalRef.current
       if (e.kind === 'init') {
-        if (e.sessionId) sessionsRef.current[who] = e.sessionId
+        if (e.sessionId) {
+          const suya = tabDeRolRef.current[who]
+          if (!suya || suya === activeTabRef.current) sessionsRef.current[who] = e.sessionId
+          else if (tabStateRef.current[suya]) tabStateRef.current[suya].sessions[who] = e.sessionId
+        }
         if (isP) setStatus(t('status.thinking'))
       } else if (e.kind === 'todos') {
         setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
@@ -614,7 +632,7 @@ export default function App() {
         setRS(who, 'talking')
         hubotextoRef.current[who] = true
         if (isP) setStatus(t('status.answering'))
-        setMessages((ms) => {
+        enTab(who, (ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
             const copy = [...ms]
@@ -635,7 +653,7 @@ export default function App() {
         delete editedRef.current[who]
         const thinking = pendingThinkingRef.current[who] || null
         delete pendingThinkingRef.current[who]
-        setMessages((ms) => {
+        enTab(who, (ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
             const copy = [...ms]
@@ -659,7 +677,7 @@ export default function App() {
           window.oficina?.artifacts?.list?.(profileRef.current).then((list) => {
             const art = list?.[0]
             if (!art) return
-            setMessages((ms) => {
+            enTab(who, (ms) => {
               const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && !m.artifact)
               return idx < 0 ? ms : ms.map((m, i) => (i === idx ? { ...m, artifact: art } : m))
             })
@@ -669,6 +687,7 @@ export default function App() {
         const entry = handoffsRef.current.find((h) => h.from === who && h.result == null)
         if (entry) entry.result = (e.result || '').slice(0, 6000) || '(sin salida)'
         // el principal solo camina cuando entrega a un compañero; los demás siempre
+        delete tabDeRolRef.current[who]
         setRS(who, isP && !entry ? 'idle' : 'delivering')
         // si entrega a un compañero, camina hacia ÉL (no hacia el principal)
         if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
@@ -712,15 +731,16 @@ export default function App() {
         )
         // sin texto el turno no dejaría rastro en el chat: queda la línea
         if (!respondio)
-          setMessages((ms) => [...ms, { role: 'system', text: `⚠️ ${doneName} terminó el turno sin decir nada` }])
+          enTab(who, (ms) => [...ms, { role: 'system', text: `⚠️ ${doneName} terminó el turno sin decir nada` }])
         clearTimeout(doneChipTimer.current)
         doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
         if (isP) setStatus(t('status.waiting'))
       } else if (e.kind === 'stopped') {
+        delete tabDeRolRef.current[who]
         delete editedRef.current[who]
         delete hubotextoRef.current[who]
         // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
-        setMessages((ms) => {
+        enTab(who, (ms) => {
           const aIdx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           let out = aIdx < 0 ? ms : ms.filter((_, i) => i !== aIdx)
           const uIdx = out.findLastIndex((m) => m.role === 'user' && m.to === who && !m.cancelled)
@@ -1057,6 +1077,9 @@ export default function App() {
   const tabStateRef = useRef({})
   const [tabs, setTabs] = useState(() => [{ id: 'tab-1', title: 'Nueva' }])
   const [activeTab, setActiveTab] = useState('tab-1')
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
 
   const snapshotTab = () => {
     tabStateRef.current[activeTab] = {
@@ -1080,18 +1103,22 @@ export default function App() {
     editedPathsRef.current = st.editedPaths || []
     ultimoRef.current = st.ultimo || null
     syncQueues()
-    await window.oficina?.setSession?.({ sessions: st.sessions || {}, profile, cwd: project })
+    // los agentes que siguen trabajando para OTRA pestaña conservan su sesión:
+    // limpiarla aquí haría que su siguiente turno arrancara sin contexto
+    const enCurso = {}
+    for (const [rol, tabId] of Object.entries(tabDeRolRef.current)) {
+      if (tabId && tabId !== id) enCurso[rol] = tabStateRef.current[tabId]?.sessions?.[rol]
+    }
+    await window.oficina?.setSession?.({ sessions: { ...enCurso, ...(st.sessions || {}) }, profile, cwd: project })
   }
   const switchTab = async (id) => {
     if (id === activeTab) return
-    if (busy) return showToast(t('toast.busyTab'))
     snapshotTab()
     setActiveTab(id)
     await restoreTab(id)
   }
   const addTab = async () => {
     if (tabs.length >= MAX_TABS) return showToast(t('toast.maxTabs', { n: MAX_TABS }))
-    if (busy) return showToast(t('toast.busyNewTab'))
     snapshotTab()
     const id = `tab-${Date.now()}`
     setTabs((prev) => [...prev, { id, title: t('hud.new') }])
@@ -2367,7 +2394,8 @@ export default function App() {
     showToast(t('toast.queuedFor', { name: memberOf(job.target).name }))
   }
   const dispatchJob = async (job) => {
-    lastJobRef.current[job.target] = job // para el botón Reintentar tras un error
+    lastJobRef.current[job.target] = job
+    tabDeRolRef.current[job.target] = activeTabRef.current // de quién es esta respuesta // para el botón Reintentar tras un error
     if (job.handoffTo) handoffsRef.current.push({ from: job.target, to: job.handoffTo, original: job.text, result: null })
     setMessages((ms) => {
       const has = ms.some((m) => m.jobId === job.id)
@@ -2482,6 +2510,12 @@ export default function App() {
 
   // sitúa un job: si el agente está libre y sin cola → va; si no → encola
   const routeJob = (job) => {
+    // un agente solo hace un trabajo a la vez: si ya está en otra pestaña, se
+    // dice, en vez de encolarlo donde no se va a ver
+    const suya = tabDeRolRef.current[job.target]
+    if (suya && suya !== activeTabRef.current) {
+      return showToast(t('toast.otherTab', { name: memberOf(job.target).name }), 6000)
+    }
     atBottomRef.current = true // enviar algo re-engancha el auto-scroll
     checkQuota()
     warnCollision(job.target)
