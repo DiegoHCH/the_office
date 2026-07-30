@@ -759,10 +759,14 @@ select.squad-model {
 /* Contenedor propio, bajo el monitor: el `top` lo pone el renderer con el alto
    real del monitor, que cambia según haya sesión, semana o aviso de cuota.
    Antes compartía posición exacta con la barra del runner y se tapaban. */
+/* Contenedor propio, bajo el monitor: el `top` lo pone el renderer con el alto
+   real del monitor, que cambia según haya sesión, semana o aviso de cuota.
+   En columna, alineados con el monitor: en fila se iban hacia el centro de la
+   escena y con varios agentes acababan tapándola. */
 .stopbar {
   position: absolute; left: 14px; z-index: 6;
-  display: flex; flex-wrap: wrap; gap: 8px;
-  max-width: min(340px, 40vw);
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  max-width: 210px;
 }
 .stopchip {
   display: inline-flex; align-items: center; gap: 5px;
