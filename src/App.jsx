@@ -60,6 +60,7 @@ export default function App() {
   const turnoPathsRef = useRef({}) // role → rutas tocadas EN ESTE turno (para decidir la recarga)
   const autoTimerRef = useRef(null)
   const hubotextoRef = useRef({}) // role → true si el turno llegó a decir algo
+  const [copyView, setCopyView] = useState(null) // { desde, partes, resumen } — copiar entre perfiles
   const [diffView, setDiffView] = useState(null) // null | { loading } | { diff, untracked, error }
   const [devicesView, setDevicesView] = useState(null) // null | { loading } | { devices, emulators, error }
   const [flutterProj, setFlutterProj] = useState(null) // { esFlutter, proyecto, proyectos } del proyecto activo
@@ -1337,20 +1338,31 @@ export default function App() {
   }
   // Copiar la configuración de otro perfil al de ahora, sin pasar por un archivo:
   // exportar/importar sirve para respaldar y migrar, no para esto.
+  // Copiar de otro perfil sin pasar por un archivo, eligiendo QUÉ se lleva:
+  // llevarse todo a ciegas puede pisar un squad bueno con uno vacío.
   const copyProfileConfig = async () => {
     const otros = (cfg?.profiles || []).filter((p) => p !== profile)
     if (!otros.length) return showToast(t('toast.noOtherProfile'))
-    const desde =
-      otros.length === 1
-        ? otros[0]
-        : window.prompt(`${t('menu.copyProfile')}: ${otros.join(' · ')}`, otros[0])
-    if (!desde || !otros.includes(desde)) return
-    const res = await window.oficina?.config?.copyProfile?.({ desde, hacia: profile })
+    const desde = otros[0]
+    const resumen = await window.oficina?.config?.profileSummary?.(desde)
+    setCopyView({ desde, resumen, partes: { squad: true, personas: true, proyectos: false } })
+  }
+
+  const cambiaOrigen = async (desde) => {
+    const resumen = await window.oficina?.config?.profileSummary?.(desde)
+    setCopyView((v) => (v ? { ...v, desde, resumen } : v))
+  }
+
+  const haceCopia = async () => {
+    const { desde, partes } = copyView || {}
+    if (!partes || !Object.values(partes).some(Boolean)) return showToast(t('copy.nothing'))
+    const res = await window.oficina?.config?.copyProfile?.({ desde, hacia: profile, partes })
     if (!res?.ok) {
       if (!res?.canceled) showToast(`⚠️ ${res?.error || ''}`, 6000)
       return
     }
-    showToast(t('toast.copiedProfile', { desde, hacia: profile }), 8000)
+    setCopyView(null)
+    showToast(t('copy.done', { hacia: profile, que: (res.hechos || []).join(', ') }), 9000)
   }
 
   const importConfig = async () => {
@@ -2745,11 +2757,13 @@ export default function App() {
                 <span className="mi-label">{t('menu.terminal')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
+              {(cfg?.profiles?.length || 0) > 1 && (
               <button type="button" className="menu-item" onClick={copyProfileConfig}>
                 <span className="mi-icon"><IconCopy /></span>
                 <span className="mi-label">{t('menu.copyProfile')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
+              )}
               <button type="button" className="menu-item" onClick={exportConfig}>
                 <span className="mi-icon"><IconExport /></span>
                 <span className="mi-label">{t('menu.export')}</span>
@@ -3675,6 +3689,54 @@ export default function App() {
               </div>
             )
           })()}
+
+        {/* Copiar de otro perfil: se elige el origen y QUÉ se lleva, con lo que
+            hay en cada uno a la vista para no pisar algo bueno con algo vacío */}
+        {copyView && (
+          <div className="drawer copy-drawer">
+            <div className="drawer-head">
+              <b>{t('copy.title')}</b>
+              <button onClick={() => setCopyView(null)}><IconClose size={16} /></button>
+            </div>
+            <label className="dev-config">
+              <span>{t('copy.from')}</span>
+              <select value={copyView.desde} onChange={(e) => cambiaOrigen(e.target.value)}>
+                {(cfg?.profiles || [])
+                  .filter((p) => p !== profile)
+                  .map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <div className="dev-group">{t('copy.what')}</div>
+            {[
+              ['squad', 'copy.squad', 'copy.squadHint', copyView.resumen?.squad],
+              ['personas', 'copy.personas', 'copy.personasHint', copyView.resumen?.personas],
+              ['proyectos', 'copy.projects', 'copy.projectsHint', copyView.resumen?.proyectos],
+            ].map(([clave, etiqueta, pista, n]) => (
+              <label key={clave} className="copy-row">
+                <input
+                  type="checkbox"
+                  checked={!!copyView.partes[clave]}
+                  onChange={(e) =>
+                    setCopyView((v) => ({ ...v, partes: { ...v.partes, [clave]: e.target.checked } }))
+                  }
+                />
+                <span className="copy-name">{t(etiqueta)}</span>
+                <span className="copy-hint">{t(pista)}</span>
+                <span className="copy-count">
+                  {n ? t('copy.has', { n, profile: copyView.desde }) : t('copy.none', { profile: copyView.desde })}
+                </span>
+              </label>
+            ))}
+            <p className="dev-sdk">{t('copy.note')}</p>
+            <button type="button" className="dev-launch" onClick={haceCopia}>
+              <IconCopy size={11} /> {t('copy.do', { hacia: profile })}
+            </button>
+          </div>
+        )}
 
         {devicesView && (
           <div className="drawer dev-drawer">

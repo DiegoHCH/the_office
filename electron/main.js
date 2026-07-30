@@ -1586,45 +1586,79 @@ ipcMain.handle('config:backups', () => {
 // export lleva SIEMPRE los tres perfiles y el import devuelve cada uno a su
 // sitio —sirve para respaldar y migrar de máquina, no para llevarse el squad de
 // «work» a «private»—. Esto es lo que la gente quería de verdad.
-ipcMain.handle('config:copyProfile', async (_e, { desde, hacia } = {}) => {
+ipcMain.handle('config:copyProfile', async (_e, { desde, hacia, partes } = {}) => {
   if (!CONFIG_PROFILES.includes(desde) || !CONFIG_PROFILES.includes(hacia)) {
     return { ok: false, error: 'Perfil inválido' }
   }
   if (desde === hacia) return { ok: false, error: 'Origen y destino son el mismo perfil' }
+  const q = { squad: !!partes?.squad, personas: !!partes?.personas, proyectos: !!partes?.proyectos }
+  if (!q.squad && !q.personas && !q.proyectos) return { ok: false, error: 'No se eligió nada que copiar' }
+
+  const nombres = [q.squad && 'el squad', q.personas && 'las personalidades', q.proyectos && 'los proyectos agregados']
+    .filter(Boolean)
+    .join(', ')
   const ans = await dialog.showMessageBox(win, {
     type: 'warning',
-    buttons: [`Copiar «${desde}» en «${hacia}»`, 'Cancelar'],
+    buttons: [`Copiar en «${hacia}»`, 'Cancelar'],
     defaultId: 0,
     cancelId: 1,
-    message: `Copiar la configuración de «${desde}»`,
-    detail: `Se llevan el squad, las personalidades y los proyectos agregados de «${desde}» a «${hacia}», sobrescribiendo los de «${hacia}». Las conversaciones, las sesiones y las credenciales no se tocan.`,
+    message: `Copiar de «${desde}» a «${hacia}»`,
+    detail: `Se sobrescribe ${nombres} de «${hacia}». Lo demás de ese perfil no se toca: conversaciones, sesiones, credenciales, y lo que no hayas marcado.`,
   })
   if (ans.response !== 0) return { ok: false, canceled: true }
+
+  const hechos = []
   try {
-    // squad
-    try {
-      const squad = fs.readFileSync(squadFile(desde), 'utf8')
-      fs.writeFileSync(squadFile(hacia), squad)
-    } catch {}
-    // proyectos agregados a mano
-    try {
-      fs.writeFileSync(customProjectsFile(hacia), JSON.stringify(getCustomProjects(desde), null, 2))
-    } catch {}
-    // personalidades: se reemplazan las del destino por las del origen
-    const dirDesde = path.join(app.getPath('userData'), 'personas', desde)
-    const dirHacia = path.join(app.getPath('userData'), 'personas', hacia)
-    try {
-      fs.rmSync(dirHacia, { recursive: true, force: true })
-    } catch {}
-    try {
-      const files = fs.readdirSync(dirDesde).filter((f) => f.endsWith('.md'))
-      if (files.length) fs.mkdirSync(dirHacia, { recursive: true })
-      for (const f of files) fs.copyFileSync(path.join(dirDesde, f), path.join(dirHacia, f))
-    } catch {}
-    return { ok: true, desde, hacia }
+    if (q.squad) {
+      try {
+        fs.writeFileSync(squadFile(hacia), fs.readFileSync(squadFile(desde), 'utf8'))
+        hechos.push('squad')
+      } catch {}
+    }
+    if (q.proyectos) {
+      try {
+        fs.writeFileSync(customProjectsFile(hacia), JSON.stringify(getCustomProjects(desde), null, 2))
+        hechos.push('proyectos')
+      } catch {}
+    }
+    if (q.personas) {
+      // se reemplazan las del destino por las del origen
+      const dirDesde = path.join(app.getPath('userData'), 'personas', desde)
+      const dirHacia = path.join(app.getPath('userData'), 'personas', hacia)
+      try {
+        fs.rmSync(dirHacia, { recursive: true, force: true })
+      } catch {}
+      try {
+        const files = fs.readdirSync(dirDesde).filter((f) => f.endsWith('.md'))
+        if (files.length) fs.mkdirSync(dirHacia, { recursive: true })
+        for (const f of files) fs.copyFileSync(path.join(dirDesde, f), path.join(dirHacia, f))
+        hechos.push('personalidades')
+      } catch {}
+    }
+    return { ok: true, desde, hacia, hechos }
   } catch (err) {
     return { ok: false, error: String(err.message || err).slice(0, 250) }
   }
+})
+
+// Qué tiene cada perfil, para poder mostrarlo antes de copiar y no elegir a
+// ciegas: copiar un squad vacío encima de uno bueno no tendría vuelta atrás.
+ipcMain.handle('config:profileSummary', (_e, prof) => {
+  if (!CONFIG_PROFILES.includes(prof)) return null
+  let squad = 0
+  try {
+    const j = JSON.parse(fs.readFileSync(squadFile(prof), 'utf8'))
+    squad = (Array.isArray(j) ? j : j?.roster || []).filter((r) => r?.active !== false).length
+  } catch {}
+  let personas = 0
+  try {
+    personas = fs.readdirSync(path.join(app.getPath('userData'), 'personas', prof)).filter((f) => f.endsWith('.md')).length
+  } catch {}
+  let proyectos = 0
+  try {
+    proyectos = getCustomProjects(prof).length
+  } catch {}
+  return { profile: prof, squad, personas, proyectos }
 })
 
 ipcMain.handle('config:export', async (_e, extras) => {

@@ -108,6 +108,7 @@ contextBridge.exposeInMainWorld('oficina', {
     import: () => ipcRenderer.invoke('config:import'),
     // copiar la configuración de un perfil a otro, sin pasar por un archivo
     copyProfile: (arg) => ipcRenderer.invoke('config:copyProfile', arg),
+    profileSummary: (prof) => ipcRenderer.invoke('config:profileSummary', prof),
     autoBackup: (extras) => ipcRenderer.invoke('config:autoBackup', extras),
     backups: () => ipcRenderer.invoke('config:backups'),
   },
