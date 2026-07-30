@@ -58,6 +58,7 @@ contextBridge.exposeInMainWorld('oficina', {
   // proyectos npm (web y escritorio): el objetivo es un script, no un dispositivo
   npmProject: (cwd) => ipcRenderer.invoke('npm:project', cwd),
   npmRun: (arg) => ipcRenderer.invoke('npm:run', arg),
+  npmInterpreta: (arg) => ipcRenderer.invoke('npm:interpreta', arg),
   // Artifacts locales: carpeta configurable, listado y abrir en ventana.
   artifacts: {
     getDir: () => ipcRenderer.invoke('artifacts:getDir'),

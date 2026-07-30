@@ -38,6 +38,7 @@ const {
   gestorDePaquetes,
   argsDeScript,
   urlDeSalida,
+  interpretaScript,
   ordenaDispositivos,
 } = require('./lib/core.js')
 
@@ -2429,6 +2430,18 @@ const GESTOR_CANDIDATOS = {
   yarn: ['/opt/homebrew/bin/yarn', '/usr/local/bin/yarn'],
   bun: ['/opt/homebrew/bin/bun', '/usr/local/bin/bun'],
 }
+
+// «/correr dev» en un proyecto npm: empareja la frase contra los scripts.
+ipcMain.handle('npm:interpreta', (_e, { cwd, texto } = {}) => {
+  if (!cwd) return { ok: false, error: 'Sin proyecto seleccionado' }
+  const proyecto = resuelveProyectoNpm(cwd)
+  if (!proyecto) return { ok: false, error: 'No hay un package.json con scripts en esta carpeta' }
+  let scripts = []
+  try {
+    scripts = scriptsDelProyecto(fs.readFileSync(path.join(proyecto, 'package.json'), 'utf8'))
+  } catch {}
+  return { ok: true, proyecto, scripts, ...interpretaScript(texto, scripts) }
+})
 
 ipcMain.handle('npm:run', async (_e, { cwd, script } = {}) => {
   if (!cwd || !script) return { ok: false, error: 'Falta el proyecto o el script' }

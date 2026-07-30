@@ -2202,11 +2202,30 @@ export default function App() {
     // emulador que no está arriba, se arranca primero y se espera a que aparezca
     // como dispositivo; luego corre la app.
     if (cmd === '/correr' || cmd === '/run') {
+      const frase = rest.join(' ')
+      // sin Flutter pero con package.json, el objetivo es un script
       if (!flutterProj?.esFlutter) {
-        showToast(t('cmd.runNotFlutter'))
+        if (!npmProj?.esNpm) {
+          showToast(t('cmd.runNotRunnable'))
+          return true
+        }
+        ;(async () => {
+          const r = await window.oficina?.npmInterpreta?.({ cwd: project, texto: frase })
+          if (!r?.ok) return showToast(`⚠️ ${r?.error || ''}`)
+          // mismo criterio que con los dispositivos: ante la duda, no adivinar
+          if (r.ambiguo) {
+            setDevicesView({ npm: npmProj })
+            return showToast(t('cmd.runScriptAmbiguous', { list: r.candidatos.map((c) => c.name).join(' · ') }), 8000)
+          }
+          if (!r.objetivo) {
+            setDevicesView({ npm: npmProj })
+            return showToast(t('cmd.runPickDevice', { config: '' }), 8000)
+          }
+          setMessages((ms) => [...ms, { role: 'system', text: t('cmd.runScript', { script: r.objetivo.name }) }])
+          correrScript(r.objetivo)
+        })()
         return true
       }
-      const frase = rest.join(' ')
       showToast(t('cmd.runLooking'))
       ;(async () => {
         const r = await window.oficina?.flutterInterpretaCorrer?.({ cwd: project, texto: frase })

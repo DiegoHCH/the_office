@@ -670,6 +670,34 @@ function urlDeSalida(texto) {
   return m ? m[0] : null
 }
 
+// «/correr dev» en un proyecto npm: se empareja contra los nombres de los
+// scripts con el mismo criterio que los dispositivos —incluida la regla de no
+// adivinar ante un empate—. Los que se quedan corriendo pesan más: pedir
+// «correr» apunta a `dev`, no a `dev:vite` solo porque comparta prefijo.
+function interpretaScript(texto, scripts) {
+  const lista = Array.isArray(scripts) ? scripts : []
+  const pedido = normaliza(String(texto || '')).trim()
+  const con = lista
+    .map((sc) => {
+      const base = puntua(texto, sc.name)
+      // el bonus solo cuenta si hubo coincidencia: si no, cualquier frase
+      // emparejaba con todos los scripts que se quedan corriendo
+      if (!base) return { item: sc, punt: 0 }
+      // y el nombre exacto manda: «dev» es dev, no dev:vite por compartir prefijo
+      const exacto = pedido === normaliza(sc.name) ? 10 : 0
+      return { item: sc, punt: base + exacto + (sc.corre ? 0.5 : 0) }
+    })
+    .filter((c) => c.punt > 0)
+    .sort((a, b) => b.punt - a.punt)
+  const empatados = con.filter((c) => c.punt === con[0]?.punt)
+  const ambiguo = empatados.length > 1
+  return {
+    objetivo: ambiguo ? null : empatados[0]?.item || null,
+    ambiguo,
+    candidatos: (ambiguo ? empatados : con).map((c) => ({ name: c.item.name })),
+  }
+}
+
 module.exports = {
   sanitizeEnv,
   sessionKey,
@@ -703,6 +731,7 @@ module.exports = {
   gestorDePaquetes,
   argsDeScript,
   urlDeSalida,
+  interpretaScript,
   familiaPlataforma,
   familiaDe,
   eligePorTexto,

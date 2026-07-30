@@ -9,7 +9,7 @@ const { resultadoRecarga, aplicaProgreso, progresoVisible } = core
 const { decideRecarga } = core
 const { parseLaunchConfigs, argsDeLaunchConfig, interpretaCorrer, plataformaOcupada } = core
 const { plataformasDelProyecto, filtraPorPlataforma, familiaPlataforma, dispositivoDeDaemon } = core
-const { scriptsDelProyecto, gestorDePaquetes, argsDeScript, urlDeSalida } = core
+const { scriptsDelProyecto, gestorDePaquetes, argsDeScript, urlDeSalida, interpretaScript } = core
 
 describe('sanitizeEnv', () => {
   // lo más caro que puede romperse en silencio: si la API key sobrevive,
@@ -987,5 +987,41 @@ describe('urlDeSalida', () => {
     expect(urlDeSalida('see https://vitejs.dev for help')).toBeNull()
     expect(urlDeSalida('')).toBeNull()
     expect(urlDeSalida(null)).toBeNull()
+  })
+})
+
+describe('interpretaScript', () => {
+  const SC = [
+    { name: 'dev', corre: true },
+    { name: 'dev:vite', corre: true },
+    { name: 'start', corre: true },
+    { name: 'build', corre: false },
+  ]
+  const cual = (frase) => {
+    const r = interpretaScript(frase, SC)
+    return r.objetivo ? r.objetivo.name : r.ambiguo ? 'ambiguo' : 'nada'
+  }
+
+  it('empareja el script por su nombre', () => {
+    expect(cual('start')).toBe('start')
+    expect(cual('dev:vite')).toBe('dev:vite')
+  })
+
+  it('un script que se queda corriendo le gana al que solo comparte prefijo', () => {
+    // «dev» debe apuntar a dev, no a dev:vite
+    expect(cual('dev')).toBe('dev')
+  })
+
+  it('los que compilan y terminan también se pueden pedir por su nombre', () => {
+    expect(cual('build')).toBe('build')
+  })
+
+  it('sin coincidencia no inventa', () => {
+    expect(cual('lo que sea')).toBe('nada')
+    expect(cual('')).toBe('nada')
+  })
+
+  it('sin scripts no revienta', () => {
+    expect(interpretaScript('dev', null).objetivo).toBeNull()
   })
 })
