@@ -148,17 +148,22 @@ export default function App() {
   const [input, setInput] = useState('')
   const [cfg, setCfg] = useState(null)
   const [profile, setProfile] = useState('work')
-  // alto real del monitor, para colocar los chips justo debajo sin acoplarlos
-  const monRef = useRef(null)
+  // Alto real del monitor, para colocar los chips justo debajo sin acoplarlos a
+  // su contenedor. Va con ref de callback y no con useRef: el monitor devuelve
+  // null mientras carga sus datos, así que al montar todavía no existe y un
+  // efecto con [] nunca lo llegaba a medir — los chips acababan en top: 24,
+  // encima del monitor.
+  const [monNodo, setMonNodo] = useState(null)
   const [monAlto, setMonAlto] = useState(0)
   useEffect(() => {
-    const el = monRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const ro = new ResizeObserver(() => setMonAlto(el.getBoundingClientRect().height))
-    ro.observe(el)
-    setMonAlto(el.getBoundingClientRect().height)
+    if (!monNodo) return
+    const mide = () => setMonAlto(monNodo.getBoundingClientRect().height)
+    mide()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(mide)
+    ro.observe(monNodo)
     return () => ro.disconnect()
-  }, [])
+  }, [monNodo])
 
   const profileRef = useRef(profile)
   useEffect(() => {
@@ -2683,7 +2688,7 @@ export default function App() {
 
       <div className="stage">
         <SysMonitor
-          innerRef={monRef}
+          innerRef={setMonNodo}
           profile={profile}
           model={model}
           modelLabel={modelLabelOf(model)}
@@ -2694,7 +2699,7 @@ export default function App() {
             El alto del monitor cambia (sesión, semana, aviso de cuota), así que
             se mide en vez de fijar un top a ojo. */}
         {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
-          <div className="stopbar" style={{ top: 14 + monAlto + 10 }}>
+          <div className="stopbar" style={{ top: 14 + monAlto + 10, visibility: monAlto ? 'visible' : 'hidden' }}>
             {running
               .filter((r) => roleStates[r] !== 'delivering')
               .map((r) => (
