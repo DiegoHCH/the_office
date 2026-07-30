@@ -123,6 +123,7 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
   <h2>La barra superior</h2>
   <ul>
     <li><b>💼 work / proyecto ▾</b> — el contexto en un solo control: perfiles como pestañas, la lista de proyectos debajo y <b>➕ Agregar proyecto…</b> para sumar carpetas fuera de la raíz del perfil (quedan con 📌).</li>
+    <li><b>📱 Dónde correr</b> — aparece solo si la carpeta tiene un proyecto que se pueda correr. Lista dispositivos, emuladores o scripts.</li>
     <li><b>📄 Documentos</b> — reportes, dashboards y páginas que genera el squad.</li>
     <li><b>🕘 Historial</b> — conversaciones guardadas, con buscador.</li>
     <li><b>+ Nueva</b> — conversación nueva (<kbd>⌘K</kbd>).</li>
@@ -160,11 +161,29 @@ gh auth status   # verifica: debe mostrar tu cuenta con scope 'repo'</code></pre
     <li><b>📋 Copiar:</b> cada bloque de código tiene botón de copiar al hover (y <b>resaltado de sintaxis</b>), y cada respuesta el suyo en la esquina.</li>
   </ul>
 
+  <h2>Correr la app 📱</h2>
+  <p>Con un proyecto <b>Flutter</b> o <b>npm</b> en la carpeta activa aparece 📱 en la barra. Desde ahí se lanza sin salir de La Oficina, y mientras corre queda una barra flotante sobre la escena.</p>
+
+  <h3>Flutter</h3>
+  <ul>
+    <li><b>Dispositivos y emuladores</b> — los móviles enchufados van primero, luego los emuladores arrancados y después escritorio y web: el orden es la recomendación. La lista se mantiene sola al enchufar y desenchufar, sin refrescar.</li>
+    <li><b>Solo lo que el proyecto soporta</b> — una app sin carpeta <span class="mono">web/</span> no ofrece Chrome, y una solo Android no ofrece el iPhone. El panel dice en qué plataformas corre el proyecto.</li>
+    <li><b>Lanzar o cerrar emuladores</b> — el que ya está arriba muestra <b>Cerrar</b> en vez de <b>Lanzar</b>. Al lanzar se espera a que arranque de verdad antes de avisar.</li>
+    <li><b>Tus configuraciones</b> — si el proyecto tiene <span class="mono">.vscode/launch.json</span>, salen las mismas que ofrece el editor, con su flavor y sus dart-defines.</li>
+    <li><b>Varios a la vez</b> — un chip por dispositivo. Las acciones van a todos, que es el sentido de correr en iPhone y Android al tiempo; un clic en un chip enfoca solo ese. Dos de la misma plataforma no se puede: comparten el directorio de compilación.</li>
+  </ul>
+  <p>En la barra: <b>⚡ hot reload</b>, <b>↻ hot restart</b>, <b>⏹ detener</b> (o cancelar la compilación, si todavía va en eso), <b>🔗 abrir</b> y <b>▤ la salida</b>, que es donde aparece el motivo cuando una compilación falla.</p>
+  <p>Con <b>⚡ auto</b> encendido se recarga al terminar cada turno del agente. Y no siempre con lo mismo: si tocó <span class="mono">pubspec.yaml</span> o código nativo avisa de que hay que recompilar, y si cambió <span class="mono">main()</span>, un enum, una jerarquía de clase o una variable de nivel de archivo —el caso típico de un provider— hace <b>hot restart</b>, porque un reload no vuelve a ejecutar los inicializadores globales y verías la app sin tu cambio.</p>
+
+  <h3>Web y escritorio (npm)</h3>
+  <p>Aquí el objetivo no es un dispositivo: es un <b>script</b> del <span class="mono">package.json</span>. Los que arrancan algo y se quedan corriendo van primero; los que compilan y terminan, abajo. El gestor lo decide el lockfile. No hay hot reload que pedir —el servidor de desarrollo recarga solo al guardar— así que queda arrancar, detener, ver la salida y abrir la URL, que se detecta de lo que imprime el servidor.</p>
+
   <h2>Comandos y atajos</h2>
   <div class="tablewrap"><table>
     <tr><th>Comando</th><th>Qué hace</th></tr>
     <tr><td class="mono">/standup</td><td>📋 Cada agente libre retoma su última sesión del proyecto y reporta — y en la escena, ¡el squad camina al centro y se reúne en círculo mientras tanto!</td></tr>
     <tr><td class="mono">@todos &lt;mensaje&gt;</td><td>📢 El mismo prompt a todos los agentes libres a la vez</td></tr>
+    <tr><td class="mono">/correr el emulador android</td><td>▶️ Lanza sin abrir el panel. Entiende el tipo y la plataforma («el físico ios», «el simulador»), el nombre del dispositivo y la configuración («/correr prod en el iphone»). Si nombras un emulador apagado, lo arranca y espera. Si la frase no alcanza para decidir, no adivina: abre el panel y dice entre cuáles dudaba</td></tr>
     <tr><td class="mono">/squad</td><td>Lista el equipo activo</td></tr>
     <tr><td class="mono">/model opus</td><td>Cambia el modelo global (opus · fable · sonnet · haiku). También se sincroniza con el /model de tu terminal al volver a la app</td></tr>
     <tr><td class="mono">/clear</td><td>Conversación nueva</td></tr>

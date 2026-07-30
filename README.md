@@ -58,6 +58,15 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 ### Documentos (antes "artifacts")
 - Pide un **reporte, documento o dashboard** y se genera un HTML autocontenido que abres dentro de la app; panel 📄 con listado, revelar en Finder y exportar a zip. El Publicador los sube a Pages si quieres compartirlos.
 
+### Correr el proyecto
+- **📱 Dónde correr** — el panel aparece solo si la carpeta tiene un proyecto que se pueda correr. En **Flutter** lista dispositivos y emuladores (los móviles enchufados primero) y ofrece **solo lo que el proyecto soporta**: sin carpeta `web/` no aparece Chrome. La lista se mantiene sola al **enchufar y desenchufar**.
+- **🎛 Tus configuraciones** — si el proyecto tiene `.vscode/launch.json`, salen las mismas que ofrece el editor, con su flavor y sus dart-defines.
+- **▶️ Emuladores** — lanzarlos desde la app y **cerrarlos** si ya están arriba; al lanzar espera a que arranquen de verdad antes de avisar.
+- **⚡ Barra flotante** — hot reload, hot restart, detener (o cancelar la compilación), abrir y ver la salida, que es donde aparece el motivo cuando una compilación falla. **Varios dispositivos a la vez** con un chip cada uno: las acciones van a todos, o a uno si lo enfocas.
+- **🤖 Recarga al terminar el agente** — con `auto` encendido se recarga sola al acabar cada turno, y elige: `pubspec`/nativo avisa de recompilar, y `main()`, enums, jerarquías o variables de nivel de archivo (un provider) piden **hot restart**, porque un reload no re-ejecuta los inicializadores globales.
+- **⌨️ `/correr el emulador android`** — lanza sin abrir el panel; entiende tipo y plataforma, nombre y configuración. Si la frase no alcanza, no adivina: abre el panel y dice entre cuáles dudaba.
+- **🌐 Web y escritorio (npm)** — en proyectos npm el objetivo es un **script** del `package.json`, no un dispositivo: los que se quedan corriendo van primero, el gestor lo decide el lockfile y la URL se detecta de la salida del servidor.
+
 ### La app
 - **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs, proyectos y **➕ Agregar proyecto…** para carpetas fuera de la raíz del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
 - **🌗 Tema claro u oscuro** — Auto sigue al sistema, o lo fijas en Preferencias; toda la interfaz, no solo la escena.

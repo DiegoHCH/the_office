@@ -123,6 +123,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
   <h2>The top bar</h2>
   <ul>
     <li><b>💼 work / project ▾</b> — the whole context in one control: profiles as tabs, the project list below and <b>➕ Add project…</b> to bring in folders outside the profile root (they show up with 📌).</li>
+    <li><b>📱 Where to run</b>— only shows up if the folder holds a project that can be run. Lists devices, emulators or scripts.</li>
     <li><b>📄 Documents</b> — reports, dashboards and pages the squad creates.</li>
     <li><b>🕘 History</b> — saved conversations, with search.</li>
     <li><b>+ New</b> — new conversation (<kbd>⌘K</kbd>).</li>
@@ -160,11 +161,29 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <li><b>📋 Copy:</b> every code block has a copy button on hover (and <b>syntax highlighting</b>), and every response has its own in the corner.</li>
   </ul>
 
+  <h2>Running the app 📱</h2>
+  <p>With a<b>Flutter</b> or <b>npm</b>project in the active folder, 📱 appears in the top bar. You launch from there without leaving La Oficina, and while it runs a floating bar stays above the scene.</p>
+
+  <h3>Flutter</h3>
+  <ul>
+    <li><b>Devices and emulators</b>— plugged-in phones come first, then booted emulators, then desktop and web: the order is the recommendation. The list keeps itself up to date as you plug and unplug, with no refreshing.</li>
+    <li><b>Only what the project supports</b>— an app with no<span class="mono">web/</span>folder does not offer Chrome, and an Android-only one does not offer the iPhone. The panel tells you which platforms the project runs on.</li>
+    <li><b>Launching and closing emulators</b>— one that is already up shows<b>Close</b>instead of<b>Launch</b>. When launching, it waits until the emulator has really booted before saying so.</li>
+    <li><b>Your own configurations</b>— if the project has a<span class="mono">.vscode/launch.json</span>, you get the same ones your editor offers, with their flavor and dart-defines.</li>
+    <li><b>Several at once</b>— one chip per device. Actions go to all of them, which is the whole point of running on iPhone and Android at the same time; clicking a chip focuses just that one. Two of the same platform is not possible: they share the build directory.</li>
+  </ul>
+  <p>In the bar:<b>⚡ hot reload</b>, <b>↻ hot restart</b>, <b>⏹ stop</b>(or cancel the build, if it is still on that),<b>🔗 open</b> and <b>▤ the output</b>, which is where the reason shows up when a build fails.</p>
+  <p>With<b>⚡ auto</b>on, it reloads when each agent turn finishes. And not always the same way: if it touched<span class="mono">pubspec.yaml</span>or native code it tells you a rebuild is needed, and if it changed<span class="mono">main()</span>, an enum, a class hierarchy or a file-level variable —the typical case being a provider— it does a<b>hot restart</b>, because a reload does not re-run global initializers and you would be looking at the app without your change.</p>
+
+  <h3>Web and desktop (npm)</h3>
+  <p>Here the target is not a device: it is a<b>script</b>in the<span class="mono">package.json</span>. The ones that start something and keep running come first; the ones that build and exit go below. The package manager is decided by the lockfile. There is no hot reload to ask for —the dev server refreshes on save by itself— so what is left is start, stop, watch the output and open the URL, which is picked up from what the server prints.</p>
+
   <h2>Commands and shortcuts</h2>
   <div class="tablewrap"><table>
     <tr><th>Command</th><th>What it does</th></tr>
     <tr><td class="mono">/standup</td><td>📋 Every free agent resumes their last session on the project and reports — and in the scene, the squad walks to the middle and gathers in a circle meanwhile!</td></tr>
     <tr><td class="mono">@todos &lt;message&gt;</td><td>📢 The same prompt to every free agent at once</td></tr>
+    <tr><td class="mono">/correr the android emulator</td><td>▶️ Launches without opening the panel. It understands kind and platform («the ios device», «the simulator»), the device name and the configuration («/correr prod on the iphone»). If you name a stopped emulator, it boots it and waits. If the phrase is not enough to decide, it does not guess: it opens the panel and tells you which ones it was torn between</td></tr>
     <tr><td class="mono">/squad</td><td>Lists the active team</td></tr>
     <tr><td class="mono">/model opus</td><td>Changes the global model (opus · fable · sonnet · haiku). It also syncs with your terminal's /model when you come back to the app</td></tr>
     <tr><td class="mono">/clear</td><td>New conversation</td></tr>
