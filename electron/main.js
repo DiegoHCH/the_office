@@ -293,11 +293,15 @@ function createTray() {
   } catch {}
 }
 
-// Notifica solo si la ventana no está al frente (tareas largas en background).
+// Notifica al terminar un turno, con la ventana al frente o no. Antes solo en
+// background, pero un turno puede tardar minutos y quien está mirando otra cosa
+// DENTRO de la app —leyendo otra pestaña, revisando un diff— se lo perdía igual.
+// El rebote del dock sí sigue siendo solo de background: con la ventana delante
+// no llama la atención de nadie y el ícono salta por una app que ya estás usando.
 function notify(displayName, body) {
-  if (!notifEnabled || !Notification.isSupported() || !win || win.isDestroyed() || win.isFocused()) return
+  if (!notifEnabled || !Notification.isSupported() || !win || win.isDestroyed()) return
   try {
-    app.dock?.bounce('informational') // salto del ícono al terminar en background
+    if (!win.isFocused()) app.dock?.bounce('informational')
   } catch {}
   const n = new Notification({
     title: `${displayName} terminó`,
