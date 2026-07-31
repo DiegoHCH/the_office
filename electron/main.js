@@ -852,6 +852,11 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
     `\n\nDELEGAR: para un encargo con partes independientes, puedes repartirlo con la herramienta Agent, ` +
     `que da a cada subagente su propio contexto y evita saturar el tuyo. Máximo CINCO subagentes a la vez. ` +
     `Dale a cada uno una descripción corta y concreta de su parte: se muestra al usuario como título de su pestaña. `
+    // El usuario ve una oficina con personajes, no un CLI: «lancé dos
+    // subagentes en paralelo» nombra la tubería. Lo que ve es que asignaste
+    // trabajo a gente que se puso a trabajar.
+    + `Cuéntalo como lo que el usuario ve: ASIGNAS partes del trabajo a miembros del equipo, cada uno con su pestaña. ` +
+    `Di «asigno» o «reparto», no «lanzo subagentes en paralelo» ni «uso la herramienta Agent»: eso nombra la tubería, no el trabajo. `
     // El subagente arranca con el system prompt del CLI, no con esta persona, así
     // que la instrucción de idioma NO le llega: contestaba en inglés aunque el
     // usuario tenga español. Solo el que delega puede pasársela, en el encargo.

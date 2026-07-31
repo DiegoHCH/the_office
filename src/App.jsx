@@ -738,6 +738,13 @@ export default function App() {
       const who = asiento?.rol || e.role || principalRef.current
       const isP = !e.sub && who === principalRef.current
       const escribe = (fn) => (asiento ? enTabId(asiento.tabId, fn) : enTab(who, fn))
+      // Un subagente sin personaje asignado NO puede tocar el estado del
+      // principal: sus mensajes se le atribuyen por descarte, y cada uno lo
+      // sacaba de «esperando asignaciones» para ponerlo a «Respondiendo…».
+      const marca = (rol, estado) => {
+        if (e.sub && !asiento?.rol) return
+        setRS(rol, estado)
+      }
 
       if (e.kind === 'sub-start') {
         abreSub(e.subId, e.desc, e.role)
@@ -842,7 +849,7 @@ export default function App() {
           pendingArtifactRef.current[who] = true
           setTimeout(refreshArtifacts, 400)
         }
-        setRS(who, 'working')
+        marca(who, 'working')
         if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
       } else if (e.kind === 'text') {
         setTool((cur) => (cur?.role === who ? null : cur))
@@ -852,7 +859,7 @@ export default function App() {
           delete copy[who]
           return copy
         })
-        setRS(who, 'talking')
+        marca(who, 'talking')
         hubotextoRef.current[who] = true
         if (isP) setStatus(t('status.answering'))
         // El de un subagente llega entero (los deltas son solo del principal),
