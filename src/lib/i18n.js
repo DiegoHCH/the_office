@@ -65,6 +65,11 @@ const ES = {
   // — preferencias —
   'pref.model': 'Modelo:',
   'toast.convChildrenDeleted': 'Se borraron también {n} conversaciones de subagentes',
+  'pref.sound': 'Sonido:',
+  'pref.soundOn': 'Con ding',
+  'pref.soundOff': 'En silencio',
+  'pref.soundOnTitle': 'Suena un ding al terminar un turno',
+  'pref.soundOffTitle': 'Sin sonido dentro de la app',
   'mon.workers': 'Trabajadores activos',
   'mon.chats': 'Chats activos',
   'status.delegating': 'esperando asignaciones…',
@@ -676,6 +681,11 @@ const EN = {
 
   'pref.model': 'Model:',
   'toast.convChildrenDeleted': '{n} subagent conversations were deleted too',
+  'pref.sound': 'Sound:',
+  'pref.soundOn': 'With ding',
+  'pref.soundOff': 'Muted',
+  'pref.soundOnTitle': 'Plays a ding when a turn ends',
+  'pref.soundOffTitle': 'No sound inside the app',
   'mon.workers': 'Active workers',
   'mon.chats': 'Active chats',
   'status.delegating': 'waiting for assignments…',

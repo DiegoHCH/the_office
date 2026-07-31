@@ -299,7 +299,19 @@ function createTray() {
 // El rebote del dock sí sigue siendo solo de background: con la ventana delante
 // no llama la atención de nadie y el ícono salta por una app que ya estás usando.
 function notify(displayName, body) {
-  if (!notifEnabled || !Notification.isSupported() || !win || win.isDestroyed()) return
+  // Fallar mudo aquí es lo peor que puede hacer: el usuario no distingue «no
+  // hubo aviso» de «el aviso no llegó». El motivo queda en Diagnóstico.
+  const motivo = !notifEnabled
+    ? 'desactivadas en Preferencias (van con el interruptor del sonido)'
+    : !Notification.isSupported()
+      ? 'el sistema no las soporta'
+      : !win || win.isDestroyed()
+        ? 'sin ventana'
+        : null
+  if (motivo) {
+    emit({ kind: 'system', role: 'app', subtype: 'notif-omitida', fields: motivo })
+    return
+  }
   try {
     if (!win.isFocused()) app.dock?.bounce('informational')
   } catch {}

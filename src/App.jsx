@@ -292,6 +292,10 @@ export default function App() {
   const [artsList, setArtsList] = useState([])
   const [artsDir, setArtsDir] = useState('')
   const [sound, setSound] = useState(() => localStorage.getItem('oficina-sound') !== '0')
+  // Separado del sonido: iban juntos en el mismo interruptor, así que apagar el
+  // «ding» —que en un turno largo cansa— apagaba también los avisos del sistema,
+  // que es justo lo que sirve cuando el turno es largo.
+  const [notif, setNotif] = useState(() => localStorage.getItem('oficina-notif') !== '0')
   const [theme, setTheme] = useState('clasico') // se carga por perfil al iniciar/cambiar
   const themeLoaded = useRef(false) // evita machacar el guardado antes de hidratar
   // Tema "auto": 🌙 Noche de 19:00 a 07:00, Clásico de día. Un tick por minuto
@@ -479,8 +483,11 @@ export default function App() {
   useEffect(() => {
     setSoundEnabled(sound)
     localStorage.setItem('oficina-sound', sound ? '1' : '0')
-    window.oficina?.setNotify?.(sound) // también los avisos del sistema
   }, [sound])
+  useEffect(() => {
+    localStorage.setItem('oficina-notif', notif ? '1' : '0')
+    window.oficina?.setNotify?.(notif)
+  }, [notif])
 
   // el tema se guarda POR PERFIL (cada cuenta puede tener el suyo), solo tras hidratar
   useEffect(() => {
@@ -3374,16 +3381,25 @@ export default function App() {
               </button>
             </div>
             <div className="pref-row">
-              <span className="pref-label">{t('pref.notif')}</span>
+              <span className="pref-label">{t('pref.sound')}</span>
               <button
                 type="button"
                 className={sound ? 'pref-toggle on' : 'pref-toggle'}
                 onClick={() => setSound((s) => !s)}
-                title={sound ? t('pref.notifOnTitle') : t('pref.notifOffTitle')}
+                title={sound ? t('pref.soundOnTitle') : t('pref.soundOffTitle')}
               >
-                <>
-                {sound ? <IconBell size={13} /> : <IconBellOff size={13} />} {sound ? t('pref.notifOn') : t('pref.notifOff')}
-              </>
+                {sound ? <IconBell size={13} /> : <IconBellOff size={13} />} {sound ? t('pref.soundOn') : t('pref.soundOff')}
+              </button>
+            </div>
+            <div className="pref-row">
+              <span className="pref-label">{t('pref.notif')}</span>
+              <button
+                type="button"
+                className={notif ? 'pref-toggle on' : 'pref-toggle'}
+                onClick={() => setNotif((s) => !s)}
+                title={notif ? t('pref.notifOnTitle') : t('pref.notifOffTitle')}
+              >
+                {notif ? <IconBell size={13} /> : <IconBellOff size={13} />} {notif ? t('pref.notifOn') : t('pref.notifOff')}
               </button>
             </div>
             </div>
