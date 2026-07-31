@@ -92,8 +92,11 @@ jobs:
         # de subir el asset se encarga el paso siguiente con gh
         run: |
           if [ -z "$CSC_LINK" ]; then
-            echo "::warning::Sin certificado: el DMG saldrá sin firmar y pedirá xattr -cr"
+            echo "::warning::Sin certificado: el DMG saldrá sin firmar y no se publicará"
             export CSC_IDENTITY_AUTO_DISCOVERY=false
+            echo "firmado=no" >> "$GITHUB_ENV"
+          else
+            echo "firmado=si" >> "$GITHUB_ENV"
           fi
           npm run dist:mac -- --publish never
 
@@ -108,13 +111,25 @@ jobs:
           echo "— ticket de notarización —"
           xcrun stapler validate "$APP" 2>&1 || echo "sin ticket"
 
+      # --clobber pisa el asset que ya esté subido. Desde que la app se firma,
+      # un DMG sin firmar es peor que ninguno: reemplazaría uno bueno subido a
+      # mano por otro que macOS pone en cuarentena. Así que sin certificado no
+      # se publica binario y el aviso dice de dónde tiene que salir.
       - name: Subir DMG al release del tag
+        if: env.firmado == 'si'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release upload "$GITHUB_REF_NAME" release/*.dmg --clobber ||
             gh release create "$GITHUB_REF_NAME" release/*.dmg \
               --title "La Oficina $GITHUB_REF_NAME" --generate-notes
+      - name: Avisar que el binario hay que subirlo a mano
+        if: env.firmado == 'no'
+        run: |
+          echo "::warning::No se subió DMG: sin certificado saldría sin firmar. \
+          Genéralo en una máquina con el Developer ID (npm run dist:mac) y súbelo \
+          con gh release upload $GITHUB_REF_NAME release/*.dmg --clobber"
+
       # Re-pushear un tag degrada su release a borrador, y publicar uno viejo lo
       # marca «latest» (GitHub ordena por fecha, no por versión). Como el aviso
       # de versión nueva de la app consulta /releases/latest, un descuido aquí

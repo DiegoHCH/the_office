@@ -149,11 +149,9 @@ npm run dist:mac       # genera release/La Oficina-<versión>-arm64.dmg
 npm run dist:app       # build rápido sin instalador (carpeta .app)
 ```
 
-Instalando el `.dmg`: ábrelo y arrastra **La Oficina** a Aplicaciones. Como no está firmada con cuenta de Apple Developer, macOS puede decir *"está dañada"*; ejecuta una vez en Terminal y ábrela normalmente:
+Instalando el `.dmg`: ábrelo y arrastra **La Oficina** a Aplicaciones.
 
-```bash
-xattr -cr "/Applications/La Oficina.app"
-```
+La app va firmada con Developer ID, así que ya no aparece el *"está dañada"* que obligaba a rescatarla con `xattr -cr`. Falta el ticket de notarización, y hasta que esté macOS dirá que *no pudo verificarla*: la primera vez ábrela con **clic derecho → Abrir** y confirma. Una sola vez; después arranca normal.
 
 ### Hablarle al squad
 
