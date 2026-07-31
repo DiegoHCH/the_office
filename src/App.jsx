@@ -684,392 +684,414 @@ export default function App() {
   useEffect(() => {
     if (!window.oficina?.onEvent) return
     return window.oficina.onEvent((e) => {
-      // 🔧 diagnóstico: todo evento (menos el chorro de texto) queda en el buffer
-      if (e.kind !== 'text') {
-        const info =
-          e.kind === 'tool'
-            ? `${e.name}${e.detail ? ` · ${String(e.detail).slice(0, 90)}` : ''}`
-            : e.kind === 'error'
-              ? `${String(e.message || '').slice(0, 120)}${e.detail ? ` — ${String(e.detail).slice(0, 200)}` : ''}`
-              : e.kind === 'done'
-                ? e.usage
-                  ? `🪙 ${fmtTokens(usageTotal(e.usage))}`
-                  : ''
-                : e.kind === 'sub-start'
-                  ? `${String(e.subId || '').slice(-6)} · ${String(e.desc || '').slice(0, 40)}`
-                  : e.kind === 'sub-done'
-                    ? String(e.subId || '').slice(-6)
-                    : e.kind === 'init'
-                  ? (e.sessionId || '').slice(0, 8)
-                  : e.kind === 'system'
-                    ? `${e.subtype}${e.fields ? ` · ${e.fields}` : ''}`
+      try {
+        // 🔧 diagnóstico: todo evento (menos el chorro de texto) queda en el buffer
+        if (e.kind !== 'text') {
+          const info =
+            e.kind === 'tool'
+              ? `${e.name}${e.detail ? ` · ${String(e.detail).slice(0, 90)}` : ''}`
+              : e.kind === 'error'
+                ? `${String(e.message || '').slice(0, 120)}${e.detail ? ` — ${String(e.detail).slice(0, 200)}` : ''}`
+                : e.kind === 'done'
+                  ? e.usage
+                    ? `🪙 ${fmtTokens(usageTotal(e.usage))}`
                     : ''
-        diagRef.current.push({ t: Date.now(), role: e.role || '—', kind: e.kind, info })
-        if (diagRef.current.length > 500) diagRef.current.shift()
-      }
-      // órdenes del proceso principal (Tray, atajo global) — no son del stream
-      if (e.kind === 'new-chat') {
-        newChat()
-        return
-      }
-      if (e.kind === 'focus-composer') {
-        inputRef.current?.focus()
-        return
-      }
-      if (e.kind === 'deep-link') {
-        deepLinkRef.current(e)
-        return
-      }
-      if (e.kind === 'system-resumed') {
-        // el Mac durmió: los streams en curso murieron — avisar si había trabajo
-        if (runningRef.current.length) {
-          showToast(t('toast.suspended'), 8000)
+                  : e.kind === 'sub-start'
+                    ? `${String(e.subId || '').slice(-6)} · ${String(e.desc || '').slice(0, 40)}`
+                    : e.kind === 'sub-done'
+                      ? String(e.subId || '').slice(-6)
+                      : e.kind === 'init'
+                    ? (e.sessionId || '').slice(0, 8)
+                    : e.kind === 'system'
+                      ? `${e.subtype}${e.fields ? ` · ${e.fields}` : ''}`
+                      : ''
+          diagRef.current.push({ t: Date.now(), role: e.role || '—', kind: e.kind, info })
+          if (diagRef.current.length > 500) diagRef.current.shift()
         }
-        window.oficina?.refreshUsage?.()
-        return
-      }
-      // Un mensaje de subagente se atribuye al personaje que tiene prestado y va
-      // a SU pestaña. Si todavía no tiene puesto, su trabajo se ve igual en su
-      // pestaña: lo que espera es la silla, no el turno.
-      // Si llega trabajo de un subagente del que no hay constancia, se le abre
-      // el sitio aquí mismo en vez de dejarlo caer en la pestaña del principal:
-      // así la feature no depende de haber reconocido su arranque.
-      const asiento = e.sub?.id ? subsRef.current[e.sub.id] || abreSub(e.sub.id, e.sub.desc, e.role) : null
-      const who = asiento?.rol || e.role || principalRef.current
-      const isP = !e.sub && who === principalRef.current
-      const escribe = (fn) => (asiento ? enTabId(asiento.tabId, fn) : enTab(who, fn))
-      // Un subagente sin personaje asignado NO puede tocar el estado del
-      // principal: sus mensajes se le atribuyen por descarte, y cada uno lo
-      // sacaba de «esperando asignaciones» para ponerlo a «Respondiendo…».
-      const marca = (rol, estado) => {
-        if (e.sub && !asiento?.rol) return
-        setRS(rol, estado)
-      }
-
-      if (e.kind === 'sub-start') {
-        abreSub(e.subId, e.desc, e.role)
-        // El que reparte se queda en 'talking' de su último mensaje y su burbuja
-        // sigue diciendo «Respondiendo…» durante todo el trabajo ajeno. No está
-        // respondiendo: está esperando. Sigue ocupado —su turno está bloqueado
-        // en la herramienta— pero eso se dice de otra forma.
-        setRS(e.role, 'working')
-        if (e.role === principalRef.current) setStatus(t('status.delegating'))
-        return
-      }
-
-      if (e.kind === 'sub-done') {
-        const fin = subsRef.current[e.subId]
-        if (!fin) return
-        setTabs((prev) => prev.map((x) => (x.id === fin.tabId ? { ...x, done: true } : x)))
-        // Una línea de cierre en SU pestaña: atenuarla no basta, porque un
-        // subagente que acabó con un mensaje corto se ve igual que uno que
-        // sigue trabajando. Y si acabó mal, aquí es donde se ve — el principal
-        // solo recibe su resultado, no necesariamente el motivo del fallo.
-        const cierre = { role: 'system', text: e.isError ? t('sub.failed') : t('sub.done') }
-        // Un aviso por subagente, con el nombre del personaje que lo hizo: son
-        // trabajos separados y cada uno deja su pestaña lista para leer. El del
-        // principal sigue saliendo aparte, al cerrar el turno con su resumen.
-        window.oficina?.notifyCustom?.(
-          `${memberOf(fin.rol).name || t('sub.working')} ${e.isError ? t('sub.failedShort') : t('sub.doneShort')}`,
-          subMetaRef.current[fin.tabId]?.title || fin.desc || ''
-        )
-        // Guardar en el historial aquí y no por el autosave: ese solo mira la
-        // pestaña activa, y la que miras es la del principal. Se lee por el
-        // updater cuando la pestaña es la activa, porque `messages` del closure
-        // puede venir de un render anterior.
-        const guarda = (ms) => {
-          window.oficina?.history?.save({
-            id: `sub-${e.subId}`,
-            title: subMetaRef.current[fin.tabId]?.title || fin.desc || t('sub.working'),
-            // de quién es hija: en el historial se ven anidadas bajo la
-            // conversación que las repartió, que es donde tienen sentido
-            parentId: subMetaRef.current[fin.tabId]?.parentId || null,
-            profile,
-            project,
-            model,
-            sessions: {},
-            updatedAt: Date.now(),
-            messages: ms.map((m) => ({ role: m.role, text: m.text, who: m.who, usage: m.usage, dur: m.dur })),
-          })
-        }
-        if (fin.tabId === activeTabRef.current) {
-          setMessages((ms) => {
-            const con = [...ms, cierre]
-            guarda(con)
-            return con
-          })
-        } else {
-          const st = tabStateRef.current[fin.tabId]
-          if (st) {
-            st.messages = [...(st.messages || []), cierre]
-            guarda(st.messages)
-          }
-        }
-        // el puesto que se libera pasa al primero que lo esperaba
-        if (fin.rol) {
-          setRS(fin.rol, 'idle')
-          const siguiente = colaAsientoRef.current.shift()
-          if (siguiente && subsRef.current[siguiente]) {
-            subsRef.current[siguiente].rol = fin.rol
-            setRS(fin.rol, 'working')
-          } else {
-            // nadie hereda la silla: si era un invitado, se va de la oficina
-            setInvitados((prev) => prev.filter((x) => x !== fin.rol))
-          }
-        }
-        delete subsRef.current[e.subId]
-        return
-      }
-
-      if (e.kind === 'init') {
-        if (e.sessionId) {
-          const suya = tabDeRolRef.current[who]
-          if (!suya || suya === activeTabRef.current) sessionsRef.current[who] = e.sessionId
-          else if (tabStateRef.current[suya]) tabStateRef.current[suya].sessions[who] = e.sessionId
-        }
-        if (isP) setStatus(t('status.thinking'))
-      } else if (e.kind === 'ctx') {
-        // ocupación real del contexto: la de la última llamada a la API
-        setCtxUsado(contextoUsado(e.usage))
-      } else if (e.kind === 'todos') {
-        setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
-      } else if (e.kind === 'tool') {
-        setTool({ role: who, name: e.name, detail: e.detail || null })
-        setAgentTool((prev) => ({ ...prev, [who]: e.name }))
-        // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
-        if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name)) {
-          editedRef.current[who] = true
-          // la ruta completa se guarda para la vista de cambios: el diff se pide
-          // en el repo del archivo, no en la raíz del proyecto (que puede no serlo)
-          if (e.path && !editedPathsRef.current.includes(e.path)) editedPathsRef.current.push(e.path)
-          if (e.path) (turnoPathsRef.current[who] ||= []).push(e.path)
-        }
-        // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
-        if (e.name === 'Write' && /\.html?$/i.test(e.detail || '')) {
-          pendingArtifactRef.current[who] = true
-          setTimeout(refreshArtifacts, 400)
-        }
-        marca(who, 'working')
-        if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
-      } else if (e.kind === 'text') {
-        setTool((cur) => (cur?.role === who ? null : cur))
-        setAgentTool((prev) => {
-          if (!prev[who]) return prev
-          const copy = { ...prev }
-          delete copy[who]
-          return copy
-        })
-        marca(who, 'talking')
-        hubotextoRef.current[who] = true
-        if (isP) setStatus(t('status.answering'))
-        // El de un subagente llega entero (los deltas son solo del principal),
-        // así que es un mensaje nuevo y no un trozo que se funde con el anterior.
-        if (e.sub) {
-          escribe((ms) => [...ms, { role: 'assistant', who, text: e.text, sub: true }])
+        // órdenes del proceso principal (Tray, atajo global) — no son del stream
+        if (e.kind === 'new-chat') {
+          newChat()
           return
         }
-        escribe((ms) => {
-          const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
-          if (idx >= 0) {
-            const copy = [...ms]
-            copy[idx] = { ...copy[idx], text: copy[idx].text + e.text }
-            return copy
+        if (e.kind === 'focus-composer') {
+          inputRef.current?.focus()
+          return
+        }
+        if (e.kind === 'deep-link') {
+          deepLinkRef.current(e)
+          return
+        }
+        if (e.kind === 'system-resumed') {
+          // el Mac durmió: los streams en curso murieron — avisar si había trabajo
+          if (runningRef.current.length) {
+            showToast(t('toast.suspended'), 8000)
           }
-          return [...ms, { role: 'assistant', who, text: e.text, streaming: true }]
-        })
-      } else if (e.kind === 'thinking') {
-        // se acumula y se engancha al mensaje del agente cuando termine
-        pendingThinkingRef.current[who] = (pendingThinkingRef.current[who] || '') + e.text
-      } else if (e.kind === 'done') {
-        const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
-        // cuánto tardó: se guarda en el mensaje, junto a los tokens, para poder
-        // mirar atrás y no solo verlo pasar en el chip
-        const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
-        const edited = !!editedRef.current[who]
-        delete editedRef.current[who]
-        const thinking = pendingThinkingRef.current[who] || null
-        delete pendingThinkingRef.current[who]
-        enTab(who, (ms) => {
-          const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
-          if (idx >= 0) {
-            const copy = [...ms]
-            copy[idx] = { ...copy[idx], streaming: false, usage, dur, edited, thinking }
-            return copy
-          }
-          return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, dur, edited, thinking }] : ms
-        })
-        // La ocupación del contexto NO se calcula aquí: el usage del `result` es
-        // el acumulado del turno, no lo que ocupa el contexto. Llega por 'ctx',
-        // con el usage de cada llamada. Este `usage` sí sirve para el acumulado
-        // de tokens de la conversación, que es lo que mide.
-        // acumulado de tokens de la conversación (para el monitor de claude)
-        if (usage)
-          setConvTokens((tok) => ({
-            in: tok.in + (usage.input_tokens || 0),
-            out: tok.out + (usage.output_tokens || 0),
-            cache: tok.cache + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
-          }))
-        // si generó un artifact este turno, adjuntar su enlace al mensaje del agente
-        if (pendingArtifactRef.current[who]) {
-          delete pendingArtifactRef.current[who]
-          window.oficina?.artifacts?.list?.(profileRef.current).then((list) => {
-            const art = list?.[0]
-            if (!art) return
-            enTab(who, (ms) => {
-              const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && !m.artifact)
-              return idx < 0 ? ms : ms.map((m, i) => (i === idx ? { ...m, artifact: art } : m))
+          window.oficina?.refreshUsage?.()
+          return
+        }
+        // Un mensaje de subagente se atribuye al personaje que tiene prestado y va
+        // a SU pestaña. Si todavía no tiene puesto, su trabajo se ve igual en su
+        // pestaña: lo que espera es la silla, no el turno.
+        // Si llega trabajo de un subagente del que no hay constancia, se le abre
+        // el sitio aquí mismo en vez de dejarlo caer en la pestaña del principal:
+        // así la feature no depende de haber reconocido su arranque.
+        const asiento = e.sub?.id ? subsRef.current[e.sub.id] || abreSub(e.sub.id, e.sub.desc, e.role) : null
+        const who = asiento?.rol || e.role || principalRef.current
+        const isP = !e.sub && who === principalRef.current
+        const escribe = (fn) => (asiento ? enTabId(asiento.tabId, fn) : enTab(who, fn))
+        // Un subagente sin personaje asignado NO puede tocar el estado del
+        // principal: sus mensajes se le atribuyen por descarte, y cada uno lo
+        // sacaba de «esperando asignaciones» para ponerlo a «Respondiendo…».
+        const marca = (rol, estado) => {
+          if (e.sub && !asiento?.rol) return
+          setRS(rol, estado)
+        }
+        // Mientras haya subagentes vivos, el que reparte está esperando. Se
+        // reafirma en cada evento suyo y no solo al repartir: basta con que algo
+        // le pise el estado una vez para que se quede «Respondiendo…» el resto
+        // del trabajo, y eso ya pasó.
+        if (e.sub && Object.keys(subsRef.current).length) {
+          const jefe = e.role || principalRef.current
+          setRS(jefe, 'working')
+          // Su globo diría «Trabajando…», que es lo que hacen los otros. El
+          // globo muestra el detalle de la herramienta en curso si es suya, así
+          // que por ahí se le pone lo que de verdad está haciendo.
+          setTool({ role: jefe, name: 'Agent', detail: t('status.delegating') })
+          if (jefe === principalRef.current) setStatus(t('status.delegating'))
+        }
+
+        if (e.kind === 'sub-start') {
+          abreSub(e.subId, e.desc, e.role)
+          // El que reparte se queda en 'talking' de su último mensaje y su burbuja
+          // sigue diciendo «Respondiendo…» durante todo el trabajo ajeno. No está
+          // respondiendo: está esperando. Sigue ocupado —su turno está bloqueado
+          // en la herramienta— pero eso se dice de otra forma.
+          setRS(e.role, 'working')
+          if (e.role === principalRef.current) setStatus(t('status.delegating'))
+          return
+        }
+
+        if (e.kind === 'sub-done') {
+          const fin = subsRef.current[e.subId]
+          if (!fin) return
+          setTabs((prev) => prev.map((x) => (x.id === fin.tabId ? { ...x, done: true } : x)))
+          // Una línea de cierre en SU pestaña: atenuarla no basta, porque un
+          // subagente que acabó con un mensaje corto se ve igual que uno que
+          // sigue trabajando. Y si acabó mal, aquí es donde se ve — el principal
+          // solo recibe su resultado, no necesariamente el motivo del fallo.
+          const cierre = { role: 'system', text: e.isError ? t('sub.failed') : t('sub.done') }
+          // Un aviso por subagente, con el nombre del personaje que lo hizo: son
+          // trabajos separados y cada uno deja su pestaña lista para leer. El del
+          // principal sigue saliendo aparte, al cerrar el turno con su resumen.
+          window.oficina?.notifyCustom?.(
+            `${memberOf(fin.rol).name || t('sub.working')} ${e.isError ? t('sub.failedShort') : t('sub.doneShort')}`,
+            subMetaRef.current[fin.tabId]?.title || fin.desc || ''
+          )
+          // Guardar en el historial aquí y no por el autosave: ese solo mira la
+          // pestaña activa, y la que miras es la del principal. Se lee por el
+          // updater cuando la pestaña es la activa, porque `messages` del closure
+          // puede venir de un render anterior.
+          const guarda = (ms) => {
+            window.oficina?.history?.save({
+              id: `sub-${e.subId}`,
+              title: subMetaRef.current[fin.tabId]?.title || fin.desc || t('sub.working'),
+              // de quién es hija: en el historial se ven anidadas bajo la
+              // conversación que las repartió, que es donde tienen sentido
+              parentId: subMetaRef.current[fin.tabId]?.parentId || null,
+              profile,
+              project,
+              model,
+              sessions: {},
+              updatedAt: Date.now(),
+              messages: ms.map((m) => ({ role: m.role, text: m.text, who: m.who, usage: m.usage, dur: m.dur })),
             })
-          })
+          }
+          if (fin.tabId === activeTabRef.current) {
+            setMessages((ms) => {
+              const con = [...ms, cierre]
+              guarda(con)
+              return con
+            })
+          } else {
+            const st = tabStateRef.current[fin.tabId]
+            if (st) {
+              st.messages = [...(st.messages || []), cierre]
+              guarda(st.messages)
+            }
+          }
+          // el puesto que se libera pasa al primero que lo esperaba
+          if (fin.rol) {
+            setRS(fin.rol, 'idle')
+            const siguiente = colaAsientoRef.current.shift()
+            if (siguiente && subsRef.current[siguiente]) {
+              subsRef.current[siguiente].rol = fin.rol
+              setRS(fin.rol, 'working')
+            } else {
+              // nadie hereda la silla: si era un invitado, se va de la oficina
+              setInvitados((prev) => prev.filter((x) => x !== fin.rol))
+            }
+          }
+          delete subsRef.current[e.subId]
+          return
         }
-        // ¿hay un handoff pendiente de este rol? guardar su resultado
-        const entry = handoffsRef.current.find((h) => h.from === who && h.result == null)
-        if (entry) entry.result = (e.result || '').slice(0, 6000) || '(sin salida)'
-        // el principal solo camina cuando entrega a un compañero; los demás siempre
-        delete tabDeRolRef.current[who]
-        setRS(who, isP && !entry ? 'idle' : 'delivering')
-        // si entrega a un compañero, camina hacia ÉL (no hacia el principal)
-        if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
-        setTool((cur) => (cur?.role === who ? null : cur))
-        setAgentTool((prev) => {
-          if (!prev[who]) return prev
-          const copy = { ...prev }
-          delete copy[who]
-          return copy
-        })
-        setAgentTodos((prev) => {
-          if (!prev[who]) return prev
-          const copy = { ...prev }
-          delete copy[who]
-          return copy
-        })
-        // ¿este turno llegó a pintar algo? Si no, no se anuncia como respuesta:
-        // el chip decía «X respondió» y sonaba el ding igual cuando el turno
-        // terminaba sin texto, así que parecía que la respuesta se había perdido.
-        const respondio = !!hubotextoRef.current[who] || !!(e.result || '').trim()
-        delete hubotextoRef.current[who]
-        // un turno que acabó MAL no es un turno callado: se dice qué pasó
-        if (e.isError) {
-          enTab(who, (ms) => [
-            ...ms,
-            {
-              role: 'assistant',
-              who,
-              error: true,
-              text: `⚠️ ${(e.result || '').trim() || t('run.turnError', { motivo: e.subtype || 'error' })}`,
-            },
-          ])
-        }
-        // Recarga automática: solo al terminar el turno y con debounce. En cada
-        // Write recargaría con el código a medias de un multi-edit.
-        const tocadas = turnoPathsRef.current[who] || []
-        delete turnoPathsRef.current[who]
-        if (tocadas.length && editedRef.current[who] !== undefined) {
-          autoRecargaRef.current(tocadas)
-        }
-        if (respondio) {
-          ultimoRef.current = who
-          dingSound()
-        }
-        window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
-        // chip transitorio anunciando la respuesta final (con duración si fue larga)
-        const doneName = squadRef.current.find((m) => m.id === who)?.name || who
-        recordStat(who, usage, dur) // acumulado diario para 📈 Estadísticas
-        setDoneChip(
-          respondio
-            ? `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
-            : e.isError
-              ? `⚠️ ${doneName}: ${e.subtype || 'error'}`
-              : `⚠️ ${doneName} terminó sin respuesta`
-        )
-        // sin texto el turno no dejaría rastro en el chat: queda la línea
-        if (!respondio && !e.isError)
-          enTab(who, (ms) => [...ms, { role: 'system', text: `⚠️ ${doneName} terminó el turno sin decir nada` }])
-        clearTimeout(doneChipTimer.current)
-        doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
-        if (isP) setStatus(t('status.waiting'))
-      } else if (e.kind === 'stopped') {
-        delete tabDeRolRef.current[who]
-        delete editedRef.current[who]
-        delete hubotextoRef.current[who]
-        // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
-        enTab(who, (ms) => {
-          const aIdx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
-          let out = aIdx < 0 ? ms : ms.filter((_, i) => i !== aIdx)
-          const uIdx = out.findLastIndex((m) => m.role === 'user' && m.to === who && !m.cancelled)
-          if (uIdx >= 0) out = out.map((m, i) => (i === uIdx ? { ...m, cancelled: true } : m))
-          return out
-        })
-        handoffsRef.current = handoffsRef.current.filter((h) => !(h.from === who && h.result == null))
-        setRS(who, 'idle')
-        setTool((cur) => (cur?.role === who ? null : cur))
-        setAgentTool((prev) => {
-          if (!prev[who]) return prev
-          const copy = { ...prev }
-          delete copy[who]
-          return copy
-        })
-        setAgentTodos((prev) => {
-          if (!prev[who]) return prev
-          const copy = { ...prev }
-          delete copy[who]
-          return copy
-        })
-        buzzSound()
-        const name = squadRef.current.find((m) => m.id === who)?.name || who
-        setToast(`⏹ ${name}: tarea cancelada`)
-        clearTimeout(toastTimer.current)
-        toastTimer.current = setTimeout(() => setToast(null), 3500)
-        if (isP) setStatus(t('status.waiting'))
-      } else if (e.kind === 'error') {
-        delete editedRef.current[who]
-        delete hubotextoRef.current[who]
-        // ¿error transitorio (rate limit, red, timeout)? un reintento
-        // automático con backoff — solo UNO por job; si repite, error normal
-        const transient = /(\b429\b|\b529\b|rate.?limit|timeout|etimedout|econnreset|enotfound|eai_again|socket hang up|network|overloaded)/i.test(
-          `${e.message || ''} ${e.detail || ''}`
-        )
-        const failedJob = lastJobRef.current[who]
-        if (transient && failedJob && !retriedRef.current.has(failedJob.id)) {
-          retriedRef.current.add(failedJob.id)
-          setRS(who, 'idle')
+
+        if (e.kind === 'init') {
+          if (e.sessionId) {
+            const suya = tabDeRolRef.current[who]
+            if (!suya || suya === activeTabRef.current) sessionsRef.current[who] = e.sessionId
+            else if (tabStateRef.current[suya]) tabStateRef.current[suya].sessions[who] = e.sessionId
+          }
+          if (isP) setStatus(t('status.thinking'))
+        } else if (e.kind === 'ctx') {
+          // ocupación real del contexto: la de la última llamada a la API
+          setCtxUsado(contextoUsado(e.usage))
+        } else if (e.kind === 'todos') {
+          setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
+        } else if (e.kind === 'tool') {
+          setTool({ role: who, name: e.name, detail: e.detail || null })
+          setAgentTool((prev) => ({ ...prev, [who]: e.name }))
+          // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
+          if (['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(e.name)) {
+            editedRef.current[who] = true
+            // la ruta completa se guarda para la vista de cambios: el diff se pide
+            // en el repo del archivo, no en la raíz del proyecto (que puede no serlo)
+            if (e.path && !editedPathsRef.current.includes(e.path)) editedPathsRef.current.push(e.path)
+            if (e.path) (turnoPathsRef.current[who] ||= []).push(e.path)
+          }
+          // ¿creó un artifact HTML? marcar para adjuntarlo a su respuesta al terminar
+          if (e.name === 'Write' && /\.html?$/i.test(e.detail || '')) {
+            pendingArtifactRef.current[who] = true
+            setTimeout(refreshArtifacts, 400)
+          }
+          marca(who, 'working')
+          if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
+        } else if (e.kind === 'text') {
           setTool((cur) => (cur?.role === who ? null : cur))
           setAgentTool((prev) => {
+            if (!prev[who]) return prev
+            const copy = { ...prev }
+            delete copy[who]
+            return copy
+          })
+          marca(who, 'talking')
+          hubotextoRef.current[who] = true
+          if (isP) setStatus(t('status.answering'))
+          // El de un subagente llega entero (los deltas son solo del principal),
+          // así que es un mensaje nuevo y no un trozo que se funde con el anterior.
+          if (e.sub) {
+            escribe((ms) => [...ms, { role: 'assistant', who, text: e.text, sub: true }])
+            return
+          }
+          escribe((ms) => {
+            const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
+            if (idx >= 0) {
+              const copy = [...ms]
+              copy[idx] = { ...copy[idx], text: copy[idx].text + e.text }
+              return copy
+            }
+            return [...ms, { role: 'assistant', who, text: e.text, streaming: true }]
+          })
+        } else if (e.kind === 'thinking') {
+          // se acumula y se engancha al mensaje del agente cuando termine
+          pendingThinkingRef.current[who] = (pendingThinkingRef.current[who] || '') + e.text
+        } else if (e.kind === 'done') {
+          const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
+          // cuánto tardó: se guarda en el mensaje, junto a los tokens, para poder
+          // mirar atrás y no solo verlo pasar en el chip
+          const dur = startedAtRef.current[who] ? Date.now() - startedAtRef.current[who] : 0
+          const edited = !!editedRef.current[who]
+          delete editedRef.current[who]
+          const thinking = pendingThinkingRef.current[who] || null
+          delete pendingThinkingRef.current[who]
+          enTab(who, (ms) => {
+            const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
+            if (idx >= 0) {
+              const copy = [...ms]
+              copy[idx] = { ...copy[idx], streaming: false, usage, dur, edited, thinking }
+              return copy
+            }
+            return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, dur, edited, thinking }] : ms
+          })
+          // La ocupación del contexto NO se calcula aquí: el usage del `result` es
+          // el acumulado del turno, no lo que ocupa el contexto. Llega por 'ctx',
+          // con el usage de cada llamada. Este `usage` sí sirve para el acumulado
+          // de tokens de la conversación, que es lo que mide.
+          // acumulado de tokens de la conversación (para el monitor de claude)
+          if (usage)
+            setConvTokens((tok) => ({
+              in: tok.in + (usage.input_tokens || 0),
+              out: tok.out + (usage.output_tokens || 0),
+              cache: tok.cache + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0),
+            }))
+          // si generó un artifact este turno, adjuntar su enlace al mensaje del agente
+          if (pendingArtifactRef.current[who]) {
+            delete pendingArtifactRef.current[who]
+            window.oficina?.artifacts?.list?.(profileRef.current).then((list) => {
+              const art = list?.[0]
+              if (!art) return
+              enTab(who, (ms) => {
+                const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && !m.artifact)
+                return idx < 0 ? ms : ms.map((m, i) => (i === idx ? { ...m, artifact: art } : m))
+              })
+            })
+          }
+          // ¿hay un handoff pendiente de este rol? guardar su resultado
+          const entry = handoffsRef.current.find((h) => h.from === who && h.result == null)
+          if (entry) entry.result = (e.result || '').slice(0, 6000) || '(sin salida)'
+          // el principal solo camina cuando entrega a un compañero; los demás siempre
+          delete tabDeRolRef.current[who]
+          setRS(who, isP && !entry ? 'idle' : 'delivering')
+          // si entrega a un compañero, camina hacia ÉL (no hacia el principal)
+          if (entry) setDeliverTargets((d) => ({ ...d, [who]: entry.to }))
+          setTool((cur) => (cur?.role === who ? null : cur))
+          setAgentTool((prev) => {
+            if (!prev[who]) return prev
             const copy = { ...prev }
             delete copy[who]
             return copy
           })
           setAgentTodos((prev) => {
+            if (!prev[who]) return prev
             const copy = { ...prev }
             delete copy[who]
             return copy
           })
+          // ¿este turno llegó a pintar algo? Si no, no se anuncia como respuesta:
+          // el chip decía «X respondió» y sonaba el ding igual cuando el turno
+          // terminaba sin texto, así que parecía que la respuesta se había perdido.
+          const respondio = !!hubotextoRef.current[who] || !!(e.result || '').trim()
+          delete hubotextoRef.current[who]
+          // un turno que acabó MAL no es un turno callado: se dice qué pasó
+          if (e.isError) {
+            enTab(who, (ms) => [
+              ...ms,
+              {
+                role: 'assistant',
+                who,
+                error: true,
+                text: `⚠️ ${(e.result || '').trim() || t('run.turnError', { motivo: e.subtype || 'error' })}`,
+              },
+            ])
+          }
+          // Recarga automática: solo al terminar el turno y con debounce. En cada
+          // Write recargaría con el código a medias de un multi-edit.
+          const tocadas = turnoPathsRef.current[who] || []
+          delete turnoPathsRef.current[who]
+          if (tocadas.length && editedRef.current[who] !== undefined) {
+            autoRecargaRef.current(tocadas)
+          }
+          if (respondio) {
+            ultimoRef.current = who
+            dingSound()
+          }
+          window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
+          // chip transitorio anunciando la respuesta final (con duración si fue larga)
+          const doneName = squadRef.current.find((m) => m.id === who)?.name || who
+          recordStat(who, usage, dur) // acumulado diario para 📈 Estadísticas
+          setDoneChip(
+            respondio
+              ? `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
+              : e.isError
+                ? `⚠️ ${doneName}: ${e.subtype || 'error'}`
+                : `⚠️ ${doneName} terminó sin respuesta`
+          )
+          // sin texto el turno no dejaría rastro en el chat: queda la línea
+          if (!respondio && !e.isError)
+            enTab(who, (ms) => [...ms, { role: 'system', text: `⚠️ ${doneName} terminó el turno sin decir nada` }])
+          clearTimeout(doneChipTimer.current)
+          doneChipTimer.current = setTimeout(() => setDoneChip(null), 3500)
+          if (isP) setStatus(t('status.waiting'))
+        } else if (e.kind === 'stopped') {
+          delete tabDeRolRef.current[who]
+          delete editedRef.current[who]
+          delete hubotextoRef.current[who]
+          // tarea cancelada: quita la respuesta a medias y marca tu mensaje como cancelado
+          enTab(who, (ms) => {
+            const aIdx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
+            let out = aIdx < 0 ? ms : ms.filter((_, i) => i !== aIdx)
+            const uIdx = out.findLastIndex((m) => m.role === 'user' && m.to === who && !m.cancelled)
+            if (uIdx >= 0) out = out.map((m, i) => (i === uIdx ? { ...m, cancelled: true } : m))
+            return out
+          })
+          handoffsRef.current = handoffsRef.current.filter((h) => !(h.from === who && h.result == null))
+          setRS(who, 'idle')
+          setTool((cur) => (cur?.role === who ? null : cur))
+          setAgentTool((prev) => {
+            if (!prev[who]) return prev
+            const copy = { ...prev }
+            delete copy[who]
+            return copy
+          })
+          setAgentTodos((prev) => {
+            if (!prev[who]) return prev
+            const copy = { ...prev }
+            delete copy[who]
+            return copy
+          })
+          buzzSound()
           const name = squadRef.current.find((m) => m.id === who)?.name || who
-          setToast(`⚠️ ${name}: error transitorio — reintentando en 5s…`)
+          setToast(`⏹ ${name}: tarea cancelada`)
           clearTimeout(toastTimer.current)
-          toastTimer.current = setTimeout(() => setToast(null), 5000)
-          setTimeout(() => autoRetryRef.current(who), 5000)
-          if (isP) setStatus(t('status.retrying'))
-          return
+          toastTimer.current = setTimeout(() => setToast(null), 3500)
+          if (isP) setStatus(t('status.waiting'))
+        } else if (e.kind === 'error') {
+          delete editedRef.current[who]
+          delete hubotextoRef.current[who]
+          // ¿error transitorio (rate limit, red, timeout)? un reintento
+          // automático con backoff — solo UNO por job; si repite, error normal
+          const transient = /(\b429\b|\b529\b|rate.?limit|timeout|etimedout|econnreset|enotfound|eai_again|socket hang up|network|overloaded)/i.test(
+            `${e.message || ''} ${e.detail || ''}`
+          )
+          const failedJob = lastJobRef.current[who]
+          if (transient && failedJob && !retriedRef.current.has(failedJob.id)) {
+            retriedRef.current.add(failedJob.id)
+            setRS(who, 'idle')
+            setTool((cur) => (cur?.role === who ? null : cur))
+            setAgentTool((prev) => {
+              const copy = { ...prev }
+              delete copy[who]
+              return copy
+            })
+            setAgentTodos((prev) => {
+              const copy = { ...prev }
+              delete copy[who]
+              return copy
+            })
+            const name = squadRef.current.find((m) => m.id === who)?.name || who
+            setToast(`⚠️ ${name}: error transitorio — reintentando en 5s…`)
+            clearTimeout(toastTimer.current)
+            toastTimer.current = setTimeout(() => setToast(null), 5000)
+            setTimeout(() => autoRetryRef.current(who), 5000)
+            if (isP) setStatus(t('status.retrying'))
+            return
+          }
+          // el stderr (si vino) se muestra como bloque de código en el mensaje
+          const text = e.detail ? `⚠️ ${e.message}\n\n\`\`\`\n${e.detail}\n\`\`\`` : `⚠️ ${e.message}`
+          setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
+          setRS(who, 'idle')
+          setTool((cur) => (cur?.role === who ? null : cur))
+          setAgentTool((prev) => {
+            if (!prev[who]) return prev
+            const copy = { ...prev }
+            delete copy[who]
+            return copy
+          })
+          setAgentTodos((prev) => {
+            if (!prev[who]) return prev
+            const copy = { ...prev }
+            delete copy[who]
+            return copy
+          })
+          buzzSound()
+          if (isP) setStatus(t('status.waiting'))
         }
-        // el stderr (si vino) se muestra como bloque de código en el mensaje
-        const text = e.detail ? `⚠️ ${e.message}\n\n\`\`\`\n${e.detail}\n\`\`\`` : `⚠️ ${e.message}`
-        setMessages((ms) => [...ms, { role: 'assistant', who, text, error: true }])
-        setRS(who, 'idle')
-        setTool((cur) => (cur?.role === who ? null : cur))
-        setAgentTool((prev) => {
-          if (!prev[who]) return prev
-          const copy = { ...prev }
-          delete copy[who]
-          return copy
-        })
-        setAgentTodos((prev) => {
-          if (!prev[who]) return prev
-          const copy = { ...prev }
-          delete copy[who]
-          return copy
-        })
-        buzzSound()
-        if (isP) setStatus(t('status.waiting'))
+    
+      } catch (err) {
+        // Un fallo aquí abortaba el evento en silencio y dejaba el estado a
+        // medias —la pestaña creada pero el subagente sin registrar, o el
+        // principal atascado en «Respondiendo…»— sin nada que lo delatara.
+        diagRef.current.push({ t: Date.now(), role: e.role || '—', kind: 'error-evento', info: `${e.kind}: ${err?.message || err}` })
+        console.error('[oficina] evento', e.kind, err)
       }
     })
   }, [])
