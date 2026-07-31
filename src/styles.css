@@ -315,7 +315,9 @@ body {
 /* chat superpuesto sobre la escena.
    Capas de la sala: globos/nametags de drei (<Html zIndexRange={[1,0]}>) van en 1,
    así que todo overlay de la UI necesita z-index propio o queda por debajo:
-   chat/toolchip 3 · sysmon 4 · drawer 5 · stopbar 6 · toast 8. */
+   chat/toolchip 3 · sysmon/stopbar/tabbar 4 · drawer 5 · toast 8.
+   Los tres paneles de la columna izquierda comparten capa: son lo mismo y
+   cualquier panel que se abra encima (historial, ajustes) debe taparlos. */
 .chat {
   position: absolute; right: 14px; top: 14px; bottom: 14px;
   /* el ancho vive en una variable porque la columna de pestañas se coloca
@@ -774,7 +776,7 @@ select.squad-model {
   border-radius: 16px; padding: 10px 12px;
 }
 .stopbar {
-  position: absolute; left: 14px; z-index: 6;
+  position: absolute; left: 14px; z-index: 4;
   display: flex; flex-direction: column; align-items: stretch; gap: 6px;
   width: 210px;
 }
@@ -1031,8 +1033,12 @@ select.squad-model {
 .mon-nodata { margin: 2px 0 1px; font-style: italic; }
 
 /* chip de herramienta en uso, flotando sobre la escena */
+/* Abajo y centrado, como el toast. Estaba clavado arriba a la izquierda, en un
+   hueco que dejó de estar libre en cuanto la columna creció con los paneles de
+   trabajadores y chats. Va 64px por encima del toast y no a su misma altura:
+   los dos son transitorios y pueden coincidir. */
 .toolchip {
-  position: absolute; left: 16px; top: 280px; z-index: 3;
+  position: absolute; left: 50%; bottom: 64px; transform: translateX(-50%); z-index: 3;
   display: flex; align-items: center; gap: 8px;
   padding: 8px 14px; border-radius: 999px;
   background: var(--scene-surface-soft); color: var(--scene-ink);
