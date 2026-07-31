@@ -613,6 +613,12 @@ function makeLineHandler(role, claveSesion, displayName) {
               tipo: block.input?.subagent_type || null,
             })
           }
+          // …y NO se emite además como herramienta suya: delegar no es «correr
+          // un comando». Si se emitiera, el principal saldría en la escena
+          // «Usando Agent · comparar X» —haciendo el trabajo que acaba de
+          // repartir— y el usuario ve a quien delega ocupando el sitio de quien
+          // trabaja. Quien lo hace es el subagente, en su personaje.
+          if (block.name === 'Agent' && !sub) continue
           // aquí ya viene el input completo → detalle de QUÉ hace exactamente
           emit({
             kind: 'tool',

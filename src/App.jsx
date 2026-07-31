@@ -262,6 +262,11 @@ export default function App() {
     showToast(t('toast.langChanged'))
   }
   const [roster, setRoster] = useState([]) // config completa (6 roles)
+  // Personajes que un subagente tiene prestados. Pueden ser miembros INACTIVOS
+  // del roster: si el squad solo tiene al principal, no habría a quién prestarle
+  // silla y el trabajo de los subagentes se vería todo encima del principal.
+  // Entran en escena mientras dura el encargo y se van al terminar.
+  const [invitados, setInvitados] = useState([])
   const [agentsOpen, setAgentsOpen] = useState(false) // panel 👥 Agentes (squad)
   const [skillsOpen, setSkillsOpen] = useState(false) // panel 🧩 Skills (catálogo por perfil)
   const [mcpOpen, setMcpOpen] = useState(false) // panel 🌐 MCP (servidores por perfil)
@@ -320,8 +325,9 @@ export default function App() {
   // squad activo (máx MAX_ACTIVE) con su meta visual; el primero es el principal
   const squad = useMemo(
     () =>
-      roster
-        .filter((r) => r.enabled)
+      // Los activos primero y los invitados detrás, nunca al revés: squad[0] es
+      // el principal y un invitado colándose delante se lo llevaría por delante.
+      [...roster.filter((r) => r.enabled), ...roster.filter((r) => !r.enabled && invitados.includes(r.id))]
         .slice(0, MAX_ACTIVE)
         .map((r) => {
           const meta = metaOf(r)
@@ -336,15 +342,22 @@ export default function App() {
           }
         }),
     // lang: las etiquetas de rol vienen del diccionario, hay que rehacerlas
-    [roster, lang]
+    [roster, lang, invitados]
   )
+  // Para RUTEAR solo cuentan los activos de verdad: un invitado presta su
+  // personaje a un subagente, no es alguien a quien puedas encargarle algo.
+  const squadRuteable = useMemo(() => squad.filter((m) => !invitados.includes(m.id)), [squad, invitados])
   const principal = squad[0]?.id || 'dev'
   const principalRef = useRef(principal)
   const squadRef = useRef(squad)
+  // el roster COMPLETO, para poder sacar suplentes inactivos cuando un subagente
+  // necesita personaje y el squad activo no da para más
+  const rosterRef = useRef(roster)
   useEffect(() => {
     principalRef.current = principal
     squadRef.current = squad
-  }, [principal, squad])
+    rosterRef.current = roster
+  }, [principal, squad, roster])
   const memberOf = (id) => squad.find((m) => m.id === id) || { name: id, emoji: '🤖', color: '#93a6a1', label: id }
   // modelo efectivo de un agente: el suyo propio si lo fijó, si no el global
   const memberModel = (id) => squad.find((m) => m.id === id)?.model || model
@@ -647,17 +660,27 @@ export default function App() {
         const titulo = (e.desc || t('sub.working')).slice(0, 38)
         tabStateRef.current[tabId] = { messages: [], convId: null, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
         setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true }]))
-        const ociosos = squadRef.current
-          .map((m) => m.id)
-          .filter((id) => id !== e.role && !runningRef.current.includes(id) && !Object.values(subsRef.current).some((x) => x?.rol === id))
+        // Candidatos, en orden: primero los del squad que están sin hacer nada, y
+        // si no llegan, miembros INACTIVOS del roster, que entran en escena para
+        // esto. Sin esta segunda mitad, un squad de una sola persona —el caso
+        // normal— dejaba a todos los subagentes sin personaje, y su trabajo se
+        // veía encima del principal.
+        const ocupado = (id) => runningRef.current.includes(id) || Object.values(subsRef.current).some((x) => x?.rol === id)
+        const enSquad = squadRef.current.map((m) => m.id).filter((id) => id !== e.role && !ocupado(id))
+        const suplentes = rosterRef.current
+          .filter((r) => !r.enabled && !ocupado(r.id) && r.id !== e.role)
+          .map((r) => r.id)
+        const ociosos = [...enSquad, ...suplentes]
         const rol = asignaSubagente(
           Object.fromEntries(Object.entries(subsRef.current).map(([k, v]) => [k, v.rol]).filter(([, v]) => v)),
           e.subId,
           ociosos
         )
         subsRef.current[e.subId] = { rol, tabId, desc: e.desc || '' }
-        if (rol) setRS(rol, 'working')
-        else colaAsientoRef.current.push(e.subId)
+        if (rol) {
+          if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
+          setRS(rol, 'working')
+        } else colaAsientoRef.current.push(e.subId)
         return
       }
 
@@ -672,6 +695,9 @@ export default function App() {
           if (siguiente && subsRef.current[siguiente]) {
             subsRef.current[siguiente].rol = fin.rol
             setRS(fin.rol, 'working')
+          } else {
+            // nadie hereda la silla: si era un invitado, se va de la oficina
+            setInvitados((prev) => prev.filter((x) => x !== fin.rol))
           }
         }
         delete subsRef.current[e.subId]
@@ -2371,7 +2397,7 @@ export default function App() {
         if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
         const target = d.role
           ? squad.find((m) => m.id === d.role || norm(m.name) === norm(d.role))?.id || principal
-          : routeMessage(text, squad, principal, ultimoRef.current)
+          : routeMessage(text, squadRuteable, principal, ultimoRef.current)
         routeJob({ id: crypto.randomUUID(), target, text, display: `🔗 ${text}`, prompt: text, atts: [] })
         showToast(t('toast.deepLink', { name: memberOf(target).name }))
       }
@@ -2742,7 +2768,7 @@ export default function App() {
       if (inputRef.current) inputRef.current.style.height = 'auto'
       return
     }
-    const target = routeMessage(text, squad, principal, ultimoRef.current)
+    const target = routeMessage(text, squadRuteable, principal, ultimoRef.current)
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     const handoffTo = detectHandoff(text, squad, target)
     // adjuntos: imágenes (Read) y carpetas/archivos del disco (Glob/Read)
