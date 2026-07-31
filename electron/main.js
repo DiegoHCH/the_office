@@ -231,6 +231,14 @@ ipcMain.handle('prefs:notify', (_e, v) => {
   return { ok: true }
 })
 
+// Avisar de algo que solo el renderer sabe nombrar. Un subagente termina dentro
+// del turno del principal, así que el proceso principal ve el cierre pero no a
+// quién corresponde: el personaje prestado y su encargo se deciden arriba.
+ipcMain.handle('notify:custom', (_e, { title, body }) => {
+  notify(String(title || '').slice(0, 80), String(body || ''))
+  return { ok: true }
+})
+
 // Badge del Dock + Tray + energía: nº de agentes trabajando (del renderer).
 // Con trabajo en curso el Mac NO debe dormirse: una siesta congela el proceso
 // claude y su stream con Anthropic muere por timeout.

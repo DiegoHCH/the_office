@@ -759,6 +759,13 @@ export default function App() {
         // sigue trabajando. Y si acabó mal, aquí es donde se ve — el principal
         // solo recibe su resultado, no necesariamente el motivo del fallo.
         const cierre = { role: 'system', text: e.isError ? t('sub.failed') : t('sub.done') }
+        // Un aviso por subagente, con el nombre del personaje que lo hizo: son
+        // trabajos separados y cada uno deja su pestaña lista para leer. El del
+        // principal sigue saliendo aparte, al cerrar el turno con su resumen.
+        window.oficina?.notifyCustom?.(
+          `${memberOf(fin.rol).name || t('sub.working')} ${e.isError ? t('sub.failedShort') : t('sub.doneShort')}`,
+          subMetaRef.current[fin.tabId]?.title || fin.desc || ''
+        )
         // Guardar en el historial aquí y no por el autosave: ese solo mira la
         // pestaña activa, y la que miras es la del principal. Se lee por el
         // updater cuando la pestaña es la activa, porque `messages` del closure

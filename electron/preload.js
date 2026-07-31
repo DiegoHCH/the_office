@@ -83,6 +83,7 @@ contextBridge.exposeInMainWorld('oficina', {
   refreshUsage: () => ipcRenderer.invoke('stats:refreshUsage'),
   // Preferencias: activar/desactivar notificaciones del sistema.
   setNotify: (v) => ipcRenderer.invoke('prefs:notify', v),
+  notifyCustom: (title, body) => ipcRenderer.invoke('notify:custom', { title, body }),
   // Pizarra compartida: activar/desactivar y abrir SQUAD.md del proyecto.
   setBoard: (v) => ipcRenderer.invoke('prefs:board', v),
   openBoard: (cwd) => ipcRenderer.invoke('board:open', cwd),
