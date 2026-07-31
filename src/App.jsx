@@ -358,7 +358,16 @@ export default function App() {
     squadRef.current = squad
     rosterRef.current = roster
   }, [principal, squad, roster])
-  const memberOf = (id) => squad.find((m) => m.id === id) || { name: id, emoji: '🤖', color: '#93a6a1', label: id }
+  const memberOf = (id) => {
+    const enEscena = squad.find((m) => m.id === id)
+    if (enEscena) return enEscena
+    // Un subagente puede haber tomado prestado el personaje de un miembro
+    // INACTIVO: al terminar se va de la escena, pero sus mensajes siguen en su
+    // pestaña y no pueden quedarse con el id del rol como nombre («research»).
+    const enRoster = roster.find((r) => r.id === id)
+    if (enRoster) return { id, ...metaOf(enRoster), name: enRoster.name }
+    return { name: id, emoji: '🤖', color: '#93a6a1', label: id }
+  }
   // modelo efectivo de un agente: el suyo propio si lo fijó, si no el global
   const memberModel = (id) => squad.find((m) => m.id === id)?.model || model
 
