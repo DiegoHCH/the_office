@@ -73,7 +73,7 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🧠 Razonamiento a la vista** — cada respuesta puede desplegar lo que el agente pensó antes de contestar.
 - **🌐 Español o inglés** — toda la interfaz sale de un diccionario y arranca en el idioma del sistema; se cambia en ⚙️ Preferencias. Cambia también la Guía de uso y **los agentes responden en el idioma elegido**.
 - **🎨 Estilo Material 3 con iconos Material Symbols** — botones pill, switches M3, superficies con elevación, scrollbars propias.
-- **🗂 Pestañas de conversación** — hasta 4 hilos abiertos a la vez, cada uno con sus mensajes, sesiones y colas; al cerrar una, el hilo queda en el historial.
+- **🗂 Pestañas de conversación** — los hilos que quieras, cada uno con sus mensajes, sesiones y colas, y se puede trabajar en varios a la vez con un agente distinto en cada uno; al cerrar uno, queda en el historial.
 - **🕘 Historial con búsqueda** — cada conversación se guarda sola y se retoma con todo su contexto; busca por título, proyecto **y contenido de los mensajes**, **✏️ renombra**, **📌 fija** (a salvo de la purga) y **⬇ exporta a Markdown**.
 - **📊 Monitores** — dos burbujas: Sistema (CPU/RAM reales) y Claude (modelo en uso, 🪙 tokens de la conversación + % de sesión y semana, con **aviso al pasar del 90%**). El modelo se **sincroniza con el `/model` de tu terminal**.
 - **🖥 Integración macOS** — badge del **Dock** y **Tray 🏢** en la barra de menús con el nº de agentes trabajando, atajo global **⌥Espacio** (trae la app con el composer listo desde cualquier parte), y **powerSaveBlocker**: el Mac no se duerme mientras el squad trabaja.
