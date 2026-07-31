@@ -64,6 +64,8 @@ const ES = {
 
   // — preferencias —
   'pref.model': 'Modelo:',
+  'mon.workers': 'Trabajadores activos',
+  'mon.chats': 'Chats activos',
   'status.delegating': 'esperando asignaciones…',
   'sub.working': 'Subagente',
   'sub.done': '✅ Terminó su parte y se la pasó a quien repartió la tarea',
@@ -672,6 +674,8 @@ const EN = {
   'menu.prefs': 'Preferences',
 
   'pref.model': 'Model:',
+  'mon.workers': 'Active workers',
+  'mon.chats': 'Active chats',
   'status.delegating': 'waiting for assignments…',
   'sub.working': 'Subagent',
   'sub.done': '✅ Finished its part and handed it back',

@@ -3019,6 +3019,9 @@ export default function App() {
             se mide en vez de fijar un top a ojo. */}
         {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
           <div className="stopbar" ref={setChipsNodo} style={{ top: 14 + monAlto + 10, visibility: monAlto ? 'visible' : 'hidden' }}>
+            <div className="mon-title">
+              <IconPerson size={13} /> {t('mon.workers')}
+            </div>
             {running
               .filter((r) => roleStates[r] !== 'delivering')
               .map((r) => (
@@ -4535,6 +4538,9 @@ export default function App() {
             className="tabbar"
             style={{ top: 14 + monAlto + 10 + chipsAlto, maxHeight: `calc(100% - ${14 + monAlto + 10 + chipsAlto + 90}px)`, visibility: monAlto ? 'visible' : 'hidden' }}
           >
+            <div className="mon-title">
+              <IconChat size={13} /> {t('mon.chats')}
+            </div>
             {tabs.map((tb) => (
               <button
                 key={tb.id}

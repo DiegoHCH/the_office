@@ -766,10 +766,17 @@ select.squad-model {
    real del monitor, que cambia según haya sesión, semana o aviso de cuota.
    En columna, alineados con el monitor: en fila se iban hacia el centro de la
    escena y con varios agentes acababan tapándola. */
+/* Los dos paneles de la columna izquierda comparten la caja del monitor: son
+   información del mismo tipo y en la misma columna, así que parecerlo no es
+   cosmética — tres cajas distintas apiladas se leen como tres cosas sin relación. */
+.stopbar, .tabbar {
+  background: var(--scene-surface); border: 1px solid var(--scene-line);
+  border-radius: 16px; padding: 10px 12px;
+}
 .stopbar {
   position: absolute; left: 14px; z-index: 6;
-  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
-  max-width: 210px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  width: 210px;
 }
 .stopchip {
   display: inline-flex; align-items: center; gap: 5px;
@@ -1262,6 +1269,8 @@ select.squad-model {
   width: 210px; display: flex; flex-direction: column; gap: 4px; align-items: stretch;
   overflow-y: auto;
 }
+/* la lista scrollea, el título no se va con ella */
+.tabbar .mon-title, .stopbar .mon-title { flex: none; }
 .tab {
   display: flex; align-items: center; gap: 4px; min-width: 0; flex: none;
   background: rgba(18, 26, 31, 0.96); color: var(--muted);
