@@ -1279,6 +1279,9 @@ select.squad-model {
 /* pestaña de subagente: el personaje es prestado, así que se distingue de las
    conversaciones propias — y cuando termina, deja de pedir atención */
 .tab.sub { border-left: 3px solid var(--accent); }
+/* conversación de subagente en el historial: colgada de la que la repartió */
+.hist-item.hija { margin-left: 16px; border-left: 2px solid var(--line); padding-left: 9px; }
+.hist-item.hija::before { content: '↳ '; color: var(--muted); }
 .tab.sub.done { opacity: 0.6; border-left-color: var(--muted); }
 .tab.dragging { opacity: 0.5; }
 .tab-rename {

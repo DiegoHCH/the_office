@@ -969,6 +969,9 @@ ipcMain.handle('history:list', (_e, profile) => {
             updatedAt: c.updatedAt,
             count: c.messages?.length ?? 0,
             pinned: !!c.pinned,
+            // hija de la conversación que la repartió (subagentes): el panel las
+            // anida bajo su madre en vez de mezclarlas en la lista por fecha
+            parentId: c.parentId || null,
           }
         } catch {
           return null

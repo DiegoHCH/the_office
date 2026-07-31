@@ -667,7 +667,10 @@ export default function App() {
         // La pestaña se crea siempre —no hay tope— y el puesto puede faltar.
         const tabId = `sub-${e.subId}`
         const titulo = (e.desc || t('sub.working')).slice(0, 38)
-        tabStateRef.current[tabId] = { messages: [], convId: null, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
+        // convId propio desde que nace: el autosave del historial solo guarda la
+        // pestaña ACTIVA y solo si tiene id, y tú estás mirando la del principal.
+        // Con id propio se puede guardar explícitamente al terminar.
+        tabStateRef.current[tabId] = { messages: [], convId: `sub-${e.subId}`, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
         // `fijo`: su título es el encargo y no debe seguir a la conversación. El
         // autotítulo usa el primer mensaje del USUARIO, y aquí no hay ninguno —
         // así que al abrirla se renombraba sola a «Nueva».
@@ -710,10 +713,39 @@ export default function App() {
         // subagente que acabó con un mensaje corto se ve igual que uno que
         // sigue trabajando. Y si acabó mal, aquí es donde se ve — el principal
         // solo recibe su resultado, no necesariamente el motivo del fallo.
-        enTabId(fin.tabId, (ms) => [
-          ...ms,
-          { role: 'system', text: e.isError ? t('sub.failed') : t('sub.done') },
-        ])
+        const cierre = { role: 'system', text: e.isError ? t('sub.failed') : t('sub.done') }
+        // Guardar en el historial aquí y no por el autosave: ese solo mira la
+        // pestaña activa, y la que miras es la del principal. Se lee por el
+        // updater cuando la pestaña es la activa, porque `messages` del closure
+        // puede venir de un render anterior.
+        const guarda = (ms) => {
+          window.oficina?.history?.save({
+            id: `sub-${e.subId}`,
+            title: fin.desc || t('sub.working'),
+            // de quién es hija: en el historial se ven anidadas bajo la
+            // conversación que las repartió, que es donde tienen sentido
+            parentId: convIdRef.current || null,
+            profile,
+            project,
+            model,
+            sessions: {},
+            updatedAt: Date.now(),
+            messages: ms.map((m) => ({ role: m.role, text: m.text, who: m.who, usage: m.usage, dur: m.dur })),
+          })
+        }
+        if (fin.tabId === activeTabRef.current) {
+          setMessages((ms) => {
+            const con = [...ms, cierre]
+            guarda(con)
+            return con
+          })
+        } else {
+          const st = tabStateRef.current[fin.tabId]
+          if (st) {
+            st.messages = [...(st.messages || []), cierre]
+            guarda(st.messages)
+          }
+        }
         // el puesto que se libera pasa al primero que lo esperaba
         if (fin.rol) {
           setRS(fin.rol, 'idle')
@@ -1893,6 +1925,23 @@ export default function App() {
     ? histList.filter((h) => norm(`${h.title || ''} ${h.project || ''}`).includes(norm(histQuery)) || histContent[h.id])
     : histList
   ).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+
+  // Las conversaciones de subagentes van DEBAJO de la que las repartió, no
+  // sueltas por fecha: por sí solas no se entienden —«comparar X vs Y» sin saber
+  // de qué encargo salió—. Una huérfana (madre borrada o filtrada) se queda al
+  // primer nivel en vez de desaparecer.
+  const histAnidado = (() => {
+    const hijas = new Map()
+    for (const h of histFiltered) if (h.parentId) hijas.set(h.parentId, [...(hijas.get(h.parentId) || []), h])
+    const ids = new Set(histFiltered.map((h) => h.id))
+    const out = []
+    for (const h of histFiltered) {
+      if (h.parentId && ids.has(h.parentId)) continue // se pinta bajo su madre
+      out.push(h)
+      for (const c of hijas.get(h.id) || []) out.push(c)
+    }
+    return out
+  })()
 
   // renombrar inline
   const [renaming, setRenaming] = useState(null) // {id, val} | null
@@ -4394,8 +4443,12 @@ export default function App() {
             {histFiltered.length === 0 && (
               <div className="hist-empty">{histList.length ? t('hist.noResults') : t('hist.empty')}</div>
             )}
-            {histFiltered.map((h) => (
-              <div key={h.id} className="hist-item" onClick={() => renaming?.id !== h.id && loadConvo(h.id)}>
+            {histAnidado.map((h) => (
+              <div
+                key={h.id}
+                className={h.parentId ? 'hist-item hija' : 'hist-item'}
+                onClick={() => renaming?.id !== h.id && loadConvo(h.id)}
+              >
                 {renaming?.id === h.id ? (
                   <input
                     className="hist-rename"
