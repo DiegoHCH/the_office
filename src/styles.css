@@ -982,11 +982,16 @@ select.squad-model {
   position: absolute; left: 14px; top: 14px; width: 210px; z-index: 4;
   display: flex; flex-direction: column; gap: 10px;
 }
+/* Sin backdrop-filter a propósito, igual que .tab y .runbar: son las capas que
+   están SIEMPRE sobre el canvas, así que cada frame de la escena obliga a
+   recomponer el desenfoque. Medido: ~23% de un núcleo que no dependía del ritmo
+   de render. A 0.94 de opacidad el desenfoque casi no se veía, así que se
+   compensa con el fondo más sólido. Los que sí lo llevan (.lightbox, el saltar
+   de la intro) son transitorios y no pagan ese precio. */
 .sysmon {
-  background: var(--scene-surface-soft); border: 1px solid var(--scene-line); border-radius: 16px;
+  background: var(--scene-surface); border: 1px solid var(--scene-line); border-radius: 16px;
   padding: 10px 12px;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  backdrop-filter: blur(4px);
 }
 .mon-title {
   display: flex; align-items: center; gap: 6px;
@@ -1250,12 +1255,12 @@ select.squad-model {
 }
 .tab {
   display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1;
-  background: rgba(18, 26, 31, 0.9); color: var(--muted);
+  background: rgba(18, 26, 31, 0.96); color: var(--muted);
   border: 1px solid var(--line); border-radius: 12px 12px 0 0;
   padding: 6px 8px 6px 11px; font-size: 11.5px; cursor: pointer;
-  font-family: inherit; backdrop-filter: blur(6px);
+  font-family: inherit;
 }
-.tab.on { color: var(--ink); border-color: var(--accent); background: rgba(22, 34, 42, 0.96); }
+.tab.on { color: var(--ink); border-color: var(--accent); background: rgba(22, 34, 42, 0.99); }
 .tab:hover:not(.on) { color: var(--ink-3); }
 .tab-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; text-align: left; }
 .tab-x { display: flex; opacity: 0; flex: none; border-radius: 999px; padding: 1px; }
@@ -1333,7 +1338,7 @@ select.squad-model {
   max-width: min(680px, 88vw);
   padding: 6px 8px 6px 12px;
   background: var(--scene-surface); border: 1px solid var(--scene-line);
-  border-radius: 12px; backdrop-filter: blur(6px);
+  border-radius: 12px;
   box-shadow: 0 8px 24px rgba(6, 12, 15, 0.45);
 }
 .runbar-dot {
