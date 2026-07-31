@@ -64,6 +64,7 @@ const ES = {
 
   // — preferencias —
   'pref.model': 'Modelo:',
+  'toast.convChildrenDeleted': 'Se borraron también {n} conversaciones de subagentes',
   'mon.workers': 'Trabajadores activos',
   'mon.chats': 'Chats activos',
   'status.delegating': 'esperando asignaciones…',
@@ -674,6 +675,7 @@ const EN = {
   'menu.prefs': 'Preferences',
 
   'pref.model': 'Model:',
+  'toast.convChildrenDeleted': '{n} subagent conversations were deleted too',
   'mon.workers': 'Active workers',
   'mon.chats': 'Active chats',
   'status.delegating': 'waiting for assignments…',

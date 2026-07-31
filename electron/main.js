@@ -1063,10 +1063,25 @@ ipcMain.handle('history:pin', (_e, { id, pinned }) => {
   }
 })
 
+// Borrar una conversación se lleva a sus hijas: las de los subagentes no tienen
+// vida propia —«comparar X vs Y» sin el encargo del que salió no se entiende— y
+// dejarlas huérfanas es dejar basura que el usuario no sabe de dónde viene.
+// Devuelve cuántas cayeron, para poder decirlo.
 ipcMain.handle('history:delete', (_e, id) => {
   try {
+    let hijas = 0
+    for (const f of fs.readdirSync(HIST_DIR)) {
+      if (!f.endsWith('.json') || f === `${id}.json`) continue
+      try {
+        const c = JSON.parse(fs.readFileSync(path.join(HIST_DIR, f), 'utf8'))
+        if (c.parentId === id) {
+          fs.unlinkSync(path.join(HIST_DIR, f))
+          hijas++
+        }
+      } catch {} // una hija ilegible no puede impedir borrar la madre
+    }
     fs.unlinkSync(path.join(HIST_DIR, `${id}.json`))
-    return { ok: true }
+    return { ok: true, hijas }
   } catch (err) {
     return { ok: false, error: err.message }
   }

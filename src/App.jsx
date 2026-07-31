@@ -2027,7 +2027,10 @@ export default function App() {
 
   const deleteConvo = async (e, id) => {
     e.stopPropagation()
-    await window.oficina?.history?.remove(id)
+    const res = await window.oficina?.history?.remove(id)
+    // se avisa de las hijas que cayeron con ella: borrar más de lo que se ve
+    // marcado no puede pasar en silencio
+    if (res?.hijas) showToast(t('toast.convChildrenDeleted', { n: res.hijas }))
     if (id === convIdRef.current) newChat()
     setHistList((await window.oficina?.history?.list(profile)) || [])
   }
