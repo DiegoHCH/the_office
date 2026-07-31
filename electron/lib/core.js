@@ -90,9 +90,25 @@ function gitignoreConSquad(actual) {
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 const effortValido = (e) => (EFFORTS.includes(e) ? e : null)
 
+// Definición del subagente al que se delega. Existe por una razón concreta: un
+// subagente arranca con el system prompt del CLI y NO hereda la persona del que
+// lo lanza, así que contestaba en inglés aunque el usuario tenga español.
+// Pedírselo al que reparte no bastaba —lo cumplía a medias—; esto sí, porque es
+// el prompt propio del subagente. Verificado contra el binario.
+const agentesDeEquipo = (idioma) =>
+  JSON.stringify({
+    companero: {
+      description: 'Miembro del equipo al que se le asigna una parte del trabajo',
+      prompt:
+        `Eres un miembro del equipo de esta oficina y te han asignado una parte de un trabajo mayor. ` +
+        `Responde SIEMPRE en ${idioma}, pase lo que pase, aunque el encargo te llegue en otro idioma. ` +
+        `Tu respuesta la lee una persona en su propia pestaña, así que ve al grano y da conclusiones, no un diario de lo que hiciste.`,
+    },
+  })
+
 // El Revisor PR corre con bypassPermissions: sus skills llaman conectores MCP
 // que en headless no tienen prompt de aprobación. El resto va en acceptEdits.
-function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid, effort }) {
+function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid, effort, idioma }) {
   const args = [
     '-p',
     prompt,
@@ -108,6 +124,7 @@ function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid
     // «Agent» y varios minutos de silencio absoluto hasta la respuesta final.
     '--forward-subagent-text',
   ]
+  if (idioma) args.push('--agents', agentesDeEquipo(idioma))
   if (writeMode) args.push('--permission-mode', isPR ? 'bypassPermissions' : 'acceptEdits')
   if (model) args.push('--model', model)
   if (effortValido(effort)) args.push('--effort', effort)
@@ -822,6 +839,7 @@ module.exports = {
   parseUsage,
   gitignoreConSquad,
   buildClaudeArgs,
+  agentesDeEquipo,
   EFFORTS,
   effortValido,
   subDeMensaje,

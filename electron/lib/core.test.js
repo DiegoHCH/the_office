@@ -1260,3 +1260,27 @@ it('el reparto de subagentes del renderer no puede divergir del core', async () 
     expect(h.asignaSubagente(asig, id, oc)).toBe(core.asignaSubagente(asig, id, oc))
   }
 })
+
+// El subagente al que se delega se define por CLI, con su propio prompt. Es lo
+// único que le impone el idioma: no hereda la persona del que lo lanza, y
+// pedírselo al que reparte solo se cumplía a medias.
+describe('agentesDeEquipo', () => {
+  const { agentesDeEquipo } = core
+
+  it('lleva el idioma del usuario en el prompt del subagente', () => {
+    const def = JSON.parse(agentesDeEquipo('Spanish'))
+    expect(def.companero.prompt).toContain('Spanish')
+    expect(JSON.parse(agentesDeEquipo('English')).companero.prompt).toContain('English')
+  })
+
+  it('se pasa como --agents, con JSON válido', () => {
+    const args = buildClaudeArgs({ prompt: 'x', allowed: 'Read', persona: 'p', idioma: 'Spanish' })
+    const json = args[args.indexOf('--agents') + 1]
+    expect(() => JSON.parse(json)).not.toThrow()
+    expect(Object.keys(JSON.parse(json))).toEqual(['companero'])
+  })
+
+  it('sin idioma no se pasa: mejor el default del CLI que un --agents a medias', () => {
+    expect(buildClaudeArgs({ prompt: 'x', allowed: 'Read', persona: 'p' }).includes('--agents')).toBe(false)
+  })
+})

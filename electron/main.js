@@ -856,7 +856,8 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
     // subagentes en paralelo» nombra la tubería. Lo que ve es que asignaste
     // trabajo a gente que se puso a trabajar.
     + `Cuéntalo como lo que el usuario ve: ASIGNAS partes del trabajo a miembros del equipo, cada uno con su pestaña. ` +
-    `Di «asigno» o «reparto», no «lanzo subagentes en paralelo» ni «uso la herramienta Agent»: eso nombra la tubería, no el trabajo. `
+    `Di «asigno» o «reparto», no «lanzo subagentes en paralelo» ni «uso la herramienta Agent»: eso nombra la tubería, no el trabajo. ` +
+    `Usa SIEMPRE subagent_type "companero": es el miembro del equipo definido para esto, y es lo que garantiza que te contesten en ${answerLang}. `
     // El subagente arranca con el system prompt del CLI, no con esta persona, así
     // que la instrucción de idioma NO le llega: contestaba en inglés aunque el
     // usuario tenga español. Solo el que delega puede pasársela, en el encargo.
@@ -913,7 +914,7 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   const isPR = role === 'pr'
   const allowed = !writeMode ? READ_TOOLS : isPR ? PR_TOOLS : WRITE_TOOLS
 
-  const args = buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, effort, sid })
+  const args = buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, effort, sid, idioma: answerLang })
 
   // Sin API key en el entorno → usa el login de la suscripción ($0 por token).
   const env = sanitizeEnv(process.env, {
