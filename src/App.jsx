@@ -688,6 +688,14 @@ export default function App() {
         const fin = subsRef.current[e.subId]
         if (!fin) return
         setTabs((prev) => prev.map((x) => (x.id === fin.tabId ? { ...x, done: true } : x)))
+        // Una línea de cierre en SU pestaña: atenuarla no basta, porque un
+        // subagente que acabó con un mensaje corto se ve igual que uno que
+        // sigue trabajando. Y si acabó mal, aquí es donde se ve — el principal
+        // solo recibe su resultado, no necesariamente el motivo del fallo.
+        enTabId(fin.tabId, (ms) => [
+          ...ms,
+          { role: 'system', text: e.isError ? t('sub.failed') : t('sub.done') },
+        ])
         // el puesto que se libera pasa al primero que lo esperaba
         if (fin.rol) {
           setRS(fin.rol, 'idle')

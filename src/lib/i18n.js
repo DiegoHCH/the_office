@@ -65,6 +65,8 @@ const ES = {
   // — preferencias —
   'pref.model': 'Modelo:',
   'sub.working': 'Subagente',
+  'sub.done': '✅ Terminó su parte y se la pasó a quien repartió la tarea',
+  'sub.failed': '⚠️ Terminó con error',
   'pref.effort': 'Esfuerzo:',
   'pref.effortAuto': 'El del CLI',
   'pref.effortTitle': 'Cuánto razona antes de responder. Más esfuerzo = mejores respuestas y más lentas.',
@@ -670,6 +672,8 @@ const EN = {
 
   'pref.model': 'Model:',
   'sub.working': 'Subagent',
+  'sub.done': '✅ Finished its part and handed it back',
+  'sub.failed': '⚠️ Finished with an error',
   'pref.effort': 'Effort:',
   'pref.effortAuto': "The CLI's",
   'pref.effortTitle': 'How much it reasons before answering. More effort = better answers, slower.',
