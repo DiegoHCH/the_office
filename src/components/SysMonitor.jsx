@@ -107,11 +107,20 @@ export default function SysMonitor({ modelLabel, model, profile, tokens, context
           // aviso antes de que Claude compacte solo y el agente «olvide» (#123)
           const pct = Math.min(100, (contexto / ventanaDe(model)) * 100)
           return (
-            <div className="mon-row" title={t('mon.ctxTitle', { n: fmtTokens(contexto), max: fmtTokens(ventanaDe(model)) })}>
-              <span>{t('mon.context')}</span>
-              <Bar pct={pct} />
-              <b>{Math.round(pct)}%</b>
-            </div>
+            <>
+              <div className="mon-row" title={t('mon.ctxTitle', { n: fmtTokens(contexto), max: fmtTokens(ventanaDe(model)) })}>
+                <span>{t('mon.context')}</span>
+                <Bar pct={pct} />
+                <b>{Math.round(pct)}%</b>
+              </div>
+              {/* El absoluto contra la ventana, en su propia línea. Junto al % le
+                  dejaba a la barra 40px, y el porcentaje solo no se puede
+                  contrastar con nada: era justo el dato que faltaba para ver que
+                  el 100% no cuadraba con la ventana del modelo. */}
+              <div className="mon-sub">
+                {fmtTokens(contexto)} / {fmtTokens(ventanaDe(model))}
+              </div>
+            </>
           )
         })()}
         {!(s.claude && (s.claude.session || s.claude.weekly)) && (
