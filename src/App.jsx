@@ -210,6 +210,9 @@ export default function App() {
   // del proceso del principal y no hay forma de retenerlo. Lo que se encola es
   // el personaje, porque la oficina tiene seis sillas y no más.
   const colaAsientoRef = useRef([])
+  // Título y madre de cada pestaña de subagente. Separado de subsRef porque esa
+  // entrada se borra al terminar, y el historial se sigue guardando después.
+  const subMetaRef = useRef({}) // tabId → { title, parentId }
 
   const profileRef = useRef(profile)
   useEffect(() => {
@@ -704,6 +707,13 @@ export default function App() {
           kind: 'sub-asigna',
           info: `${String(e.subId || '').slice(-6)} → ${rol || 'SIN PUESTO'} · squad libres: [${enSquad.join(',') || '—'}] · suplentes: [${suplentes.join(',') || '—'}] · roster: ${rosterRef.current.length}`,
         })
+        // La madre es la conversación del que reparte, no «la que estés mirando»:
+        // si abres la pestaña del subagente, convIdRef pasa a ser la suya y se
+        // guardaría como hija de sí misma.
+        const tabDelJefe = tabDeRolRef.current[e.role]
+        const parentId =
+          !tabDelJefe || tabDelJefe === activeTabRef.current ? convIdRef.current : tabStateRef.current[tabDelJefe]?.convId || null
+        subMetaRef.current[tabId] = { title: titulo, parentId }
         subsRef.current[e.subId] = { rol, tabId, desc: e.desc || '' }
         if (rol) {
           if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
@@ -734,10 +744,10 @@ export default function App() {
         const guarda = (ms) => {
           window.oficina?.history?.save({
             id: `sub-${e.subId}`,
-            title: fin.desc || t('sub.working'),
+            title: subMetaRef.current[fin.tabId]?.title || fin.desc || t('sub.working'),
             // de quién es hija: en el historial se ven anidadas bajo la
             // conversación que las repartió, que es donde tienen sentido
-            parentId: convIdRef.current || null,
+            parentId: subMetaRef.current[fin.tabId]?.parentId || null,
             profile,
             project,
             model,
@@ -1887,10 +1897,16 @@ export default function App() {
   // ── Historial ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (busy || !messages.length || !convIdRef.current) return
-    const title = messages.find((m) => m.role === 'user')?.text.slice(0, 60) || 'conversación'
+    // Una conversación de subagente no tiene mensaje de usuario del que sacar
+    // título, así que el autosave la guardaba como «conversación» y sin madre,
+    // pisando el guardado bueno en cuanto abrías su pestaña. Sus metadatos son
+    // los de su encargo y se conservan.
+    const meta = subMetaRef.current[activeTabRef.current]
+    const title = meta?.title || messages.find((m) => m.role === 'user')?.text.slice(0, 60) || 'conversación'
     window.oficina?.history?.save({
       id: convIdRef.current,
       title,
+      parentId: meta?.parentId || null,
       profile,
       project,
       model,

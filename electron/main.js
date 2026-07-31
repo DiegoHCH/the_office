@@ -945,6 +945,9 @@ ipcMain.handle('history:save', (_e, convo) => {
     try {
       const prev = JSON.parse(fs.readFileSync(p, 'utf8'))
       convo.pinned = convo.pinned ?? !!prev.pinned
+      // de quién es hija no se pierde por un guardado que no lo traiga: el
+      // vínculo solo lo conoce quien la creó, y se guarda muchas veces después
+      convo.parentId = convo.parentId ?? prev.parentId ?? null
       if (prev.titleCustom) {
         convo.title = prev.title
         convo.titleCustom = true
