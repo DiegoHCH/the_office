@@ -219,6 +219,73 @@ export default function App() {
   // constancia — la herramienta de delegación se llama `Agent` en unas sesiones
   // y `Task` en otras, y si el arranque no se reconoce, su trabajo acabaría en
   // la pestaña del principal sin que nada lo delate.
+  // Cierra un subagente: su línea final, su aviso, su guardado y la silla que
+  // devuelve. Se llama al recibir su cierre y TAMBIÉN al terminar el turno del
+  // que lo lanzó — un subagente no puede sobrevivir a su jefe, y si su cierre no
+  // llega se quedaba trabajando para siempre en la escena.
+  const cierraSub = (subId, isError) => {
+        const fin = subsRef.current[subId]
+        if (!fin) return
+        setTabs((prev) => prev.map((x) => (x.id === fin.tabId ? { ...x, done: true } : x)))
+        // Una línea de cierre en SU pestaña: atenuarla no basta, porque un
+        // subagente que acabó con un mensaje corto se ve igual que uno que
+        // sigue trabajando. Y si acabó mal, aquí es donde se ve — el principal
+        // solo recibe su resultado, no necesariamente el motivo del fallo.
+        const cierre = { role: 'system', text: isError ? t('sub.failed') : t('sub.done') }
+        // Un aviso por subagente, con el nombre del personaje que lo hizo: son
+        // trabajos separados y cada uno deja su pestaña lista para leer. El del
+        // principal sigue saliendo aparte, al cerrar el turno con su resumen.
+        window.oficina?.notifyCustom?.(
+          `${memberOf(fin.rol).name || t('sub.working')} ${isError ? t('sub.failedShort') : t('sub.doneShort')}`,
+          subMetaRef.current[fin.tabId]?.title || fin.desc || ''
+        )
+        // Guardar en el historial aquí y no por el autosave: ese solo mira la
+        // pestaña activa, y la que miras es la del principal. Se lee por el
+        // updater cuando la pestaña es la activa, porque `messages` del closure
+        // puede venir de un render anterior.
+        const guarda = (ms) => {
+          window.oficina?.history?.save({
+            id: `sub-${subId}`,
+            title: subMetaRef.current[fin.tabId]?.title || fin.desc || t('sub.working'),
+            // de quién es hija: en el historial se ven anidadas bajo la
+            // conversación que las repartió, que es donde tienen sentido
+            parentId: subMetaRef.current[fin.tabId]?.parentId || null,
+            profile,
+            project,
+            model,
+            sessions: {},
+            updatedAt: Date.now(),
+            messages: ms.map((m) => ({ role: m.role, text: m.text, who: m.who, usage: m.usage, dur: m.dur })),
+          })
+        }
+        if (fin.tabId === activeTabRef.current) {
+          setMessages((ms) => {
+            const con = [...ms, cierre]
+            guarda(con)
+            return con
+          })
+        } else {
+          const st = tabStateRef.current[fin.tabId]
+          if (st) {
+            st.messages = [...(st.messages || []), cierre]
+            guarda(st.messages)
+          }
+        }
+        // el puesto que se libera pasa al primero que lo esperaba
+        if (fin.rol) {
+          setRS(fin.rol, 'idle')
+          const siguiente = colaAsientoRef.current.shift()
+          if (siguiente && subsRef.current[siguiente]) {
+            subsRef.current[siguiente].rol = fin.rol
+            setRS(fin.rol, 'working')
+          } else {
+            // nadie hereda la silla: si era un invitado, se va de la oficina
+            setInvitados((prev) => prev.filter((x) => x !== fin.rol))
+          }
+        }
+        delete subsRef.current[subId]
+  }
+
   const abreSub = (subId, desc, role) => {
     if (subsRef.current[subId]) return subsRef.current[subId]
     // La pestaña se crea siempre —no hay tope— y el puesto puede faltar.
@@ -264,7 +331,7 @@ export default function App() {
     const parentId =
       !tabDelJefe || tabDelJefe === activeTabRef.current ? convIdRef.current : tabStateRef.current[tabDelJefe]?.convId || null
     subMetaRef.current[tabId] = { title: titulo, parentId }
-    subsRef.current[subId] = { rol, tabId, desc: desc || '' }
+    subsRef.current[subId] = { rol, tabId, desc: desc || '', jefe: role }
     if (rol) {
       if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
       setRS(rol, 'working')
@@ -772,66 +839,7 @@ export default function App() {
         }
 
         if (e.kind === 'sub-done') {
-          const fin = subsRef.current[e.subId]
-          if (!fin) return
-          setTabs((prev) => prev.map((x) => (x.id === fin.tabId ? { ...x, done: true } : x)))
-          // Una línea de cierre en SU pestaña: atenuarla no basta, porque un
-          // subagente que acabó con un mensaje corto se ve igual que uno que
-          // sigue trabajando. Y si acabó mal, aquí es donde se ve — el principal
-          // solo recibe su resultado, no necesariamente el motivo del fallo.
-          const cierre = { role: 'system', text: e.isError ? t('sub.failed') : t('sub.done') }
-          // Un aviso por subagente, con el nombre del personaje que lo hizo: son
-          // trabajos separados y cada uno deja su pestaña lista para leer. El del
-          // principal sigue saliendo aparte, al cerrar el turno con su resumen.
-          window.oficina?.notifyCustom?.(
-            `${memberOf(fin.rol).name || t('sub.working')} ${e.isError ? t('sub.failedShort') : t('sub.doneShort')}`,
-            subMetaRef.current[fin.tabId]?.title || fin.desc || ''
-          )
-          // Guardar en el historial aquí y no por el autosave: ese solo mira la
-          // pestaña activa, y la que miras es la del principal. Se lee por el
-          // updater cuando la pestaña es la activa, porque `messages` del closure
-          // puede venir de un render anterior.
-          const guarda = (ms) => {
-            window.oficina?.history?.save({
-              id: `sub-${e.subId}`,
-              title: subMetaRef.current[fin.tabId]?.title || fin.desc || t('sub.working'),
-              // de quién es hija: en el historial se ven anidadas bajo la
-              // conversación que las repartió, que es donde tienen sentido
-              parentId: subMetaRef.current[fin.tabId]?.parentId || null,
-              profile,
-              project,
-              model,
-              sessions: {},
-              updatedAt: Date.now(),
-              messages: ms.map((m) => ({ role: m.role, text: m.text, who: m.who, usage: m.usage, dur: m.dur })),
-            })
-          }
-          if (fin.tabId === activeTabRef.current) {
-            setMessages((ms) => {
-              const con = [...ms, cierre]
-              guarda(con)
-              return con
-            })
-          } else {
-            const st = tabStateRef.current[fin.tabId]
-            if (st) {
-              st.messages = [...(st.messages || []), cierre]
-              guarda(st.messages)
-            }
-          }
-          // el puesto que se libera pasa al primero que lo esperaba
-          if (fin.rol) {
-            setRS(fin.rol, 'idle')
-            const siguiente = colaAsientoRef.current.shift()
-            if (siguiente && subsRef.current[siguiente]) {
-              subsRef.current[siguiente].rol = fin.rol
-              setRS(fin.rol, 'working')
-            } else {
-              // nadie hereda la silla: si era un invitado, se va de la oficina
-              setInvitados((prev) => prev.filter((x) => x !== fin.rol))
-            }
-          }
-          delete subsRef.current[e.subId]
+          cierraSub(e.subId, e.isError)
           return
         }
 
@@ -895,6 +903,13 @@ export default function App() {
           // se acumula y se engancha al mensaje del agente cuando termine
           pendingThinkingRef.current[who] = (pendingThinkingRef.current[who] || '') + e.text
         } else if (e.kind === 'done') {
+          // Un subagente no sobrevive al turno del que lo lanzó: si su cierre no
+          // llegó —el aviso se pierde, el turno se corta, lo que sea— se quedaba
+          // trabajando en la escena para siempre, con su cronómetro corriendo.
+          // El fin del turno es la verdad que siempre llega.
+          for (const [id, sub] of Object.entries(subsRef.current)) {
+            if (sub?.jefe === who) cierraSub(id, false)
+          }
           const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
           // cuánto tardó: se guarda en el mensaje, junto a los tokens, para poder
           // mirar atrás y no solo verlo pasar en el chip
