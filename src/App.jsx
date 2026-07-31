@@ -214,6 +214,65 @@ export default function App() {
   // entrada se borra al terminar, y el historial se sigue guardando después.
   const subMetaRef = useRef({}) // tabId → { title, parentId }
 
+  // Abre el sitio de un subagente: su pestaña, su puesto y sus metadatos. Se
+  // llama al verlo arrancar y TAMBIÉN al recibir trabajo suyo del que no había
+  // constancia — la herramienta de delegación se llama `Agent` en unas sesiones
+  // y `Task` en otras, y si el arranque no se reconoce, su trabajo acabaría en
+  // la pestaña del principal sin que nada lo delate.
+  const abreSub = (subId, desc, role) => {
+    if (subsRef.current[subId]) return subsRef.current[subId]
+    // La pestaña se crea siempre —no hay tope— y el puesto puede faltar.
+    const tabId = `sub-${subId}`
+    const titulo = (desc || t('sub.working')).slice(0, 38)
+    // convId propio desde que nace: el autosave del historial solo guarda la
+    // pestaña ACTIVA y solo si tiene id, y tú estás mirando la del principal.
+    // Con id propio se puede guardar explícitamente al terminar.
+    tabStateRef.current[tabId] = { messages: [], convId: `sub-${subId}`, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
+    // `fijo`: su título es el encargo y no debe seguir a la conversación. El
+    // autotítulo usa el primer mensaje del USUARIO, y aquí no hay ninguno —
+    // así que al abrirla se renombraba sola a «Nueva».
+    setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true, fijo: true }]))
+    // Candidatos, en orden: primero los del squad que están sin hacer nada, y
+    // si no llegan, miembros INACTIVOS del roster, que entran en escena para
+    // esto. Sin esta segunda mitad, un squad de una sola persona —el caso
+    // normal— dejaba a todos los subagentes sin personaje, y su trabajo se
+    // veía encima del principal.
+    const ocupado = (id) => runningRef.current.includes(id) || Object.values(subsRef.current).some((x) => x?.rol === id)
+    const enSquad = squadRef.current.map((m) => m.id).filter((id) => id !== role && !ocupado(id))
+    const suplentes = rosterRef.current
+      .filter((r) => !r.enabled && !ocupado(r.id) && r.id !== role)
+      .map((r) => r.id)
+    const ociosos = [...enSquad, ...suplentes]
+    const rol = asignaSubagente(
+      Object.fromEntries(Object.entries(subsRef.current).map(([k, v]) => [k, v.rol]).filter(([, v]) => v)),
+      subId,
+      ociosos
+    )
+    // Queda en Diagnóstico por qué salió ese personaje (o por qué ninguno):
+    // sin esto, «no aparecieron los personajes» no se puede diagnosticar sin
+    // reproducirlo a ciegas.
+    diagRef.current.push({
+      t: Date.now(),
+      role: role || '—',
+      kind: 'sub-asigna',
+      info: `${String(subId || '').slice(-6)} → ${rol || 'SIN PUESTO'} · squad libres: [${enSquad.join(',') || '—'}] · suplentes: [${suplentes.join(',') || '—'}] · roster: ${rosterRef.current.length}`,
+    })
+    // La madre es la conversación del que reparte, no «la que estés mirando»:
+    // si abres la pestaña del subagente, convIdRef pasa a ser la suya y se
+    // guardaría como hija de sí misma.
+    const tabDelJefe = tabDeRolRef.current[role]
+    const parentId =
+      !tabDelJefe || tabDelJefe === activeTabRef.current ? convIdRef.current : tabStateRef.current[tabDelJefe]?.convId || null
+    subMetaRef.current[tabId] = { title: titulo, parentId }
+    subsRef.current[subId] = { rol, tabId, desc: desc || '' }
+    if (rol) {
+      if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
+      setRS(rol, 'working')
+    } else colaAsientoRef.current.push(subId)
+    return subsRef.current[subId]
+  }
+
+
   const profileRef = useRef(profile)
   useEffect(() => {
     profileRef.current = profile
@@ -665,60 +724,16 @@ export default function App() {
       // Un mensaje de subagente se atribuye al personaje que tiene prestado y va
       // a SU pestaña. Si todavía no tiene puesto, su trabajo se ve igual en su
       // pestaña: lo que espera es la silla, no el turno.
-      const asiento = e.sub?.id ? subsRef.current[e.sub.id] : null
+      // Si llega trabajo de un subagente del que no hay constancia, se le abre
+      // el sitio aquí mismo en vez de dejarlo caer en la pestaña del principal:
+      // así la feature no depende de haber reconocido su arranque.
+      const asiento = e.sub?.id ? subsRef.current[e.sub.id] || abreSub(e.sub.id, e.sub.desc, e.role) : null
       const who = asiento?.rol || e.role || principalRef.current
       const isP = !e.sub && who === principalRef.current
       const escribe = (fn) => (asiento ? enTabId(asiento.tabId, fn) : enTab(who, fn))
 
       if (e.kind === 'sub-start') {
-        // La pestaña se crea siempre —no hay tope— y el puesto puede faltar.
-        const tabId = `sub-${e.subId}`
-        const titulo = (e.desc || t('sub.working')).slice(0, 38)
-        // convId propio desde que nace: el autosave del historial solo guarda la
-        // pestaña ACTIVA y solo si tiene id, y tú estás mirando la del principal.
-        // Con id propio se puede guardar explícitamente al terminar.
-        tabStateRef.current[tabId] = { messages: [], convId: `sub-${e.subId}`, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
-        // `fijo`: su título es el encargo y no debe seguir a la conversación. El
-        // autotítulo usa el primer mensaje del USUARIO, y aquí no hay ninguno —
-        // así que al abrirla se renombraba sola a «Nueva».
-        setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true, fijo: true }]))
-        // Candidatos, en orden: primero los del squad que están sin hacer nada, y
-        // si no llegan, miembros INACTIVOS del roster, que entran en escena para
-        // esto. Sin esta segunda mitad, un squad de una sola persona —el caso
-        // normal— dejaba a todos los subagentes sin personaje, y su trabajo se
-        // veía encima del principal.
-        const ocupado = (id) => runningRef.current.includes(id) || Object.values(subsRef.current).some((x) => x?.rol === id)
-        const enSquad = squadRef.current.map((m) => m.id).filter((id) => id !== e.role && !ocupado(id))
-        const suplentes = rosterRef.current
-          .filter((r) => !r.enabled && !ocupado(r.id) && r.id !== e.role)
-          .map((r) => r.id)
-        const ociosos = [...enSquad, ...suplentes]
-        const rol = asignaSubagente(
-          Object.fromEntries(Object.entries(subsRef.current).map(([k, v]) => [k, v.rol]).filter(([, v]) => v)),
-          e.subId,
-          ociosos
-        )
-        // Queda en Diagnóstico por qué salió ese personaje (o por qué ninguno):
-        // sin esto, «no aparecieron los personajes» no se puede diagnosticar sin
-        // reproducirlo a ciegas.
-        diagRef.current.push({
-          t: Date.now(),
-          role: e.role || '—',
-          kind: 'sub-asigna',
-          info: `${String(e.subId || '').slice(-6)} → ${rol || 'SIN PUESTO'} · squad libres: [${enSquad.join(',') || '—'}] · suplentes: [${suplentes.join(',') || '—'}] · roster: ${rosterRef.current.length}`,
-        })
-        // La madre es la conversación del que reparte, no «la que estés mirando»:
-        // si abres la pestaña del subagente, convIdRef pasa a ser la suya y se
-        // guardaría como hija de sí misma.
-        const tabDelJefe = tabDeRolRef.current[e.role]
-        const parentId =
-          !tabDelJefe || tabDelJefe === activeTabRef.current ? convIdRef.current : tabStateRef.current[tabDelJefe]?.convId || null
-        subMetaRef.current[tabId] = { title: titulo, parentId }
-        subsRef.current[e.subId] = { rol, tabId, desc: e.desc || '' }
-        if (rol) {
-          if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
-          setRS(rol, 'working')
-        } else colaAsientoRef.current.push(e.subId)
+        abreSub(e.subId, e.desc, e.role)
         // El que reparte se queda en 'talking' de su último mensaje y su burbuja
         // sigue diciendo «Respondiendo…» durante todo el trabajo ajeno. No está
         // respondiendo: está esperando. Sigue ocupado —su turno está bloqueado

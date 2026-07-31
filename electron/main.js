@@ -484,6 +484,12 @@ function createWindow() {
   })
 }
 
+// La herramienta de subagentes se llama `Agent` en unas sesiones y `Task` en
+// otras —verificado que el CLI usa ambos nombres—, así que atarse a uno deja la
+// delegación invisible según con cuál toque: sin pestaña, sin personaje, y el
+// trabajo del subagente cayendo encima del principal.
+const esDelegacion = (name) => name === 'Agent' || name === 'Task'
+
 const emit = (payload) => {
   if (win && !win.isDestroyed()) win.webContents.send('claude:event', payload)
 }
@@ -511,6 +517,7 @@ function toolDetail(name, input = {}) {
         return new URL(input.url).host
       // delegar: lo que importa es QUÉ se delegó, no que se delegó
       case 'Agent':
+      case 'Task':
         return String(input.description || input.prompt || '').replace(/\s+/g, ' ').slice(0, 42)
       default:
         return ''
@@ -608,7 +615,7 @@ function makeLineHandler(role, claveSesion, displayName) {
         if (block.type === 'tool_use') {
           // Delegar es lo único que abre puesto y pestaña: se avisa aparte del
           // chip de herramienta, con el encargo tal como lo escribió el agente.
-          if (block.name === 'Agent' && !sub) {
+          if (esDelegacion(block.name) && !sub) {
             emit({
               kind: 'sub-start',
               role,
@@ -622,7 +629,7 @@ function makeLineHandler(role, claveSesion, displayName) {
           // «Usando Agent · comparar X» —haciendo el trabajo que acaba de
           // repartir— y el usuario ve a quien delega ocupando el sitio de quien
           // trabaja. Quien lo hace es el subagente, en su personaje.
-          if (block.name === 'Agent' && !sub) continue
+          if (esDelegacion(block.name) && !sub) continue
           // aquí ya viene el input completo → detalle de QUÉ hace exactamente
           emit({
             kind: 'tool',
