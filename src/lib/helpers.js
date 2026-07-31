@@ -19,6 +19,12 @@ export const MODEL_OPTIONS = {
   'claude-fable-5': 'Fable 5',
   'claude-sonnet-5': 'Sonnet 5',
   'claude-haiku-4-5': 'Haiku 4.5',
+  // La generación anterior, que el CLI sigue aceptando (verificado uno a uno con
+  // --model: los cuatro responden). Son los de «More models» del escritorio.
+  'claude-opus-4-8': 'Opus 4.8',
+  'claude-opus-4-7': 'Opus 4.7',
+  'claude-opus-4-6': 'Opus 4.6',
+  'claude-sonnet-4-6': 'Sonnet 4.6',
 }
 // Etiquetas conocidas (superset): IDs heredados de configs viejas también
 // muestran nombre bonito, aunque no se ofrezcan como opción.
@@ -37,6 +43,11 @@ export const MODEL_ALIASES = {
   fable: 'claude-fable-5',
   fable1m: 'claude-fable-5[1m]',
 }
+// Niveles de `claude --effort`, de menos a más. Duplicados a propósito del
+// core del proceso principal —el renderer no puede importar CommonJS— y atados
+// con un test que falla si las dos listas dejan de coincidir.
+export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
+
 // El default recomendado de la terminal (sin modelo en settings.json).
 export const FALLBACK_MODEL = 'claude-opus-5[1m]'
 
@@ -56,7 +67,18 @@ export function modelLabelOf(id) {
 // Ventana de contexto por modelo, para avisar antes de que Claude compacte
 // solo. No es el acumulado de la conversación: lo que ocupa contexto es lo que
 // se ENVÍA cada turno (entrada + caché), y eso es lo que se compara aquí.
-const VENTANAS = { 'claude-haiku-4-5': 200_000, 'claude-haiku-4-5-20251001': 200_000 }
+// El default de 1M solo vale para la generación 5. La anterior es de 200k, y
+// heredar el default ahí daría un porcentaje cinco veces menor que el real —
+// justo el error que hacía inútil esta fila, pero al revés: en vez de avisar de
+// más, no avisaría nunca antes de que Claude compacte.
+const VENTANAS = {
+  'claude-haiku-4-5': 200_000,
+  'claude-haiku-4-5-20251001': 200_000,
+  'claude-opus-4-8': 200_000,
+  'claude-opus-4-7': 200_000,
+  'claude-opus-4-6': 200_000,
+  'claude-sonnet-4-6': 200_000,
+}
 export const ventanaDe = (id) => VENTANAS[id] ?? (id?.includes('haiku') ? 200_000 : 1_000_000)
 
 // Tokens realmente enviados en el último turno = ocupación del contexto.

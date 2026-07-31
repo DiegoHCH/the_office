@@ -752,7 +752,7 @@ ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd })
 })
 
 ipcMain.handle('claude:ask', async (_e, payload) => {
-  const { prompt, profile = 'work', cwd, writeMode = false, model = '', role = 'dev', standup = false } =
+  const { prompt, profile = 'work', cwd, writeMode = false, model = '', effort = '', role = 'dev', standup = false } =
     typeof payload === 'string' ? { prompt: payload } : payload
 
   if (children.has(role)) return { ok: false, error: `${role} ya está trabajando en algo` }
@@ -810,7 +810,7 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   const isPR = role === 'pr'
   const allowed = !writeMode ? READ_TOOLS : isPR ? PR_TOOLS : WRITE_TOOLS
 
-  const args = buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid })
+  const args = buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, effort, sid })
 
   // Sin API key en el entorno → usa el login de la suscripción ($0 por token).
   const env = sanitizeEnv(process.env, {

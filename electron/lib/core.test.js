@@ -1158,3 +1158,33 @@ describe('parsePathDeShell', () => {
     expect(parsePathDeShell(null)).toEqual([])
   })
 })
+
+// El nivel de esfuerzo (`claude --effort`). Un valor desconocido no rompe el
+// CLI: avisa y usa el default. Por eso se valida antes — un flag ignorado en
+// silencio es peor que no mandarlo, porque el usuario cree que eligió algo.
+describe('effort', () => {
+  const base = { prompt: 'x', allowed: 'Read', persona: 'p' }
+
+  it('pasa --effort cuando el nivel es válido', () => {
+    for (const e of ['low', 'medium', 'high', 'xhigh', 'max']) {
+      const args = buildClaudeArgs({ ...base, effort: e })
+      expect(args[args.indexOf('--effort') + 1]).toBe(e)
+    }
+  })
+
+  it('no lo pasa si no se eligió ninguno: manda el default del CLI', () => {
+    expect(buildClaudeArgs({ ...base }).includes('--effort')).toBe(false)
+    expect(buildClaudeArgs({ ...base, effort: '' }).includes('--effort')).toBe(false)
+  })
+
+  it('descarta un nivel inventado en vez de mandarlo y que lo ignoren', () => {
+    expect(buildClaudeArgs({ ...base, effort: 'ultra' }).includes('--effort')).toBe(false)
+    expect(core.effortValido('ultra')).toBe(null)
+  })
+
+  it('la lista del renderer y la del proceso principal no pueden divergir', async () => {
+    // están duplicadas porque el renderer no puede importar CommonJS
+    const { EFFORTS } = await import('../../src/lib/helpers.js')
+    expect(EFFORTS).toEqual(core.EFFORTS)
+  })
+})

@@ -83,9 +83,16 @@ function gitignoreConSquad(actual) {
 }
 
 // ── Argumentos del CLI ───────────────────────────────────────────────────────
+// Niveles de esfuerzo que acepta el CLI (`claude --effort`, verificado: un valor
+// desconocido no falla, avisa y usa el default). Se valida antes de pasarlo para
+// no depender de ese aviso: un flag ignorado en silencio es peor que no mandarlo,
+// porque el usuario cree que eligió algo.
+const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
+const effortValido = (e) => (EFFORTS.includes(e) ? e : null)
+
 // El Revisor PR corre con bypassPermissions: sus skills llaman conectores MCP
 // que en headless no tienen prompt de aprobación. El resto va en acceptEdits.
-function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid }) {
+function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid, effort }) {
   const args = [
     '-p',
     prompt,
@@ -100,6 +107,7 @@ function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid
   ]
   if (writeMode) args.push('--permission-mode', isPR ? 'bypassPermissions' : 'acceptEdits')
   if (model) args.push('--model', model)
+  if (effortValido(effort)) args.push('--effort', effort)
   if (sid) args.push('--resume', sid)
   return args
 }
@@ -773,6 +781,8 @@ module.exports = {
   parseUsage,
   gitignoreConSquad,
   buildClaudeArgs,
+  EFFORTS,
+  effortValido,
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,

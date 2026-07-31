@@ -8,7 +8,7 @@ import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 import {
   fmtReset, autoGrow, fmtElapsed, fmtTokens, usageTotal, usageTitle, norm, escRe, extractOptions,
-  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, modelLabelOf, contextoUsado,
+  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, modelLabelOf, contextoUsado,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
@@ -191,6 +191,7 @@ export default function App() {
   const [project, setProject] = useState('')
   const [writeMode, setWriteMode] = useState(true)
   const [model, setModel] = useState(FALLBACK_MODEL)
+  const [effort, setEffort] = useState('') // '' = el default del CLI
   const [histOpen, setHistOpen] = useState(false)
   const [histList, setHistList] = useState([])
   const [histQuery, setHistQuery] = useState('') // filtro del panel de historial
@@ -387,6 +388,13 @@ export default function App() {
     localStorage.setItem(prefKey('oficina-write', profile), v)
     if (project) localStorage.setItem(prefKey('oficina-write', profile, project), v)
   }, [writeMode, profile, project])
+  // El esfuerzo va con la misma herencia: un repo que solo se consulta no
+  // necesita el mismo que uno donde se implementa.
+  useEffect(() => {
+    if (!themeLoaded.current) return
+    localStorage.setItem(prefKey('oficina-effort', profile), effort)
+    if (project) localStorage.setItem(prefKey('oficina-effort', profile, project), effort)
+  }, [effort, profile, project])
   // calidad gráfica (glow-up #111) y mascota 🦊, por perfil
   const [quality, setQuality] = useState('normal')
   const saveQuality = (v) => {
@@ -524,6 +532,7 @@ export default function App() {
       // el modelo persistido gana sobre el default de settings.json
       const proy0 = c.projectsByProfile[first]?.[0]?.path || ''
       setModel(leerPref('oficina-model', first, proy0) || c.defaultModels?.[first] || FALLBACK_MODEL)
+      setEffort(leerPref('oficina-effort', first, proy0) || '')
       setWriteMode(leerPref('oficina-write', first, proy0) !== '0')
       themeLoaded.current = true
       setTheme(localStorage.getItem(`oficina-theme-${first}`) || 'clasico')
@@ -906,6 +915,7 @@ export default function App() {
           cwd: project,
           writeMode,
           model,
+          effort,
           role: h.to,
         })
         .then((res) => {
@@ -1208,6 +1218,7 @@ export default function App() {
     setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
     const proy = cfg?.projectsByProfile?.[p]?.[0]?.path || ''
     setModel(leerPref('oficina-model', p, proy) || cfg?.defaultModels?.[p] || FALLBACK_MODEL)
+    setEffort(leerPref('oficina-effort', p, proy) || '')
     setWriteMode(leerPref('oficina-write', p, proy) !== '0')
     setTheme(localStorage.getItem(`oficina-theme-${p}`) || 'clasico') // tema por cuenta
     clearConversation()
@@ -1217,11 +1228,12 @@ export default function App() {
   const selectProject = async (v) => {
     if (v === project) return
     setProject(v)
-    // cada proyecto recupera su modelo y su permiso (#124)
+    // cada proyecto recupera su modelo, su permiso (#124) y su esfuerzo
     const suModelo = leerPref('oficina-model', profile, v) || cfg?.defaultModels?.[profile] || FALLBACK_MODEL
     const suEdicion = leerPref('oficina-write', profile, v) !== '0'
     setModel(suModelo)
     setWriteMode(suEdicion)
+    setEffort(leerPref('oficina-effort', profile, v) || '')
     clearConversation()
     // edición activa + proyecto sin git = sin red de seguridad
     if (suEdicion && !(await hasGit(v))) {
@@ -2439,7 +2451,7 @@ export default function App() {
         setTimeout(() => {
           setRS(m.id, 'listening')
           window.oficina
-            ?.ask({ prompt: standupPrompt(), profile, cwd: project, writeMode: false, model: memberModel(m.id), role: m.id, standup: true })
+            ?.ask({ prompt: standupPrompt(), profile, cwd: project, writeMode: false, model: memberModel(m.id), effort, role: m.id, standup: true })
             .then((res) => {
               if (!res?.ok) setRS(m.id, 'idle')
             })
@@ -2475,6 +2487,7 @@ export default function App() {
       cwd: project,
       writeMode,
       model: memberModel(job.target),
+      effort,
       role: job.target,
       standup: job.standup,
     })
@@ -3003,6 +3016,20 @@ export default function App() {
                 {[...new Set([model, ...Object.keys(MODEL_OPTIONS)])].map((id) => (
                   <option key={id} value={id}>
                     {modelLabelOf(id)}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="pref-row" title={t('pref.effortTitle')}>
+              <span className="pref-label">{t('pref.effort')}</span>
+              {/* vacío = no se pasa --effort y manda el default del CLI, que es
+                  lo que hacía la app hasta ahora: así actualizar no cambia el
+                  comportamiento de nadie sin que lo pida */}
+              <select className="sel pref-sel" value={effort} onChange={(e) => setEffort(e.target.value)} disabled={busy}>
+                <option value="">{t('pref.effortAuto')}</option>
+                {EFFORTS.map((e) => (
+                  <option key={e} value={e}>
+                    {t(`effort.${e}`)}
                   </option>
                 ))}
               </select>
