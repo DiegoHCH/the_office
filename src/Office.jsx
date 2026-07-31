@@ -11,6 +11,7 @@ import Pet from './scene/Pet.jsx'
 // ── Paleta calcada de la referencia ─────────────────────────────────────────
 // ── Temas de la sala ─────────────────────────────────────────────────────────
 import { t, tl } from './lib/i18n.js'
+import { fpsEscena, tickerActivo } from './lib/helpers.js'
 
 export const THEMES = {
   clasico: {
@@ -778,11 +779,15 @@ const WANDER_SPOTS = [
 ]
 const rand = (arr) => arr[Math.floor(Math.random() * arr.length)]
 
-// Con frameloop='demand' (ventana oculta) nada avanza solo: este ticker pide
-// frames mientras haya movimiento, para que los tours en curso terminen limpio
-// y no queden caminatas a medias al volver a mostrarse la ventana. (Chromium
-// además limita los intervals de ventanas ocultas a ~1/s: costo mínimo.)
-function DemandTicker({ fps = 12 }) {
+// Con frameloop='demand' nada avanza solo: este ticker marca el ritmo. Se usa
+// para todo lo que no sea trabajo en curso — en reposo a 30fps, y detrás de otra
+// app a 4, solo hasta que el paseo que quedaba a medias termine.
+//
+// Ojo: NO confiar en que Chromium frene esto. Lo hacía con las ventanas ocultas
+// (~1/s), pero `backgroundThrottling: false` en electron/main.js —necesario para
+// que la escena no se congele en background— quita ese freno. El ritmo de aquí
+// es el único que hay.
+function DemandTicker({ fps = 30 }) {
   const invalidate = useThree((s) => s.invalidate)
   useEffect(() => {
     const iv = setInterval(invalidate, 1000 / fps)
@@ -938,8 +943,11 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   useEffect(() => {
     if (reduceMotion) return // sin vida ambiental si el sistema pide quietud
     const iv = setInterval(() => {
-      // ventana oculta (minimizada/tapada): no programar frases/paseos nuevos
-      if (document.visibilityState === 'hidden') return
+      // Nadie mirando: no programar frases ni paseos nuevos. Cuenta también la
+      // ventana que está detrás de otra app, no solo la minimizada — si no, la
+      // vida ambiental se agenda sola para siempre y el ticker de fondo nunca
+      // llega a apagarse.
+      if (enPausa()) return
       squad.forEach((m) => {
         if (!m || roleStates[m.id] || ambientRef.current[m.id]) return
         if (Math.random() > 0.4) return // ratos de calma
@@ -1051,6 +1059,13 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
   // Oculta, la escena solo sigue pintando para que eso termine limpio.
   const anyMotion = Object.keys(roleStates).length > 0 || Object.values(ambient).some((a) => a && a.tour)
 
+  // Ritmo de la escena: ver fpsEscena en lib/helpers.js. A ritmo de pantalla
+  // costaba dos tercios de un núcleo con la app quieta, que en un M3 sin
+  // ventilador es medio equipo por mirar una oficina en la que no pasa nada.
+  const trabajando = Object.keys(roleStates).length > 0
+  const fps = fpsEscena({ visible, trabajando })
+  const conTicker = tickerActivo({ visible, trabajando, hayMovimiento: anyMotion })
+
   // ── Cámara persistente: zoom/ángulo se guardan al soltar el control y se
   // restauran al arrancar; doble-click en la escena vuelve al encuadre default.
   const controlsRef = useRef()
@@ -1102,7 +1117,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
     <Canvas
       shadows={quality === 'ligera' ? true : 'soft'}
       dpr={[1, quality === 'ligera' ? 1.5 : 2]}
-      frameloop={visible ? 'always' : 'demand'}
+      frameloop={visible && trabajando ? 'always' : 'demand'}
       gl={{ antialias: true, stencil: false }}
       onCreated={({ gl }) => {
         gl.toneMapping = ACESFilmicToneMapping // look de película
@@ -1110,7 +1125,7 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       }}
       style={{ width: '100%', height: '100%' }}
     >
-      {!visible && anyMotion && <DemandTicker />}
+      {conTicker && <DemandTicker fps={fps} />}
       <color attach="background" args={[T.bg]} />
 
       <OrthographicCamera makeDefault position={[11, 9.5, 11]} zoom={80} near={0.1} far={100} />

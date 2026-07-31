@@ -149,3 +149,20 @@ export const limpiaComando = (texto) =>
     .map((l) => l.replace(/^\s*\$\s+/, ''))
     .join('\n')
     .trim()
+
+// ── Ritmo de la escena 3D ────────────────────────────────────────────────────
+// Cuántos frames por segundo pedirle a la escena según lo que esté pasando. El
+// ritmo de pantalla se reserva para cuando hay trabajo de verdad: en reposo la
+// oficina sigue viva (el clip Idle en bucle, los paseos, las partículas) y no se
+// puede congelar, pero se ve bien a 20fps — el cine son 24.
+//
+// Devuelve 0 para «sin ticker»: ahí el Canvas va con frameloop='always' y lo
+// marca la pantalla. Y OJO: nada de esto lo frena Chromium por nosotros, porque
+// backgroundThrottling está desactivado para que la escena no se congele en
+// background. Este número es el único freno que hay.
+export const fpsEscena = ({ visible, trabajando }) => (!visible ? 4 : trabajando ? 0 : 20)
+
+// ¿Hay que montar el ticker? Sin foco solo mientras quede movimiento por
+// terminar, para que no queden caminatas a medias — y cuando termina, se apaga.
+export const tickerActivo = ({ visible, trabajando, hayMovimiento }) =>
+  fpsEscena({ visible, trabajando }) > 0 && (visible || hayMovimiento)
