@@ -863,7 +863,14 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   const customMd = readPersonaMd(profile, role)
   if (customMd) persona += `\n\nInstrucciones personalizadas de ${displayName}:\n${customMd}`
   if (boardEnabled) persona += `\n\n${SQUAD_BOARD_NOTE}`
-  persona += `\n\nIDIOMA: responde SIEMPRE en ${answerLang}, sin importar el idioma de estas instrucciones.`
+  // El «y si delegas» va aquí, en la regla de idioma, además de en DELEGAR: los
+  // subagentes arrancan con el system prompt del CLI y por defecto contestan en
+  // inglés, y solo el que reparte puede imponerles el idioma, dentro del encargo.
+  persona +=
+    `\n\nIDIOMA: responde SIEMPRE en ${answerLang}, sin importar el idioma de estas instrucciones. ` +
+    `Esto incluye lo que delegas: cada encargo a un subagente va escrito en ${answerLang} y termina exigiéndole ` +
+    `que responda en ${answerLang}. Un subagente NO hereda esta instrucción, así que si no se la das, contestará en inglés ` +
+    `y el usuario leerá su pestaña en un idioma que no es el suyo.`
 
   // El Revisor PR ejecuta skills que llaman conectores MCP (Jira/Slack). En
   // headless no hay prompt para aprobarlos y el conector OAuth puede aparecer con

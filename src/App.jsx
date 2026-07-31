@@ -626,7 +626,11 @@ export default function App() {
                 ? e.usage
                   ? `🪙 ${fmtTokens(usageTotal(e.usage))}`
                   : ''
-                : e.kind === 'init'
+                : e.kind === 'sub-start'
+                  ? `${String(e.subId || '').slice(-6)} · ${String(e.desc || '').slice(0, 40)}`
+                  : e.kind === 'sub-done'
+                    ? String(e.subId || '').slice(-6)
+                    : e.kind === 'init'
                   ? (e.sessionId || '').slice(0, 8)
                   : e.kind === 'system'
                     ? `${e.subtype}${e.fields ? ` · ${e.fields}` : ''}`
@@ -691,6 +695,15 @@ export default function App() {
           e.subId,
           ociosos
         )
+        // Queda en Diagnóstico por qué salió ese personaje (o por qué ninguno):
+        // sin esto, «no aparecieron los personajes» no se puede diagnosticar sin
+        // reproducirlo a ciegas.
+        diagRef.current.push({
+          t: Date.now(),
+          role: e.role || '—',
+          kind: 'sub-asigna',
+          info: `${String(e.subId || '').slice(-6)} → ${rol || 'SIN PUESTO'} · squad libres: [${enSquad.join(',') || '—'}] · suplentes: [${suplentes.join(',') || '—'}] · roster: ${rosterRef.current.length}`,
+        })
         subsRef.current[e.subId] = { rol, tabId, desc: e.desc || '' }
         if (rol) {
           if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
