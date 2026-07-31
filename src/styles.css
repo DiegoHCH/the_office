@@ -1253,11 +1253,14 @@ select.squad-model {
 
 /* pestañas de conversación (#96) */
 .tabbar {
-  /* En columna y a la izquierda del chat. En fila no cabían: con un subagente
-     por pestaña y sin tope, seis títulos en 340px son ilegibles. */
-  position: absolute; right: calc(14px + var(--chat-w) + 8px); top: 14px; z-index: 4;
-  width: 152px; display: flex; flex-direction: column; gap: 4px; align-items: stretch;
-  max-height: calc(100% - 28px); overflow-y: auto;
+  /* En columna y en la columna izquierda, bajo los monitores y los chips de
+     «trabajando»: en fila no cabían —con un subagente por pestaña y sin tope,
+     seis títulos en 340px son ilegibles— y a la derecha se comían la escena.
+     El `top` lo pone el inline style, con el alto REAL de lo que tienen encima:
+     el del monitor cambia según haya sesión, semana o aviso de cuota. */
+  position: absolute; left: 14px; z-index: 4;
+  width: 210px; display: flex; flex-direction: column; gap: 4px; align-items: stretch;
+  overflow-y: auto;
 }
 .tab {
   display: flex; align-items: center; gap: 4px; min-width: 0; flex: none;

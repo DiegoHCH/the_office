@@ -167,6 +167,21 @@ export default function App() {
     return () => ro.disconnect()
   }, [monNodo])
 
+  // Y el alto de los chips de «trabajando», por el mismo motivo: las pestañas
+  // van debajo de los dos, y los chips aparecen y desaparecen según haya
+  // agentes trabajando. Encadenar la medida evita que se pisen.
+  const [chipsNodo, setChipsNodo] = useState(null)
+  const [chipsAlto, setChipsAlto] = useState(0)
+  useEffect(() => {
+    if (!chipsNodo) return setChipsAlto(0)
+    const mide = () => setChipsAlto(chipsNodo.getBoundingClientRect().height + 10)
+    mide()
+    if (typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(mide)
+    ro.observe(chipsNodo)
+    return () => ro.disconnect()
+  }, [chipsNodo])
+
   // Qué pestaña lanzó cada trabajo: sin esto, la respuesta de un agente que
   // sigue trabajando aterrizaría en la pestaña que estés mirando, no en la suya.
   const tabDeRolRef = useRef({}) // role → tabId
@@ -2889,7 +2904,7 @@ export default function App() {
             El alto del monitor cambia (sesión, semana, aviso de cuota), así que
             se mide en vez de fijar un top a ojo. */}
         {running.filter((r) => roleStates[r] !== 'delivering').length > 0 && (
-          <div className="stopbar" style={{ top: 14 + monAlto + 10, visibility: monAlto ? 'visible' : 'hidden' }}>
+          <div className="stopbar" ref={setChipsNodo} style={{ top: 14 + monAlto + 10, visibility: monAlto ? 'visible' : 'hidden' }}>
             {running
               .filter((r) => roleStates[r] !== 'delivering')
               .map((r) => (
@@ -4398,7 +4413,10 @@ export default function App() {
         )}
 
         {(messages.length > 0 || tabs.length > 1) && (
-          <div className="tabbar">
+          <div
+            className="tabbar"
+            style={{ top: 14 + monAlto + 10 + chipsAlto, maxHeight: `calc(100% - ${14 + monAlto + 10 + chipsAlto + 90}px)`, visibility: monAlto ? 'visible' : 'hidden' }}
+          >
             {tabs.map((tb) => (
               <button
                 key={tb.id}
