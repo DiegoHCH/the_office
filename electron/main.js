@@ -562,6 +562,13 @@ function makeLineHandler(role, claveSesion, displayName) {
     }
 
     if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
+      // Ocupación del contexto: la de ESTA llamada a la API. El usage del
+      // `result` es el ACUMULADO del turno —suma todas las llamadas del bucle
+      // agéntico— y como cada una vuelve a leer el contexto cacheado, un turno
+      // con veinte herramientas reporta millones de tokens: el monitor marcaba
+      // 100% en el primer mensaje de la conversación. Aquí, además, se actualiza
+      // mientras el turno avanza en vez de solo al final.
+      if (msg.message.usage) emit({ kind: 'ctx', role, usage: msg.message.usage })
       for (const block of msg.message.content) {
         // el razonamiento llega completo en el bloque (#122); se emite entero y
         // no por deltas, igual que los tool_use, para no pintarlo a trozos

@@ -603,6 +603,9 @@ export default function App() {
           else if (tabStateRef.current[suya]) tabStateRef.current[suya].sessions[who] = e.sessionId
         }
         if (isP) setStatus(t('status.thinking'))
+      } else if (e.kind === 'ctx') {
+        // ocupación real del contexto: la de la última llamada a la API
+        setCtxUsado(contextoUsado(e.usage))
       } else if (e.kind === 'todos') {
         setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
       } else if (e.kind === 'tool') {
@@ -664,8 +667,10 @@ export default function App() {
           }
           return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, dur, edited, thinking }] : ms
         })
-        // ocupación del contexto: lo enviado en ESTE turno, no el acumulado
-        if (usage) setCtxUsado(contextoUsado(usage))
+        // La ocupación del contexto NO se calcula aquí: el usage del `result` es
+        // el acumulado del turno, no lo que ocupa el contexto. Llega por 'ctx',
+        // con el usage de cada llamada. Este `usage` sí sirve para el acumulado
+        // de tokens de la conversación, que es lo que mide.
         // acumulado de tokens de la conversación (para el monitor de claude)
         if (usage)
           setConvTokens((tok) => ({
