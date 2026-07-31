@@ -48,6 +48,21 @@ export const MODEL_ALIASES = {
 // con un test que falla si las dos listas dejan de coincidir.
 export const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max']
 
+// Reparto de subagentes: quién presta su personaje y su puesto. Duplicado del
+// core del proceso principal por el mismo motivo que EFFORTS —el renderer no
+// puede importar CommonJS— y atado con un test que falla si divergen.
+//
+// El subagente NO es el rol cuyo personaje toma prestado: es multifunción, sin
+// su persona ni su sesión. Solo se le presta la silla para que su trabajo se vea.
+export const MAX_SUBAGENTES = 5
+export function asignaSubagente(asignado, subId, ociosos, max = MAX_SUBAGENTES) {
+  if (!subId) return null
+  if (asignado?.[subId]) return asignado[subId]
+  const usados = new Set(Object.values(asignado || {}))
+  if (usados.size >= max) return null
+  return (ociosos || []).find((m) => m && !usados.has(m)) || null
+}
+
 // El default recomendado de la terminal (sin modelo en settings.json).
 export const FALLBACK_MODEL = 'claude-opus-5[1m]'
 

@@ -8,7 +8,7 @@ import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 import {
   fmtReset, autoGrow, fmtElapsed, fmtTokens, usageTotal, usageTitle, norm, escRe, extractOptions,
-  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, modelLabelOf, contextoUsado,
+  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, asignaSubagente, modelLabelOf, contextoUsado,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
@@ -180,6 +180,21 @@ export default function App() {
     const st = tabStateRef.current[suya]
     if (st) st.messages = fn(st.messages || [])
   }
+
+  // Igual que enTab pero con la pestaña ya resuelta: los subagentes no tienen
+  // rol propio —el personaje es prestado— así que se enrutan por su pestaña.
+  const enTabId = (tabId, fn) => {
+    if (!tabId || tabId === activeTabRef.current) return setMessages(fn)
+    const st = tabStateRef.current[tabId]
+    if (st) st.messages = fn(st.messages || [])
+  }
+  // subId → { rol prestado (o null), pestaña, encargo }. Vive en un ref porque
+  // lo leen los manejadores del stream, que no se re-crean por render.
+  const subsRef = useRef({})
+  // Subagentes esperando PUESTO, no turno: su trabajo ya está corriendo dentro
+  // del proceso del principal y no hay forma de retenerlo. Lo que se encola es
+  // el personaje, porque la oficina tiene seis sillas y no más.
+  const colaAsientoRef = useRef([])
 
   const profileRef = useRef(profile)
   useEffect(() => {
@@ -603,8 +618,51 @@ export default function App() {
         window.oficina?.refreshUsage?.()
         return
       }
-      const who = e.role || principalRef.current
-      const isP = who === principalRef.current
+      // Un mensaje de subagente se atribuye al personaje que tiene prestado y va
+      // a SU pestaña. Si todavía no tiene puesto, su trabajo se ve igual en su
+      // pestaña: lo que espera es la silla, no el turno.
+      const asiento = e.sub?.id ? subsRef.current[e.sub.id] : null
+      const who = asiento?.rol || e.role || principalRef.current
+      const isP = !e.sub && who === principalRef.current
+      const escribe = (fn) => (asiento ? enTabId(asiento.tabId, fn) : enTab(who, fn))
+
+      if (e.kind === 'sub-start') {
+        // La pestaña se crea siempre —no hay tope— y el puesto puede faltar.
+        const tabId = `sub-${e.subId}`
+        const titulo = (e.desc || t('sub.working')).slice(0, 38)
+        tabStateRef.current[tabId] = { messages: [], convId: null, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
+        setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true }]))
+        const ociosos = squadRef.current
+          .map((m) => m.id)
+          .filter((id) => id !== e.role && !runningRef.current.includes(id) && !Object.values(subsRef.current).some((x) => x?.rol === id))
+        const rol = asignaSubagente(
+          Object.fromEntries(Object.entries(subsRef.current).map(([k, v]) => [k, v.rol]).filter(([, v]) => v)),
+          e.subId,
+          ociosos
+        )
+        subsRef.current[e.subId] = { rol, tabId, desc: e.desc || '' }
+        if (rol) setRS(rol, 'working')
+        else colaAsientoRef.current.push(e.subId)
+        return
+      }
+
+      if (e.kind === 'sub-done') {
+        const fin = subsRef.current[e.subId]
+        if (!fin) return
+        setTabs((prev) => prev.map((x) => (x.id === fin.tabId ? { ...x, done: true } : x)))
+        // el puesto que se libera pasa al primero que lo esperaba
+        if (fin.rol) {
+          setRS(fin.rol, 'idle')
+          const siguiente = colaAsientoRef.current.shift()
+          if (siguiente && subsRef.current[siguiente]) {
+            subsRef.current[siguiente].rol = fin.rol
+            setRS(fin.rol, 'working')
+          }
+        }
+        delete subsRef.current[e.subId]
+        return
+      }
+
       if (e.kind === 'init') {
         if (e.sessionId) {
           const suya = tabDeRolRef.current[who]
@@ -646,7 +704,13 @@ export default function App() {
         setRS(who, 'talking')
         hubotextoRef.current[who] = true
         if (isP) setStatus(t('status.answering'))
-        enTab(who, (ms) => {
+        // El de un subagente llega entero (los deltas son solo del principal),
+        // así que es un mensaje nuevo y no un trozo que se funde con el anterior.
+        if (e.sub) {
+          escribe((ms) => [...ms, { role: 'assistant', who, text: e.text, sub: true }])
+          return
+        }
+        escribe((ms) => {
           const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
           if (idx >= 0) {
             const copy = [...ms]
@@ -1121,7 +1185,10 @@ export default function App() {
   // Cada pestaña guarda su propio hilo: mensajes, sesiones de Claude, cola y
   // tokens. Cambiar de pestaña con agentes trabajando pondría sus respuestas
   // en el hilo equivocado, así que se bloquea mientras haya tareas en curso.
-  const MAX_TABS = 4
+  // Sin tope de pestañas: cada subagente enseña su trabajo en la suya desde el
+  // primer momento. El tope de 5 es de PUESTOS en la escena (la oficina tiene
+  // seis sillas y el principal ocupa una); quien no tiene puesto trabaja igual
+  // y lo toma en cuanto se libere uno.
   const tabStateRef = useRef({})
   const [tabs, setTabs] = useState(() => [{ id: 'tab-1', title: 'Nueva' }])
   const [activeTab, setActiveTab] = useState('tab-1')
@@ -1166,7 +1233,6 @@ export default function App() {
     await restoreTab(id)
   }
   const addTab = async () => {
-    if (tabs.length >= MAX_TABS) return showToast(t('toast.maxTabs', { n: MAX_TABS }))
     snapshotTab()
     const id = `tab-${Date.now()}`
     setTabs((prev) => [...prev, { id, title: t('hud.new') }])
@@ -4337,7 +4403,9 @@ export default function App() {
               <button
                 key={tb.id}
                 type="button"
-                className={[tb.id === activeTab ? 'tab on' : 'tab', tabDrag === tb.id ? 'dragging' : ''].filter(Boolean).join(' ')}
+                className={[tb.id === activeTab ? 'tab on' : 'tab', tabDrag === tb.id ? 'dragging' : '', tb.sub ? 'sub' : '', tb.done ? 'done' : '']
+                  .filter(Boolean)
+                  .join(' ')}
                 onClick={() => switchTab(tb.id)}
                 onDoubleClick={() => setTabRename({ id: tb.id, val: tb.title })}
                 title={tabRename?.id === tb.id ? '' : `${tb.title} — ${t('chat.renameHint')}`}
@@ -4372,11 +4440,9 @@ export default function App() {
                 )}
               </button>
             ))}
-            {tabs.length < MAX_TABS && (
-              <button type="button" className="tab tab-add" onClick={addTab} title={t('chat.newTab')} aria-label={t('chat.newTab')}>
-                <IconAdd size={14} />
-              </button>
-            )}
+            <button type="button" className="tab tab-add" onClick={addTab} title={t('chat.newTab')} aria-label={t('chat.newTab')}>
+              <IconAdd size={14} />
+            </button>
           </div>
         )}
         {messages.length > 0 && (

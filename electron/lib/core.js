@@ -104,12 +104,53 @@ function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid
     allowed,
     '--append-system-prompt',
     persona,
+    // Sin esto, el trabajo de los subagentes no llega al stream: se veía un chip
+    // «Agent» y varios minutos de silencio absoluto hasta la respuesta final.
+    '--forward-subagent-text',
   ]
   if (writeMode) args.push('--permission-mode', isPR ? 'bypassPermissions' : 'acceptEdits')
   if (model) args.push('--model', model)
   if (effortValido(effort)) args.push('--effort', effort)
   if (sid) args.push('--resume', sid)
   return args
+}
+
+// ── Subagentes ───────────────────────────────────────────────────────────────
+// Un agente puede delegar con la herramienta `Agent`, y cada subagente trabaja
+// con su PROPIO contexto: es la forma de repartir un encargo grande sin saturar
+// el del principal. Con --forward-subagent-text su trabajo llega al stream.
+//
+// Cómo se distingue quién habla: todo mensaje trae `parent_tool_use_id` — null
+// si es del principal, y el id del tool_use que lo lanzó si es de un subagente.
+// Ese id es la clave estable para repartir mensajes por pestaña y personaje.
+//
+// Ojo con lo que NO llega: los deltas de streaming (`stream_event`) son siempre
+// del principal, verificado contra el binario. El texto de un subagente llega en
+// mensajes completos, así que su pestaña se llena por bloques y no letra a letra.
+function subDeMensaje(msg) {
+  const id = msg?.parent_tool_use_id
+  if (!id) return null
+  return { id, tipo: msg.subagent_type || null, desc: msg.task_description || null }
+}
+
+// Cuántos subagentes caben a la vez. El tope es duro por dos motivos distintos:
+// la oficina tiene seis puestos y el principal ya ocupa uno, y cada subagente
+// más es trabajo real compitiendo por la máquina del usuario.
+const MAX_SUBAGENTES = 5
+
+// Reparte subagentes entre los miembros ociosos del squad. Estable: el que ya
+// tiene puesto lo conserva pase lo que pase, porque su pestaña y su personaje
+// no pueden cambiar a mitad del trabajo.
+//
+// Devuelve null cuando no hay puesto —tope alcanzado o nadie ocioso—. El
+// subagente sigue trabajando igual: lo que no tiene es escena ni pestaña propia,
+// porque cuántos se lanzan lo decide el modelo y el CLI no ofrece limitarlo.
+function asignaSubagente(asignado, subId, ociosos, max = MAX_SUBAGENTES) {
+  if (!subId) return null
+  if (asignado?.[subId]) return asignado[subId]
+  const usados = new Set(Object.values(asignado || {}))
+  if (usados.size >= max) return null
+  return (ociosos || []).find((m) => m && !usados.has(m)) || null
 }
 
 // ── Objetivos de Flutter: dispositivos y emuladores ──────────────────────────
@@ -783,6 +824,9 @@ module.exports = {
   buildClaudeArgs,
   EFFORTS,
   effortValido,
+  subDeMensaje,
+  asignaSubagente,
+  MAX_SUBAGENTES,
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,

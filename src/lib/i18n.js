@@ -64,6 +64,7 @@ const ES = {
 
   // — preferencias —
   'pref.model': 'Modelo:',
+  'sub.working': 'Subagente',
   'pref.effort': 'Esfuerzo:',
   'pref.effortAuto': 'El del CLI',
   'pref.effortTitle': 'Cuánto razona antes de responder. Más esfuerzo = mejores respuestas y más lentas.',
@@ -668,6 +669,7 @@ const EN = {
   'menu.prefs': 'Preferences',
 
   'pref.model': 'Model:',
+  'sub.working': 'Subagent',
   'pref.effort': 'Effort:',
   'pref.effortAuto': "The CLI's",
   'pref.effortTitle': 'How much it reasons before answering. More effort = better answers, slower.',

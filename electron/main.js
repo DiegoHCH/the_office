@@ -43,6 +43,7 @@ const {
   parseMakefile,
   agrupaTargets,
   ordenaDispositivos,
+  subDeMensaje,
 } = require('./lib/core.js')
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -504,6 +505,9 @@ function toolDetail(name, input = {}) {
         return input.query ? `"${String(input.query).slice(0, 36)}"` : ''
       case 'WebFetch':
         return new URL(input.url).host
+      // delegar: lo que importa es QUÉ se delegó, no que se delegó
+      case 'Agent':
+        return String(input.description || input.prompt || '').replace(/\s+/g, ' ').slice(0, 42)
       default:
         return ''
     }
@@ -561,6 +565,18 @@ function makeLineHandler(role, claveSesion, displayName) {
       return
     }
 
+    // Un subagente cierra cuando el principal recibe el tool_result de su
+    // tool_use (verificado contra el stream). Es la señal para liberar su
+    // personaje y dar su pestaña por terminada.
+    if (msg.type === 'user' && Array.isArray(msg.message?.content)) {
+      for (const block of msg.message.content) {
+        if (block.type === 'tool_result' && block.tool_use_id) {
+          emit({ kind: 'sub-done', role, subId: block.tool_use_id, isError: !!block.is_error })
+        }
+      }
+      return
+    }
+
     if (msg.type === 'assistant' && Array.isArray(msg.message?.content)) {
       // Ocupación del contexto: la de ESTA llamada a la API. El usage del
       // `result` es el ACUMULADO del turno —suma todas las llamadas del bucle
@@ -568,18 +584,40 @@ function makeLineHandler(role, claveSesion, displayName) {
       // con veinte herramientas reporta millones de tokens: el monitor marcaba
       // 100% en el primer mensaje de la conversación. Aquí, además, se actualiza
       // mientras el turno avanza en vez de solo al final.
-      if (msg.message.usage) emit({ kind: 'ctx', role, usage: msg.message.usage })
+      // …del PRINCIPAL. Un subagente tiene su propio contexto, así que su usage
+      // no dice nada de lo que ocupa esta conversación.
+      const sub = subDeMensaje(msg)
+      if (msg.message.usage && !sub) emit({ kind: 'ctx', role, usage: msg.message.usage })
       for (const block of msg.message.content) {
+        // El texto del principal llega por deltas (stream_event) y NO se emite
+        // aquí, o saldría dos veces. El de un subagente no: verificado contra el
+        // binario, los deltas son siempre del principal. Así que el único sitio
+        // donde el texto de un subagente aparece es este.
+        if (sub && block.type === 'text' && block.text) {
+          emit({ kind: 'text', role, sub, text: block.text })
+        }
         // el razonamiento llega completo en el bloque (#122); se emite entero y
         // no por deltas, igual que los tool_use, para no pintarlo a trozos
         if (block.type === 'thinking' && block.thinking) {
-          emit({ kind: 'thinking', role, text: block.thinking })
+          emit({ kind: 'thinking', role, sub, text: block.thinking })
         }
         if (block.type === 'tool_use') {
+          // Delegar es lo único que abre puesto y pestaña: se avisa aparte del
+          // chip de herramienta, con el encargo tal como lo escribió el agente.
+          if (block.name === 'Agent' && !sub) {
+            emit({
+              kind: 'sub-start',
+              role,
+              subId: block.id,
+              desc: block.input?.description || block.input?.prompt || '',
+              tipo: block.input?.subagent_type || null,
+            })
+          }
           // aquí ya viene el input completo → detalle de QUÉ hace exactamente
           emit({
             kind: 'tool',
             role,
+            sub,
             name: block.name,
             detail: toolDetail(block.name, block.input),
             path: rutaEditada(block.name, block.input),
@@ -768,6 +806,17 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   let persona = ROLE_TEMPLATES[role]
     ? ROLE_TEMPLATES[role](displayName)
     : `Eres ${displayName}, ${member?.focus?.trim() || 'parte del squad'}. Preséntate como ${displayName} cuando te saluden.`
+  // Delegación: el tope de 5 no es capricho. La oficina tiene seis puestos y
+  // este agente ya ocupa uno, así que cinco es lo que cabe en escena y en
+  // pestañas; y cada subagente es trabajo real compitiendo por la máquina del
+  // usuario. Cuántos lanza lo decide el modelo —el CLI no ofrece limitarlo— así
+  // que aquí se pide, y en el renderer se aplica el tope de puestos.
+  persona +=
+    `\n\nDELEGAR: para un encargo con partes independientes, puedes repartirlo con la herramienta Agent, ` +
+    `que da a cada subagente su propio contexto y evita saturar el tuyo. Máximo CINCO subagentes a la vez. ` +
+    `Dale a cada uno una descripción corta y concreta de su parte: se muestra al usuario como título de su pestaña. ` +
+    `Cuando terminen, resume tú el conjunto en tu respuesta — el usuario ve el detalle de cada uno por separado, ` +
+    `así que tu resumen debe ser la conclusión, no la transcripción.`
   // instrucción de artifacts: si el usuario pide un "artifact"/página/dashboard/visual,
   // generar un HTML autocontenido (CSS/JS inline) en esta carpeta.
   const artDir = getArtifactsDir(profile)
