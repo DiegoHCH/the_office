@@ -93,10 +93,20 @@ jobs:
         run: |
           if [ -z "$CSC_LINK" ]; then
             echo "::warning::Sin certificado: el DMG saldrá sin firmar y no se publicará"
+            # Un secret que no existe llega como cadena vacía, no ausente, y
+            # electron-builder trata CSC_LINK definido como ruta al .p12: la
+            # resuelve contra el cwd y muere con «not a file». Hay que quitarla.
+            unset CSC_LINK CSC_KEY_PASSWORD
             export CSC_IDENTITY_AUTO_DISCOVERY=false
             echo "firmado=no" >> "$GITHUB_ENV"
           else
             echo "firmado=si" >> "$GITHUB_ENV"
+          fi
+          # Mismo motivo: con las credenciales en blanco intentaría notarizar y
+          # se llevaría un 401 en vez de saltarse el paso.
+          if [ -z "$APPLE_ID" ]; then
+            echo "::warning::Sin credenciales de notarización: el DMG saldrá sin ticket"
+            unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
           fi
           npm run dist:mac -- --publish never
 
