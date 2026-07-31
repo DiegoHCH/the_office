@@ -64,6 +64,7 @@ const ES = {
 
   // — preferencias —
   'pref.model': 'Modelo:',
+  'status.delegating': 'esperando a los subagentes…',
   'sub.working': 'Subagente',
   'sub.done': '✅ Terminó su parte y se la pasó a quien repartió la tarea',
   'sub.failed': '⚠️ Terminó con error',
@@ -671,6 +672,7 @@ const EN = {
   'menu.prefs': 'Preferences',
 
   'pref.model': 'Model:',
+  'status.delegating': 'waiting for the subagents…',
   'sub.working': 'Subagent',
   'sub.done': '✅ Finished its part and handed it back',
   'sub.failed': '⚠️ Finished with an error',

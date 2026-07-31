@@ -824,7 +824,12 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   persona +=
     `\n\nDELEGAR: para un encargo con partes independientes, puedes repartirlo con la herramienta Agent, ` +
     `que da a cada subagente su propio contexto y evita saturar el tuyo. Máximo CINCO subagentes a la vez. ` +
-    `Dale a cada uno una descripción corta y concreta de su parte: se muestra al usuario como título de su pestaña. ` +
+    `Dale a cada uno una descripción corta y concreta de su parte: se muestra al usuario como título de su pestaña. `
+    // El subagente arranca con el system prompt del CLI, no con esta persona, así
+    // que la instrucción de idioma NO le llega: contestaba en inglés aunque el
+    // usuario tenga español. Solo el que delega puede pasársela, en el encargo.
+    + `Escribe el encargo de cada subagente en ${answerLang} y pídele explícitamente que responda en ${answerLang}: ` +
+    `su respuesta la lee el usuario en una pestaña propia, y no hereda tus instrucciones de idioma. ` +
     `Cuando terminen, resume tú el conjunto en tu respuesta — el usuario ve el detalle de cada uno por separado, ` +
     `así que tu resumen debe ser la conclusión, no la transcripción.`
   // instrucción de artifacts: si el usuario pide un "artifact"/página/dashboard/visual,

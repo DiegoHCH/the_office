@@ -659,7 +659,10 @@ export default function App() {
         const tabId = `sub-${e.subId}`
         const titulo = (e.desc || t('sub.working')).slice(0, 38)
         tabStateRef.current[tabId] = { messages: [], convId: null, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
-        setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true }]))
+        // `fijo`: su título es el encargo y no debe seguir a la conversación. El
+        // autotítulo usa el primer mensaje del USUARIO, y aquí no hay ninguno —
+        // así que al abrirla se renombraba sola a «Nueva».
+        setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true, fijo: true }]))
         // Candidatos, en orden: primero los del squad que están sin hacer nada, y
         // si no llegan, miembros INACTIVOS del roster, que entran en escena para
         // esto. Sin esta segunda mitad, un squad de una sola persona —el caso
@@ -681,6 +684,12 @@ export default function App() {
           if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
           setRS(rol, 'working')
         } else colaAsientoRef.current.push(e.subId)
+        // El que reparte se queda en 'talking' de su último mensaje y su burbuja
+        // sigue diciendo «Respondiendo…» durante todo el trabajo ajeno. No está
+        // respondiendo: está esperando. Sigue ocupado —su turno está bloqueado
+        // en la herramienta— pero eso se dice de otra forma.
+        setRS(e.role, 'working')
+        if (e.role === principalRef.current) setStatus(t('status.delegating'))
         return
       }
 
