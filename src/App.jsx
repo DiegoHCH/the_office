@@ -913,9 +913,10 @@ export default function App() {
           // El resumen de traspaso ES la respuesta de este turno: se guarda para
           // abrirlo en un chat nuevo. No se hace aquí mismo porque cambiar de
           // pestaña ahora leería un `messages` que aún no ha llegado al estado.
-          if (traspasoRef.current === who && e.result) {
+          if (traspasoRef.current?.target === who && e.result) {
+            const { destino } = traspasoRef.current
             traspasoRef.current = null
-            setTraspasoTexto(e.result)
+            setTraspasoTexto({ texto: e.result, destino })
           }
           // Un subagente no sobrevive al turno del que lo lanzó: si su cierre no
           // llegó —el aviso se pierde, el turno se corta, lo que sea— se quedaba
@@ -1509,23 +1510,30 @@ export default function App() {
   useEffect(() => {
     if (!traspasoTexto) return
     ;(async () => {
-      await addTab()
+      // «aquí» vacía el hilo en esta misma pestaña: lo que libera el contexto es
+      // arrancar una sesión nueva, así que no basta con borrar los mensajes.
+      // La pestaña, su nombre y su sitio se quedan.
+      if (traspasoTexto.destino === 'aqui') clearConversation()
+      else await addTab()
       // se deja en el composer y NO se envía: es un resumen generado por un
       // modelo sobre una conversación larga, y merece una lectura antes de
       // convertirse en el punto de partida del hilo nuevo
-      setInput(traspasoTexto)
+      setInput(traspasoTexto.texto)
       inputRef.current?.focus()
       showToast(t('ctx.ready'), 7000)
       setTraspasoTexto(null)
     })()
   }, [traspasoTexto])
 
-  const pedirTraspaso = () => {
+  // A dónde va el resumen. Abrir otra pestaña conserva el hilo viejo para
+  // consultarlo; seguir aquí conserva la pestaña, su sitio y su nombre. Son dos
+  // necesidades distintas y ninguna sustituye a la otra.
+  const pedirTraspaso = (destino = 'nuevo') => {
     // se le pide a quien viene trabajando en el hilo: es quien tiene el contexto
     const target = ultimoRef.current || principal
     if (roleStates[target]) return showToast(t('ctx.busy'))
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
-    traspasoRef.current = target
+    traspasoRef.current = { target, destino }
     setCtxSilenciado(2) // ya se pidió: no volver a insistir en este hilo
     showToast(t('ctx.asking'))
     dispatchJob({
@@ -4787,8 +4795,11 @@ export default function App() {
         {avisaContexto && (
           <div className="ctxwarn">
             <span className="ctxwarn-txt">{nivelCtx >= 2 ? t('ctx.atLimit') : t('ctx.nearLimit')}</span>
-            <button type="button" className="ctxwarn-go" onClick={pedirTraspaso} title={t('ctx.handoffTitle')}>
+            <button type="button" className="ctxwarn-go" onClick={() => pedirTraspaso('nuevo')} title={t('ctx.handoffTitle')}>
               {t('ctx.handoff')}
+            </button>
+            <button type="button" className="ctxwarn-go" onClick={() => pedirTraspaso('aqui')} title={t('ctx.handoffHereTitle')}>
+              {t('ctx.handoffHere')}
             </button>
             <button type="button" className="ctxwarn-x" onClick={() => setCtxSilenciado(nivelCtx)}>
               {t('ctx.later')}

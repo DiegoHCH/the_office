@@ -456,5 +456,11 @@
   "(tus pestañas); los dos se esconden cuando no hay nada que mostrar.": "(your tabs); both hide when there is nothing to show.",
   "de llegar al tope: al llenarse, Claude resume solo y se pierde el detalle, que es justo lo que cuesta rehacer en un hilo largo. Fuera de la ventana, el": "you hit the ceiling: once full, Claude summarises on its own and the detail is lost — exactly what is expensive to rebuild in a long thread. Outside the window, the",
   "/repartir &lt;encargo&gt;": "/repartir &lt;request&gt;",
-  "👥 Fuerza el reparto entre compañeros en vez de esperar a que el agente lo decida. Útil cuando sabes que el encargo tiene partes independientes y quieres que se hagan en paralelo": "👥 Forces the work to be split among teammates instead of waiting for the agent to decide. Useful when you know the request has independent parts and want them done in parallel"
+  "👥 Fuerza el reparto entre compañeros en vez de esperar a que el agente lo decida. Útil cuando sabes que el encargo tiene partes independientes y quieres que se hagan en paralelo": "👥 Forces the work to be split among teammates instead of waiting for the agent to decide. Useful when you know the request has independent parts and want them done in parallel",
+  ": le pide un resumen de traspaso a quien viene trabajando en el hilo y lo deja escrito en el composer sin enviarlo, para que lo leas antes. Puedes llevarlo a una": ": it asks whoever has been working on the thread for a handoff summary and leaves it written in the composer without sending it, so you can read it first. You can take it to a",
+  "pestaña nueva": "new tab",
+  "—así conservas el hilo viejo para consultarlo— o": "— that way you keep the old thread to refer back to — or",
+  "seguir aquí": "stay here",
+  ", que arranca de cero en la misma pestaña y te la deja con su nombre y su sitio.": ", which starts fresh in the same tab and keeps its name and position.",
+  ", que arranca de cero en la misma pestaña y te la deja con su nombre y su sitio. Conviene hacerlo": ", which starts fresh in the same tab and keeps its name and position. Best done"
 }
