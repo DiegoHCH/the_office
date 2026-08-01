@@ -103,10 +103,19 @@ export const ventanaDe = (id) => VENTANAS[id] ?? (id?.includes('haiku') ? 200_00
 // deja margen para pedir un traspaso ordenado mientras el contexto aún lo tiene
 // todo. Ni tan pronto que moleste, ni tan tarde que ya se haya perdido nada.
 export const UMBRAL_TRASPASO = 85
-export const tocaTraspasar = (usado, modelo) => {
+// Y un segundo nivel. Descartar el aviso una vez no debería costar el hilo
+// entero: si se ignoró y la conversación sigue creciendo, vuelve a salir —ya
+// como urgente— porque a partir de aquí queda poco margen antes de que Claude
+// compacte solo. Dos niveles y no un recordatorio cada X: repetir lo mismo
+// enseña a ignorarlo, cambiar el tono dice que la situación cambió.
+export const UMBRAL_URGENTE = 95
+export const nivelTraspaso = (usado, modelo) => {
   const v = ventanaDe(modelo)
-  return v > 0 && (usado / v) * 100 >= UMBRAL_TRASPASO
+  if (!(v > 0)) return 0
+  const pct = (usado / v) * 100
+  return pct >= UMBRAL_URGENTE ? 2 : pct >= UMBRAL_TRASPASO ? 1 : 0
 }
+export const tocaTraspasar = (usado, modelo) => nivelTraspaso(usado, modelo) > 0
 
 // Tokens realmente enviados en el último turno = ocupación del contexto.
 export const contextoUsado = (u) =>

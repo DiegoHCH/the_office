@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ventanaDe, contextoUsado, tocaTraspasar } from './helpers.js'
+import { ventanaDe, contextoUsado, tocaTraspasar, nivelTraspaso } from './helpers.js'
 
 describe('ventanaDe', () => {
   it('Haiku tiene 200k y el resto 1M', () => {
@@ -75,5 +75,24 @@ describe('tocaTraspasar', () => {
     // 180k es el 90% de un Haiku (200k) y el 18% de un Opus 1M
     expect(tocaTraspasar(180_000, 'claude-haiku-4-5')).toBe(true)
     expect(tocaTraspasar(180_000, 'claude-opus-5[1m]')).toBe(false)
+  })
+})
+
+// Dos niveles, no uno: descartar el aviso del 85% no debería costar el hilo
+// entero si la conversación sigue creciendo.
+describe('nivelTraspaso', () => {
+  const M = 1_000_000
+
+  it('0 mientras sobra sitio, 1 al acercarse, 2 cuando queda poco margen', () => {
+    expect(nivelTraspaso(M * 0.5, 'claude-opus-5[1m]')).toBe(0)
+    expect(nivelTraspaso(M * 0.85, 'claude-opus-5[1m]')).toBe(1)
+    expect(nivelTraspaso(M * 0.94, 'claude-opus-5[1m]')).toBe(1)
+    expect(nivelTraspaso(M * 0.95, 'claude-opus-5[1m]')).toBe(2)
+  })
+
+  it('el aviso vuelve al subir de nivel: es lo que evita silenciarlo para siempre', () => {
+    const silenciado = nivelTraspaso(M * 0.86, 'claude-opus-5[1m]') // lo descartas aquí
+    expect(nivelTraspaso(M * 0.9, 'claude-opus-5[1m]') > silenciado).toBe(false) // sigue callado
+    expect(nivelTraspaso(M * 0.96, 'claude-opus-5[1m]') > silenciado).toBe(true) // vuelve
   })
 })

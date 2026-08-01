@@ -8,7 +8,7 @@ import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 import {
   fmtReset, autoGrow, fmtElapsed, fmtTokens, usageTotal, usageTitle, norm, escRe, extractOptions,
-  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, asignaSubagente, modelLabelOf, contextoUsado, tocaTraspasar,
+  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, asignaSubagente, modelLabelOf, contextoUsado, nivelTraspaso,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
@@ -1400,7 +1400,7 @@ export default function App() {
     handoffsRef.current = []
     editedPathsRef.current = []
     ultimoRef.current = null
-    setAvisoCtxOff(false) // el aviso de contexto se descarta por hilo, no para siempre
+    setCtxSilenciado(0) // el aviso de contexto se descarta por hilo, no para siempre
     window.oficina?.reset?.()
   }
 
@@ -1514,10 +1514,14 @@ export default function App() {
   // Traspaso de hilo antes de que el contexto se llene. El aviso se descarta por
   // conversación: si lo cierras, no vuelve a salir en este hilo — pero al abrir
   // uno nuevo empieza de cero, porque ahí la decisión es otra.
-  const [avisoCtxOff, setAvisoCtxOff] = useState(false)
+  // Hasta qué nivel se descartó el aviso: 0 ninguno, 1 el del 85%, 2 el urgente.
+  // Guardar el NIVEL y no un booleano es lo que hace que vuelva a salir cuando
+  // la situación empeora, en vez de silenciarse para todo el hilo.
+  const [ctxSilenciado, setCtxSilenciado] = useState(0)
   const traspasoRef = useRef(null) // rol al que se le pidió el resumen
   const [traspasoTexto, setTraspasoTexto] = useState(null)
-  const avisaContexto = tocaTraspasar(ctxUsado, model) && !avisoCtxOff && messages.length > 0
+  const nivelCtx = nivelTraspaso(ctxUsado, model)
+  const avisaContexto = nivelCtx > ctxSilenciado && messages.length > 0
 
   useEffect(() => {
     if (!traspasoTexto) return
@@ -1539,7 +1543,7 @@ export default function App() {
     if (roleStates[target]) return showToast(t('ctx.busy'))
     if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
     traspasoRef.current = target
-    setAvisoCtxOff(true)
+    setCtxSilenciado(2) // ya se pidió: no volver a insistir en este hilo
     showToast(t('ctx.asking'))
     dispatchJob({
       id: crypto.randomUUID(),
@@ -4807,11 +4811,11 @@ export default function App() {
             botón el usuario sabe que va a perder el hilo pero no qué hacer. */}
         {avisaContexto && (
           <div className="ctxwarn">
-            <span className="ctxwarn-txt">{t('ctx.nearLimit')}</span>
+            <span className="ctxwarn-txt">{nivelCtx >= 2 ? t('ctx.atLimit') : t('ctx.nearLimit')}</span>
             <button type="button" className="ctxwarn-go" onClick={pedirTraspaso} title={t('ctx.handoffTitle')}>
               {t('ctx.handoff')}
             </button>
-            <button type="button" className="ctxwarn-x" onClick={() => setAvisoCtxOff(true)}>
+            <button type="button" className="ctxwarn-x" onClick={() => setCtxSilenciado(nivelCtx)}>
               {t('ctx.later')}
             </button>
           </div>
