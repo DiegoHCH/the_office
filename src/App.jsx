@@ -8,12 +8,13 @@ import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 import {
   fmtReset, autoGrow, fmtElapsed, fmtTokens, usageTotal, usageTitle, norm, escRe, extractOptions,
-  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, asignaSubagente, modelLabelOf, contextoUsado, nivelTraspaso,
+  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, modelLabelOf, contextoUsado, nivelTraspaso,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
 import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n.js'
 import { prefKey, leerPref } from './lib/prefs.js'
+import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -205,12 +206,12 @@ export default function App() {
   }
   // subId → { rol prestado (o null), pestaña, encargo }. Vive en un ref porque
   // lo leen los manejadores del stream, que no se re-crean por render.
-  const subsRef = useRef({})
-  // Subagentes esperando PUESTO, no turno: su trabajo ya está corriendo dentro
-  // del proceso del principal y no hay forma de retenerlo. Lo que se encola es
-  // el personaje, porque la oficina tiene seis sillas y no más.
-  const colaAsientoRef = useRef([])
-  // Título y madre de cada pestaña de subagente. Separado de subsRef porque esa
+  // Toda la orquestación (quién tiene qué silla, quién espera, quién es invitado)
+  // vive en lib/subagentes.js, que es puro y está probado. Aquí solo se guarda
+  // su estado y se aplican los efectos que decide.
+  const orqRef = useRef(estadoInicial())
+  // Título y madre de cada pestaña de subagente. Separado del estado de la
+  // orquestación porque esa
   // entrada se borra al terminar, y el historial se sigue guardando después.
   const subMetaRef = useRef({}) // tabId → { title, parentId }
 
@@ -249,8 +250,10 @@ export default function App() {
   // que lo lanzó — un subagente no puede sobrevivir a su jefe, y si su cierre no
   // llega se quedaba trabajando para siempre en la escena.
   const cierraSub = (subId, isError) => {
-        const fin = subsRef.current[subId]
+        const r = cierraOrq(orqRef.current, subId)
+        const fin = r.cerrado
         if (!fin) return
+        orqRef.current = r.estado
         setTabs((prev) => prev.map((x) => (x.id === fin.tabId ? { ...x, done: true } : x)))
         // Una línea de cierre en SU pestaña: atenuarla no basta, porque un
         // subagente que acabó con un mensaje corto se ve igual que uno que
@@ -293,72 +296,42 @@ export default function App() {
             guarda(st.messages)
           }
         }
-        // el puesto que se libera pasa al primero que lo esperaba
-        if (fin.rol) {
-          setRS(fin.rol, 'idle')
-          const siguiente = colaAsientoRef.current.shift()
-          if (siguiente && subsRef.current[siguiente]) {
-            subsRef.current[siguiente].rol = fin.rol
-            setRS(fin.rol, 'working')
-          } else {
-            // nadie hereda la silla: si era un invitado, se va de la oficina
-            setInvitados((prev) => prev.filter((x) => x !== fin.rol))
-          }
-        }
-        delete subsRef.current[subId]
+        // el módulo ya decidió quién se levanta, quién hereda y quién se va
+        if (r.libera) setRS(r.libera, 'idle')
+        if (r.hereda) setRS(r.hereda.rol, 'working')
+        if (r.seVa) setInvitados((prev) => prev.filter((x) => x !== r.seVa))
   }
 
   const abreSub = (subId, desc, role) => {
-    if (subsRef.current[subId]) return subsRef.current[subId]
-    // La pestaña se crea siempre —no hay tope— y el puesto puede faltar.
-    const tabId = `sub-${subId}`
+    const r = abreOrq(orqRef.current, {
+      subId,
+      desc,
+      jefe: role,
+      squad: squadRef.current.map((m) => m.id),
+      roster: rosterRef.current,
+      trabajando: runningRef.current,
+    })
+    if (!r.nuevo) return r.sub
+    orqRef.current = r.estado
+
+    const { tabId } = r.sub
     const titulo = (desc || t('sub.working')).slice(0, 38)
     // convId propio desde que nace: el autosave del historial solo guarda la
     // pestaña ACTIVA y solo si tiene id, y tú estás mirando la del principal.
-    // Con id propio se puede guardar explícitamente al terminar.
-    tabStateRef.current[tabId] = { messages: [], convId: `sub-${subId}`, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
+    tabStateRef.current[tabId] = { messages: [], convId: tabId, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
     // `fijo`: su título es el encargo y no debe seguir a la conversación. El
-    // autotítulo usa el primer mensaje del USUARIO, y aquí no hay ninguno —
-    // así que al abrirla se renombraba sola a «Nueva».
+    // autotítulo usa el primer mensaje del USUARIO, y aquí no hay ninguno.
     setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true, fijo: true }]))
-    // Candidatos, en orden: primero los del squad que están sin hacer nada, y
-    // si no llegan, miembros INACTIVOS del roster, que entran en escena para
-    // esto. Sin esta segunda mitad, un squad de una sola persona —el caso
-    // normal— dejaba a todos los subagentes sin personaje, y su trabajo se
-    // veía encima del principal.
-    const ocupado = (id) => runningRef.current.includes(id) || Object.values(subsRef.current).some((x) => x?.rol === id)
-    const enSquad = squadRef.current.map((m) => m.id).filter((id) => id !== role && !ocupado(id))
-    const suplentes = rosterRef.current
-      .filter((r) => !r.enabled && !ocupado(r.id) && r.id !== role)
-      .map((r) => r.id)
-    const ociosos = [...enSquad, ...suplentes]
-    const rol = asignaSubagente(
-      Object.fromEntries(Object.entries(subsRef.current).map(([k, v]) => [k, v.rol]).filter(([, v]) => v)),
-      subId,
-      ociosos
-    )
-    // Queda en Diagnóstico por qué salió ese personaje (o por qué ninguno):
-    // sin esto, «no aparecieron los personajes» no se puede diagnosticar sin
-    // reproducirlo a ciegas.
-    diagRef.current.push({
-      t: Date.now(),
-      role: role || '—',
-      kind: 'sub-asigna',
-      info: `${String(subId || '').slice(-6)} → ${rol || 'SIN PUESTO'} · squad libres: [${enSquad.join(',') || '—'}] · suplentes: [${suplentes.join(',') || '—'}] · roster: ${rosterRef.current.length}`,
-    })
     // La madre es la conversación del que reparte, no «la que estés mirando»:
-    // si abres la pestaña del subagente, convIdRef pasa a ser la suya y se
-    // guardaría como hija de sí misma.
+    // si abres la pestaña del subagente, convIdRef pasa a ser la suya.
     const tabDelJefe = tabDeRolRef.current[role]
     const parentId =
       !tabDelJefe || tabDelJefe === activeTabRef.current ? convIdRef.current : tabStateRef.current[tabDelJefe]?.convId || null
     subMetaRef.current[tabId] = { title: titulo, parentId }
-    subsRef.current[subId] = { rol, tabId, desc: desc || '', jefe: role }
-    if (rol) {
-      if (suplentes.includes(rol)) setInvitados((prev) => (prev.includes(rol) ? prev : [...prev, rol]))
-      setRS(rol, 'working')
-    } else colaAsientoRef.current.push(subId)
-    return subsRef.current[subId]
+    diagRef.current.push({ t: Date.now(), role: role || '—', kind: 'sub-asigna', info: r.porQue })
+    if (r.entraEnEscena) setInvitados((prev) => (prev.includes(r.entraEnEscena) ? prev : [...prev, r.entraEnEscena]))
+    if (r.sub.rol) setRS(r.sub.rol, 'working')
+    return r.sub
   }
 
 
@@ -827,7 +800,7 @@ export default function App() {
         // Si llega trabajo de un subagente del que no hay constancia, se le abre
         // el sitio aquí mismo en vez de dejarlo caer en la pestaña del principal:
         // así la feature no depende de haber reconocido su arranque.
-        const asiento = e.sub?.id ? subsRef.current[e.sub.id] || abreSub(e.sub.id, e.sub.desc, e.role) : null
+        const asiento = e.sub?.id ? orqRef.current.subs[e.sub.id] || abreSub(e.sub.id, e.sub.desc, e.role) : null
         const who = asiento?.rol || e.role || principalRef.current
         const isP = !e.sub && who === principalRef.current
         const escribe = (fn) => (asiento ? enTabId(asiento.tabId, fn) : enTab(who, fn))
@@ -842,7 +815,7 @@ export default function App() {
         // reafirma en cada evento suyo y no solo al repartir: basta con que algo
         // le pise el estado una vez para que se quede «Respondiendo…» el resto
         // del trabajo, y eso ya pasó.
-        if (e.sub && Object.keys(subsRef.current).length) {
+        if (e.sub && Object.keys(orqRef.current.subs).length) {
           const jefe = e.role || principalRef.current
           setRS(jefe, 'working')
           // Su globo diría «Trabajando…», que es lo que hacen los otros. El
@@ -939,9 +912,7 @@ export default function App() {
           // llegó —el aviso se pierde, el turno se corta, lo que sea— se quedaba
           // trabajando en la escena para siempre, con su cronómetro corriendo.
           // El fin del turno es la verdad que siempre llega.
-          for (const [id, sub] of Object.entries(subsRef.current)) {
-            if (sub?.jefe === who) cierraSub(id, false)
-          }
+          for (const id of subsDe(orqRef.current, who)) cierraSub(id, false)
           const usage = e.usage && usageTotal(e.usage) > 0 ? e.usage : null
           // cuánto tardó: se guarda en el mensaje, junto a los tokens, para poder
           // mirar atrás y no solo verlo pasar en el chip
@@ -1567,7 +1538,7 @@ export default function App() {
       activeTab,
       estados: tabStateRef.current,
       tabDeRol: tabDeRolRef.current,
-      subs: subsRef.current,
+      orq: orqRef.current,
       subMeta: subMetaRef.current,
       invitados,
     }
@@ -1584,7 +1555,7 @@ export default function App() {
       // volver a una cuenta la deja como la dejaste, con sus pestañas y su hilo
       tabStateRef.current = suyo.estados || {}
       tabDeRolRef.current = suyo.tabDeRol || {}
-      subsRef.current = suyo.subs || {}
+      orqRef.current = suyo.orq || estadoInicial()
       subMetaRef.current = suyo.subMeta || {}
       setInvitados(suyo.invitados || [])
       setTabs(suyo.tabs)
@@ -1606,9 +1577,8 @@ export default function App() {
       // primera vez en esta cuenta: escritorio limpio
       tabStateRef.current = {}
       tabDeRolRef.current = {}
-      subsRef.current = {}
+      orqRef.current = estadoInicial()
       subMetaRef.current = {}
-      colaAsientoRef.current = []
       setInvitados([])
       setTabs([{ id: 'tab-1', title: t('hud.new') }])
       setActiveTab('tab-1')

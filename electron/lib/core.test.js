@@ -1212,54 +1212,7 @@ describe('subDeMensaje', () => {
   })
 })
 
-describe('asignaSubagente', () => {
-  const { asignaSubagente, MAX_SUBAGENTES } = core
 
-  it('el tope es 5: el principal ya ocupa uno de los seis puestos', () => {
-    expect(MAX_SUBAGENTES).toBe(5)
-  })
-
-  it('toma el primer miembro ocioso', () => {
-    expect(asignaSubagente({}, 'a', ['qa', 'design', 'docs'])).toBe('qa')
-  })
-
-  it('no le quita el puesto a otro subagente', () => {
-    expect(asignaSubagente({ a: 'qa' }, 'b', ['qa', 'design'])).toBe('design')
-  })
-
-  it('el que ya tiene puesto lo conserva: su pestaña no puede cambiar a media tarea', () => {
-    expect(asignaSubagente({ a: 'qa' }, 'a', ['design'])).toBe('qa')
-  })
-
-  it('pasado el tope no hay puesto, aunque sobren miembros ociosos', () => {
-    const lleno = { a: 'r1', b: 'r2', c: 'r3', d: 'r4', e: 'r5' }
-    expect(asignaSubagente(lleno, 'f', ['r6', 'r7'])).toBe(null)
-    // y el sexto sigue conservando el suyo si ya lo tenía
-    expect(asignaSubagente(lleno, 'a', [])).toBe('r1')
-  })
-
-  it('sin nadie ocioso no hay puesto, pero no revienta', () => {
-    expect(asignaSubagente({}, 'a', [])).toBe(null)
-    expect(asignaSubagente({}, 'a', undefined)).toBe(null)
-    expect(asignaSubagente(undefined, undefined, ['qa'])).toBe(null)
-  })
-})
-
-it('el reparto de subagentes del renderer no puede divergir del core', async () => {
-  const h = await import('../../src/lib/helpers.js')
-  expect(h.MAX_SUBAGENTES).toBe(core.MAX_SUBAGENTES)
-  // mismo comportamiento ante los casos que importan, no solo la misma constante
-  const casos = [
-    [{}, 'a', ['qa', 'design']],
-    [{ a: 'qa' }, 'b', ['qa', 'design']],
-    [{ a: 'qa' }, 'a', ['design']],
-    [{ a: '1', b: '2', c: '3', d: '4', e: '5' }, 'f', ['6']],
-    [{}, 'a', []],
-  ]
-  for (const [asig, id, oc] of casos) {
-    expect(h.asignaSubagente(asig, id, oc)).toBe(core.asignaSubagente(asig, id, oc))
-  }
-})
 
 // El subagente al que se delega se define por CLI, con su propio prompt. Es lo
 // único que le impone el idioma: no hereda la persona del que lo lanza, y

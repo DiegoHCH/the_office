@@ -150,25 +150,6 @@ function subDeMensaje(msg) {
   return { id, tipo: msg.subagent_type || null, desc: msg.task_description || null }
 }
 
-// Cuántos subagentes caben a la vez. El tope es duro por dos motivos distintos:
-// la oficina tiene seis puestos y el principal ya ocupa uno, y cada subagente
-// más es trabajo real compitiendo por la máquina del usuario.
-const MAX_SUBAGENTES = 5
-
-// Reparte subagentes entre los miembros ociosos del squad. Estable: el que ya
-// tiene puesto lo conserva pase lo que pase, porque su pestaña y su personaje
-// no pueden cambiar a mitad del trabajo.
-//
-// Devuelve null cuando no hay puesto —tope alcanzado o nadie ocioso—. El
-// subagente sigue trabajando igual: lo que no tiene es escena ni pestaña propia,
-// porque cuántos se lanzan lo decide el modelo y el CLI no ofrece limitarlo.
-function asignaSubagente(asignado, subId, ociosos, max = MAX_SUBAGENTES) {
-  if (!subId) return null
-  if (asignado?.[subId]) return asignado[subId]
-  const usados = new Set(Object.values(asignado || {}))
-  if (usados.size >= max) return null
-  return (ociosos || []).find((m) => m && !usados.has(m)) || null
-}
 
 // ── Objetivos de Flutter: dispositivos y emuladores ──────────────────────────
 // El proyecto puede correr en un móvil enchufado, en un emulador ya arrancado o
@@ -843,8 +824,6 @@ module.exports = {
   EFFORTS,
   effortValido,
   subDeMensaje,
-  asignaSubagente,
-  MAX_SUBAGENTES,
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,
