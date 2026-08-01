@@ -2997,6 +2997,26 @@ export default function App() {
   }
 
   // Saca un mensaje de la cola antes de que se despache (✕ en el chip "en cola").
+  // Quita del chat un mensaje que se canceló. Un turno detenido o sacado de la
+  // cola deja constancia de algo que NUNCA pasó, y en un hilo largo eso se
+  // acumula. Se borra por jobId, que arrastra también la respuesta a medias si
+  // quedara alguna.
+  //
+  // El historial se corrige solo: el autosave guarda la lista completa en cada
+  // cambio. La excepción es quedarse sin mensajes —ahí el autosave hace
+  // early-return— y entonces la conversación se borra, porque una entrada vacía
+  // en el historial es justo el ruido que se está quitando.
+  const borraMensaje = (m) => {
+    setMessages((ms) => {
+      const out = ms.filter((x) => (m.jobId ? x.jobId !== m.jobId : x !== m))
+      if (!out.length && convIdRef.current) {
+        window.oficina?.history?.remove(convIdRef.current)
+        convIdRef.current = null
+      }
+      return out
+    })
+  }
+
   const cancelQueued = (m) => {
     const q = queuesRef.current[m.to]
     if (q) queuesRef.current[m.to] = q.filter((j) => j.id !== m.jobId)
@@ -4881,6 +4901,9 @@ export default function App() {
                       }}
                     >
                       <IconEdit size={13} /> {t('chat.edit')}
+                    </button>
+                    <button type="button" className="queue-cancel" title={t('chat.removeMsg')} onClick={() => borraMensaje(m)}>
+                      <IconTrash size={13} />
                     </button>
                   </div>
                 )}
