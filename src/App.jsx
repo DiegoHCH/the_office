@@ -16,6 +16,7 @@ import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n
 import { prefKey, leerPref } from './lib/prefs.js'
 import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
 import { paraElPanel } from './lib/historial.js'
+import { decideDespacho } from './lib/despacho.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -2989,15 +2990,28 @@ export default function App() {
   const routeJob = (job) => {
     // un agente solo hace un trabajo a la vez: si ya está en otra pestaña, se
     // dice, en vez de encolarlo donde no se va a ver
-    const suya = tabDeRolRef.current[job.target]
-    if (suya && suya !== activeTabRef.current) {
+    if (
+      decideDespacho({
+        target: job.target,
+        tabDeRol: tabDeRolRef.current,
+        activa: activeTabRef.current,
+        ocupado: !!roleStates[job.target],
+        enCola: queuesRef.current[job.target]?.length > 0,
+      }).accion === 'otra-pestana'
+    ) {
       return showToast(t('toast.otherTab', { name: memberOf(job.target).name }), 6000)
     }
     atBottomRef.current = true // enviar algo re-engancha el auto-scroll
     checkQuota()
     warnCollision(job.target)
-    const busyOrQueued = !!roleStates[job.target] || (queuesRef.current[job.target]?.length > 0)
-    if (busyOrQueued) enqueueJob(job)
+    const { accion } = decideDespacho({
+      target: job.target,
+      tabDeRol: tabDeRolRef.current,
+      activa: activeTabRef.current,
+      ocupado: !!roleStates[job.target],
+      enCola: queuesRef.current[job.target]?.length > 0,
+    })
+    if (accion === 'encolar') enqueueJob(job)
     else dispatchJob(job)
   }
 
