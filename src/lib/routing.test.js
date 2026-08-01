@@ -217,3 +217,24 @@ describe('detectHandoff', () => {
     expect(detectHandoff('termina y pásaselo a Andrés', SQUAD, 'dev')).toBe('docs')
   })
 })
+
+// «Publicar» no es de un solo rol. El Publicador sube documentos a GitHub Pages;
+// publicar una app en una tienda es del dev. Antes bastaba con que la palabra
+// apareciera antes en la frase para que se lo llevara el Publicador.
+describe('publicar: tienda de apps vs GitHub Pages', () => {
+  const squad = Object.entries(ROLE_META).map(([id, m], i) => ({ id, ...m, name: `A${i}` }))
+  const va = (txt) => routeMessage(txt, squad, 'dev', null)
+
+  it('publicar una app en una tienda es del dev', () => {
+    expect(va('Ya publique la app en la play store, qué me falta para el app store')).toBe('dev')
+    expect(va('cómo subo el ipa a TestFlight')).toBe('dev')
+    expect(va('necesito el provisioning profile para publicar')).toBe('dev')
+  })
+
+  it('publicar un documento sigue siendo del Publicador', () => {
+    expect(va('publica el documento en github pages')).toBe('publish')
+    expect(va('sube este artifact a la web')).toBe('publish')
+    expect(va('despliega la pagina')).toBe('publish')
+    expect(va('publica el reporte de ayer')).toBe('publish')
+  })
+})

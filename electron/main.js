@@ -843,6 +843,13 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   let persona = ROLE_TEMPLATES[role]
     ? ROLE_TEMPLATES[role](displayName)
     : `Eres ${displayName}, ${member?.focus?.trim() || 'parte del squad'}. Preséntate como ${displayName} cuando te saluden.`
+  // Un rol que contesta fuera de su área hace daño doble: da una respuesta
+  // genérica que PARECE la buena, y de paso impide que la tome quien sí sabe.
+  persona +=
+    `\n\nALCANCE: si lo que te piden no es de tu área, NO respondas a medias. ` +
+    `Dilo en una frase, di de quién del equipo es, y ofrece pasárselo. ` +
+    `Una respuesta genérica de quien no es el experto es peor que no responder: parece una respuesta, y ocupa el sitio de la buena.`
+
   // Delegación: el tope de 5 no es capricho. La oficina tiene seis puestos y
   // este agente ya ocupa uno, así que cinco es lo que cabe en escena y en
   // pestañas; y cada subagente es trabajo real compitiendo por la máquina del

@@ -13,7 +13,7 @@ export const ROLE_META = {
     // Incluye el vocabulario cotidiano de Flutter/mobile: «widget», «provider» o
     // «el módulo de stocks» son lenguaje de desarrollo, no de diseño. Sin esto,
     // un mensaje sobre código se iba a UI/UX en cuanto mencionara «estilo».
-    kw: /arregla|implementa|refactoriza|codigo|\bbug\b|widget|flutter|\bdart\b|riverpod|provider|pubspec|freezed|build_runner|\bbloc\b|cubit|stateless|stateful|setstate|hot reload|gorouter|go_router|navigator|\bmixin\b|extension|pod(?:file|s)?\b|gradle|xcode|melos|usecase|caso de uso|repositori|datasource|\bentidad|mapper|compila|\bapk\b|\bipa\b|emulador|simulador|\bmodulo\b|componente/,
+    kw: /arregla|implementa|refactoriza|codigo|\bbug\b|widget|flutter|\bdart\b|riverpod|provider|pubspec|freezed|build_runner|\bbloc\b|cubit|stateless|stateful|setstate|hot reload|gorouter|go_router|navigator|\bmixin\b|extension|pod(?:file|s)?\b|gradle|xcode|melos|usecase|caso de uso|repositori|datasource|\bentidad|mapper|compila|\bapk\b|\bipa\b|\baab\b|app store|play store|store connect|testflight|provisioning|firma de la app|emulador|simulador|\bmodulo\b|componente/,
   },
   research: {
     label: 'Research',
@@ -64,7 +64,11 @@ export const ROLE_META = {
     color: '#0ea5e9',
     hair: '#38bdf8', // pelo azul
     url: '/models/pj/BlueSoldier_Male.gltf',
-    kw: /publica|publicar|pages|github pages|despliega|deploy|hostea|sube.*(artifact|web|pagina)/,
+    // `publica` a secas se llevaba todo lo que suene a publicar —incluido
+    // «publiqué la app en la Play Store», que es del dev— porque bastaba con
+    // aparecer antes en la frase. Este rol es de GitHub Pages, así que la
+    // palabra tiene que venir con su objeto.
+    kw: /publica\w*\s+(?:el|la|los|las|un|una|este|esta|mi|mis)?\s*(?:artifact|documento|reporte|pagina|web|sitio|guia)|github pages|\bpages\b|despliega|deploy|hostea|sube.*(artifact|web|pagina)/,
   },
 }
 
