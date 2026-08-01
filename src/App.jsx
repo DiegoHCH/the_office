@@ -219,6 +219,31 @@ export default function App() {
   // constancia — la herramienta de delegación se llama `Agent` en unas sesiones
   // y `Task` en otras, y si el arranque no se reconoce, su trabajo acabaría en
   // la pestaña del principal sin que nada lo delate.
+  // Los avisos de los compañeros se juntan en una ventana corta. Cinco avisos
+  // seguidos son peores que uno: se ignoran los cinco. Y el caso que más se da
+  // es justo ese, porque al cerrarse el turno se cierran de golpe los que
+  // quedaran vivos. La ventana es de 4s: retrasar el aviso no cuesta nada
+  // —dice «ya puedes leer», no «corre»— y agrupa a los que acaban casi a la vez.
+  const avisosSubRef = useRef({ cola: [], timer: null })
+  const avisaFinDeSub = (nombre, encargo, fallo) => {
+    const b = avisosSubRef.current
+    b.cola.push({ nombre, encargo, fallo })
+    clearTimeout(b.timer)
+    b.timer = setTimeout(() => {
+      const lote = b.cola
+      b.cola = []
+      if (lote.length === 1) {
+        const u = lote[0]
+        return window.oficina?.notifyCustom?.(`${u.nombre} ${u.fallo ? t('sub.failedShort') : t('sub.doneShort')}`, u.encargo)
+      }
+      const fallos = lote.filter((x) => x.fallo).length
+      window.oficina?.notifyCustom?.(
+        t('sub.doneMany', { n: lote.length }),
+        lote.map((x) => x.nombre).join(', ') + (fallos ? ` · ${t('sub.someFailed', { n: fallos })}` : '')
+      )
+    }, 4000)
+  }
+
   // Cierra un subagente: su línea final, su aviso, su guardado y la silla que
   // devuelve. Se llama al recibir su cierre y TAMBIÉN al terminar el turno del
   // que lo lanzó — un subagente no puede sobrevivir a su jefe, y si su cierre no
@@ -235,10 +260,7 @@ export default function App() {
         // Un aviso por subagente, con el nombre del personaje que lo hizo: son
         // trabajos separados y cada uno deja su pestaña lista para leer. El del
         // principal sigue saliendo aparte, al cerrar el turno con su resumen.
-        window.oficina?.notifyCustom?.(
-          `${memberOf(fin.rol).name || t('sub.working')} ${isError ? t('sub.failedShort') : t('sub.doneShort')}`,
-          subMetaRef.current[fin.tabId]?.title || fin.desc || ''
-        )
+        avisaFinDeSub(memberOf(fin.rol).name || t('sub.working'), subMetaRef.current[fin.tabId]?.title || fin.desc || '', isError)
         // Guardar en el historial aquí y no por el autosave: ese solo mira la
         // pestaña activa, y la que miras es la del principal. Se lee por el
         // updater cuando la pestaña es la activa, porque `messages` del closure
