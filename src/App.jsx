@@ -3115,6 +3115,16 @@ export default function App() {
     const atts = attachments
     const rfs = refs
     let prompt = text || (rfs.length ? 'Haz un breve resumen de los documentos.' : 'Describe y analiza las imágenes adjuntas.')
+    // «/repartir …»: forzar el reparto en vez de esperar a que el modelo lo vea.
+    // Se le quita el prefijo a lo que se muestra —el chat enseña lo que pediste,
+    // no la instrucción interna— pero el encargo que viaja sí la lleva.
+    const repartir = /^\/repartir\s+/i.test(prompt)
+    if (repartir) {
+      prompt = prompt.replace(/^\/repartir\s+/i, '')
+      prompt =
+        `Reparte este encargo entre compañeros con la herramienta Agent, una parte independiente por cada uno, ` +
+        `en vez de hacerlo tú solo. Si de verdad no se puede partir, dilo en una frase y hazlo tú.\n\n${prompt}`
+    }
     if (rfs.length) {
       const list = rfs.map((r) => `- ${r.isDir ? '📁 carpeta' : '📄 archivo'}: ${r.path}`).join('\n')
       prompt = `Tengo estos elementos en mi disco (léelos con Glob para listar y Read para su contenido; en carpetas revisa los documentos que haya):\n${list}\n\n${prompt}`
@@ -3126,7 +3136,7 @@ export default function App() {
       id: crypto.randomUUID(),
       target,
       text,
-      display: text || (rfs.length ? '📁' : '🖼'),
+      display: (repartir ? text.replace(/^\/repartir\s+/i, '') : text) || (rfs.length ? '📁' : '🖼'),
       prompt,
       handoffTo,
       // imágenes con su path (para miniatura); refs solo por nombre

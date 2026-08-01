@@ -454,5 +454,7 @@
   "(quién trabaja ahora, con su cronómetro y un ⏹ para detenerlo) y": "(who is working right now, with their timer and a ⏹ to stop them) and",
   "Chats activos": "Active chats",
   "(tus pestañas); los dos se esconden cuando no hay nada que mostrar.": "(your tabs); both hide when there is nothing to show.",
-  "de llegar al tope: al llenarse, Claude resume solo y se pierde el detalle, que es justo lo que cuesta rehacer en un hilo largo. Fuera de la ventana, el": "you hit the ceiling: once full, Claude summarises on its own and the detail is lost — exactly what is expensive to rebuild in a long thread. Outside the window, the"
+  "de llegar al tope: al llenarse, Claude resume solo y se pierde el detalle, que es justo lo que cuesta rehacer en un hilo largo. Fuera de la ventana, el": "you hit the ceiling: once full, Claude summarises on its own and the detail is lost — exactly what is expensive to rebuild in a long thread. Outside the window, the",
+  "/repartir &lt;encargo&gt;": "/repartir &lt;request&gt;",
+  "👥 Fuerza el reparto entre compañeros en vez de esperar a que el agente lo decida. Útil cuando sabes que el encargo tiene partes independientes y quieres que se hagan en paralelo": "👥 Forces the work to be split among teammates instead of waiting for the agent to decide. Useful when you know the request has independent parts and want them done in parallel"
 }
