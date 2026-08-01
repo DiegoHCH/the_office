@@ -1266,3 +1266,25 @@ describe('el roster conserva lo que es del rol', () => {
     expect(g.effort).toBe(null)
   })
 })
+
+// La caché de Chromium crece sin tope: medido en una instalación real, 708 MB
+// entre Cache y Code Cache cuando el historial entero ocupaba 108 KB.
+describe('tocaLimpiarCache', () => {
+  const { tocaLimpiarCache, CACHE_MAX } = core
+  const MB = 1024 * 1024
+
+  it('no limpia mientras esté por debajo del tope', () => {
+    expect(tocaLimpiarCache(0)).toBe(false)
+    expect(tocaLimpiarCache(CACHE_MAX)).toBe(false)
+  })
+
+  it('limpia al pasarse, que es lo que ya había ocurrido', () => {
+    expect(tocaLimpiarCache(CACHE_MAX + 1)).toBe(true)
+    expect(tocaLimpiarCache(708 * MB)).toBe(true)
+  })
+
+  it('un tamaño ilegible no dispara una limpieza a ciegas', () => {
+    expect(tocaLimpiarCache(undefined)).toBe(false)
+    expect(tocaLimpiarCache(null)).toBe(false)
+  })
+})

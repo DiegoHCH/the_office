@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell, clipboard, Tray, Menu, nativeImage, globalShortcut, powerSaveBlocker, powerMonitor } = require('electron')
+const { app, BrowserWindow, ipcMain, protocol, net, Notification, dialog, shell, clipboard, Tray, Menu, nativeImage, globalShortcut, powerSaveBlocker, powerMonitor, session } = require('electron')
 const { spawn, execFile } = require('node:child_process')
 const path = require('node:path')
 const fs = require('node:fs')
@@ -44,6 +44,8 @@ const {
   agrupaTargets,
   ordenaDispositivos,
   subDeMensaje,
+  tocaLimpiarCache,
+  CACHE_MAX,
 } = require('./lib/core.js')
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -1415,7 +1417,13 @@ function dentroDeArtifacts(file, profile) {
 ipcMain.handle('artifacts:pickDir', async (_e, profile) => {
   const res = await dialog.showOpenDialog(win, { properties: ['openDirectory', 'createDirectory'] })
   if (res.canceled || !res.filePaths[0]) return { ok: false }
-  fs.writeFileSync(artifactsDirFile(profile || 'work'), res.filePaths[0])
+  // sin esto, un disco lleno o sin permisos rechazaba la promesa y el renderer
+  // no lo capturaba: elegías carpeta, no pasaba nada y nadie decía por qué
+  try {
+    fs.writeFileSync(artifactsDirFile(profile || 'work'), res.filePaths[0])
+  } catch (err) {
+    return { ok: false, error: String(err.message || err).slice(0, 250) }
+  }
   return { ok: true, dir: res.filePaths[0] }
 })
 ipcMain.handle('artifacts:list', (_e, profile) => {
@@ -1869,18 +1877,27 @@ ipcMain.handle('config:copyProfile', async (_e, { desde, hacia, partes } = {}) =
   if (ans.response !== 0) return { ok: false, canceled: true }
 
   const hechos = []
+  // y lo que NO se pudo: antes un fallo solo se notaba porque ese elemento no
+  // aparecía en la lista de copiados, que es pedirle mucho al usuario
+  const fallidos = []
   try {
     if (q.squad) {
       try {
         fs.writeFileSync(squadFile(hacia), fs.readFileSync(squadFile(desde), 'utf8'))
         hechos.push('squad')
-      } catch {}
+      } catch (err) {
+        fallidos.push('squad')
+        console.error('[oficina] copiar squad:', err)
+      }
     }
     if (q.proyectos) {
       try {
         fs.writeFileSync(customProjectsFile(hacia), JSON.stringify(getCustomProjects(desde), null, 2))
         hechos.push('proyectos')
-      } catch {}
+      } catch (err) {
+        fallidos.push('proyectos')
+        console.error('[oficina] copiar proyectos:', err)
+      }
     }
     if (q.personas) {
       // se reemplazan las del destino por las del origen
@@ -1894,9 +1911,12 @@ ipcMain.handle('config:copyProfile', async (_e, { desde, hacia, partes } = {}) =
         if (files.length) fs.mkdirSync(dirHacia, { recursive: true })
         for (const f of files) fs.copyFileSync(path.join(dirDesde, f), path.join(dirHacia, f))
         hechos.push('personalidades')
-      } catch {}
+      } catch (err) {
+        fallidos.push('personalidades')
+        console.error('[oficina] copiar personalidades:', err)
+      }
     }
-    return { ok: true, desde, hacia, hechos }
+    return { ok: true, desde, hacia, hechos, fallidos }
   } catch (err) {
     return { ok: false, error: String(err.message || err).slice(0, 250) }
   }
@@ -3130,8 +3150,35 @@ ipcMain.handle('app:version', () => app.getVersion())
 // Limpieza al arrancar: adjuntos e historial crecían sin límite.
 // - attachments: imágenes pegadas de más de 7 días (ya viajaron en su prompt)
 // - history: se conservan las 100 conversaciones más recientes
+// Peso de una carpeta, sin recursión infinita ni sorpresas: si algo falla se
+// devuelve lo contado hasta ahí, porque una limpieza que revienta es peor que
+// una que se queda corta.
+function pesoDe(dir) {
+  let total = 0
+  try {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name)
+      try {
+        total += e.isDirectory() ? pesoDe(p) : fs.statSync(p).size
+      } catch {}
+    }
+  } catch {}
+  return total
+}
+
 function pruneStorage() {
   const WEEK = 7 * 24 * 3600 * 1000
+  // La caché de Chromium: lo que de verdad ocupa. Solo se limpia si se pasó del
+  // tope — hacerlo siempre obligaría a volver a descargar todo en cada arranque.
+  try {
+    const base = app.getPath('userData')
+    const peso = pesoDe(path.join(base, 'Cache')) + pesoDe(path.join(base, 'Code Cache'))
+    if (tocaLimpiarCache(peso)) {
+      console.log(`[oficina] caché en ${Math.round(peso / 1048576)} MB — limpiando`)
+      session.defaultSession?.clearCache?.()
+      session.defaultSession?.clearCodeCaches?.({})
+    }
+  } catch {}
   const attDir = path.join(app.getPath('userData'), 'attachments')
   try {
     for (const f of fs.readdirSync(attDir)) {
@@ -3277,6 +3324,10 @@ app.on('open-url', (e, url) => {
   if (win && !win.isDestroyed()) handleDeepLink(url)
   else app.whenReady().then(() => setTimeout(() => handleDeepLink(url), 2500))
 })
+
+// El tope de caché hay que fijarlo ANTES de que arranque la app: después,
+// Chromium ya decidió su límite para esta sesión.
+app.commandLine.appendSwitch('disk-cache-size', String(CACHE_MAX))
 
 app.whenReady().then(() => {
   pruneStorage()

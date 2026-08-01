@@ -132,6 +132,19 @@ function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid
   return args
 }
 
+// ── Caché en disco ──────────────────────────────────────────────────────────
+// Chromium cachea sin tope, y en una app que descarga imágenes y modelos 3D eso
+// crece sola: medido en una instalación real, 708 MB entre `Cache` y `Code
+// Cache` cuando el historial completo ocupaba 108 KB. La limpieza que ya existía
+// se ocupaba de los adjuntos y las conversaciones —lo pequeño— y dejaba fuera el
+// 96% del peso.
+//
+// El tope se aplica a partir de ahora; lo ya acumulado no se encoge solo, así
+// que hace falta una limpieza cuando se pasa. Con margen: limpiar en cada
+// arranque costaría volver a descargar todo cada vez.
+const CACHE_MAX = 250 * 1024 * 1024
+const tocaLimpiarCache = (bytes, max = CACHE_MAX) => Number(bytes) > max
+
 // ── Subagentes ───────────────────────────────────────────────────────────────
 // Un agente puede delegar con la herramienta `Agent`, y cada subagente trabaja
 // con su PROPIO contexto: es la forma de repartir un encargo grande sin saturar
@@ -824,6 +837,8 @@ module.exports = {
   EFFORTS,
   effortValido,
   subDeMensaje,
+  tocaLimpiarCache,
+  CACHE_MAX,
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,

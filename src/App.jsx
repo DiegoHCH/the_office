@@ -1841,6 +1841,9 @@ export default function App() {
       return
     }
     setCopyView(null)
+    // lo que falló se dice aparte y en primer plano: un «copiado» a secas con
+    // algo que no se copió es peor que un error, porque te lo crees
+    if (res.fallidos?.length) showToast(t('copy.failed', { que: res.fallidos.join(', ') }), 10000)
     showToast(t('copy.done', { hacia: profile, que: (res.hechos || []).join(', ') }), 9000)
   }
 
