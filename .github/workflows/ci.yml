@@ -66,10 +66,45 @@ jobs:
             break
           done
 
-  release:
+  # El release se publica en DOS pasos a propósito. Notarizar puede tardar horas
+  # —y alguna vez no responder—, y encadenar la publicación al build significaba
+  # no tener versión hasta que Apple contestara. Ahora la página del release
+  # existe desde el primer minuto y los binarios aterrizan cuando estén.
+  publicar:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      # Si ya se creó a mano con notas escritas, no se toca: --generate-notes
+      # las reemplazaría por la lista de commits.
+      - name: Crear el release si no existe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "ya existe, se respetan sus notas"
+          else
+            gh release create "$GITHUB_REF_NAME" --title "La Oficina $GITHUB_REF_NAME" --generate-notes
+          fi
+      # Re-pushear un tag degrada su release a borrador, y publicar uno viejo lo
+      # marca «latest» (GitHub ordena por fecha, no por versión). Como el aviso
+      # de versión nueva de la app consulta /releases/latest, un descuido aquí
+      # deja el release invisible o le ofrece al usuario BAJAR de versión.
+      - name: Publicarlo y marcarlo como latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+
+  binarios:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: publicar
     runs-on: macos-14
+    # Apple normalmente tarda minutos, pero ha llegado a dejar envíos colgados
+    # días. Sin tope, el job se comería las 6 h del default para nada.
+    timeout-minutes: 120
     permissions:
       contents: write
     steps:
@@ -144,15 +179,10 @@ jobs:
           Genéralo en una máquina con el Developer ID (npm run dist:mac) y súbelo \
           con gh release upload $GITHUB_REF_NAME release/*.dmg --clobber"
 
-      # Re-pushear un tag degrada su release a borrador, y publicar uno viejo lo
-      # marca «latest» (GitHub ordena por fecha, no por versión). Como el aviso
-      # de versión nueva de la app consulta /releases/latest, un descuido aquí
-      # deja el release invisible o le ofrece al usuario BAJAR de versión.
-      - name: Publicar el release y marcarlo como latest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest
+      # De publicarlo y marcarlo «latest» ya se encargó el job anterior: aquí solo
+      # se comprueba que lo que verá la app instalada es lo que esperamos.
       - name: Verificar lo que verá el checker de la app
+        if: env.firmado == 'si'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -160,4 +190,6 @@ jobs:
           ASSETS=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets | length')
           echo "latest=$LATEST · assets de $GITHUB_REF_NAME=$ASSETS"
           [ "$LATEST" = "$GITHUB_REF_NAME" ] || { echo "::error::latest es $LATEST, no $GITHUB_REF_NAME"; exit 1; }
-          [ "$ASSETS" -ge 1 ] || { echo "::error::el release no tiene DMG"; exit 1; }
+          # tres: dmg (instalación a mano), zip y latest-mac.yml (auto-update).
+          # Con menos, la app no se entera de que hay versión nueva.
+          [ "$ASSETS" -ge 3 ] || { echo "::error::faltan artefactos: hay $ASSETS de 3"; exit 1; }
