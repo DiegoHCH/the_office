@@ -9,6 +9,7 @@ const fs = require('node:fs')
 const path = require('node:path')
 const { execFile } = require('node:child_process')
 const { ipcMain, dialog, shell, BrowserWindow } = require('electron')
+const { rutaContenida } = require('../lib/core.js')
 
 function registra({ getArtifactsDir, artifactsDirFile, ventana }) {
   const win = () => ventana()
@@ -18,11 +19,8 @@ function registra({ getArtifactsDir, artifactsDirFile, ventana }) {
   // carpeta del perfil que lo pide. Antes bastaba con que la ruta existiera, así
   // que la separación dependía de que el renderer pidiera la lista correcta.
   function dentroDeArtifacts(file, profile) {
-    if (!file) return false
     try {
-      const dir = path.resolve(getArtifactsDir(profile))
-      const f = path.resolve(file)
-      return (f === dir || f.startsWith(dir + path.sep)) && fs.existsSync(f)
+      return rutaContenida(getArtifactsDir(profile), file) && fs.existsSync(file)
     } catch {
       return false
     }

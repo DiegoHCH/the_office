@@ -1288,3 +1288,40 @@ describe('tocaLimpiarCache', () => {
     expect(tocaLimpiarCache(null)).toBe(false)
   })
 })
+
+// Contención de rutas. Esta regla estuvo rota cuatro versiones sin hacer ruido:
+// el renderer no decía de qué perfil era el documento, el main asumía «work», y
+// a quien trabajaba en otro perfil no se le abría NADA —ni el archivo, ni la
+// carpeta, ni el zip— sin un solo error por ningún lado.
+describe('rutaContenida', () => {
+  const { rutaContenida } = core
+  const dir = '/Users/x/Artifacts/work'
+
+  it('un archivo de dentro pasa', () => {
+    expect(rutaContenida(dir, `${dir}/informe.html`)).toBe(true)
+  })
+
+  it('la propia carpeta pasa: «abrir la carpeta» es una acción válida', () => {
+    expect(rutaContenida(dir, dir)).toBe(true)
+  })
+
+  it('el de OTRO perfil no pasa — el caso que se rompió', () => {
+    expect(rutaContenida(dir, '/Users/x/Artifacts/private/informe.html')).toBe(false)
+  })
+
+  it('no basta con que el nombre empiece igual', () => {
+    // «work-viejo» empieza por «work» y no está dentro de «work»
+    expect(rutaContenida(dir, '/Users/x/Artifacts/work-viejo/informe.html')).toBe(false)
+  })
+
+  it('salirse con .. no cuela', () => {
+    expect(rutaContenida(dir, `${dir}/../private/informe.html`)).toBe(false)
+    expect(rutaContenida(dir, `${dir}/../../../etc/passwd`)).toBe(false)
+  })
+
+  it('sin datos, no pasa', () => {
+    expect(rutaContenida(dir, '')).toBe(false)
+    expect(rutaContenida('', '/x')).toBe(false)
+    expect(rutaContenida(null, null)).toBe(false)
+  })
+})

@@ -132,6 +132,24 @@ function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid
   return args
 }
 
+// ── Contención de rutas ─────────────────────────────────────────────────────
+// Un documento solo se abre, revela, exporta o borra si está DENTRO de la
+// carpeta del perfil que lo pide. La comprobación se hace sobre rutas
+// resueltas: `..` y los enlaces relativos tienen que quedar fuera, o la regla
+// no sirve de nada.
+//
+// Vive aquí y no dentro del handler porque ya falló una vez sin hacer ruido:
+// el renderer llamaba sin decir de qué perfil era el documento, el main asumía
+// «work», y a quien trabajaba en otro perfil no se le abría NADA —ni el archivo,
+// ni la carpeta, ni el zip— sin un solo error por ningún lado.
+function rutaContenida(dir, file, sep = require('node:path').sep) {
+  if (!dir || !file) return false
+  const path = require('node:path')
+  const d = path.resolve(dir)
+  const f = path.resolve(file)
+  return f === d || f.startsWith(d + sep)
+}
+
 // ── Caché en disco ──────────────────────────────────────────────────────────
 // Chromium cachea sin tope, y en una app que descarga imágenes y modelos 3D eso
 // crece sola: medido en una instalación real, 708 MB entre `Cache` y `Code
@@ -837,6 +855,7 @@ module.exports = {
   EFFORTS,
   effortValido,
   subDeMensaje,
+  rutaContenida,
   tocaLimpiarCache,
   CACHE_MAX,
   esProyectoFlutter,

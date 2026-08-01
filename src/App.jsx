@@ -4679,7 +4679,7 @@ export default function App() {
             {artsList.length === 0 && <div className="hist-empty">{t('docs.empty')}</div>}
             {artsList.map((a) => (
               <div key={a.path} className="hist-item art-item">
-                <div onClick={() => window.oficina?.artifacts?.open?.(a.path)} style={{ cursor: 'pointer' }}>
+                <div onClick={() => window.oficina?.artifacts?.open?.(a.path, profile)} style={{ cursor: 'pointer' }}>
                   <div className="hist-title"><IconLink size={13} /> {prettyArtifact(a.name)}</div>
                   <div className="hist-meta">
                     {a.at ? new Date(a.at).toLocaleString(locale(), { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}
@@ -4697,10 +4697,10 @@ export default function App() {
                   >
                     <IconChat size={13} />
                   </button>
-                  <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path)} title={t('docs.reveal')}><IconReveal size={14} /></button>
+                  <button onClick={() => window.oficina?.artifacts?.reveal?.(a.path, profile)} title={t('docs.reveal')}><IconReveal size={14} /></button>
                   <button
                     onClick={async () => {
-                      const r = await window.oficina?.artifacts?.zip?.(a.path)
+                      const r = await window.oficina?.artifacts?.zip?.(a.path, profile)
                       showToast(r?.ok ? t('toast.zipDone') : t('toast.zipCancel'))
                     }}
                     title={t('docs.zip')}
@@ -4710,7 +4710,7 @@ export default function App() {
                   <button
                     className="danger"
                     onClick={async () => {
-                      const r = await window.oficina?.artifacts?.delete?.(a.path)
+                      const r = await window.oficina?.artifacts?.delete?.(a.path, profile)
                       if (r?.canceled) return
                       if (r?.ok) {
                         setArtsList((l) => l.filter((x) => x.path !== a.path))
@@ -5052,7 +5052,7 @@ export default function App() {
                   </button>
                 )}
                 {m.artifact && (
-                  <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path)}>
+                  <button className="artifact-btn" onClick={() => window.oficina?.artifacts?.open?.(m.artifact.path, profile)}>
                     <IconLink size={13} /> {t('chat.open')} · {prettyArtifact(m.artifact.name)}
                   </button>
                 )}
