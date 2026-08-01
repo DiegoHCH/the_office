@@ -746,9 +746,17 @@ export default function App() {
     return () => window.removeEventListener('focus', onFocus)
   }, [cfg, profile, model])
 
-  useEffect(() => {
-    if (!window.oficina?.onEvent) return
-    return window.oficina.onEvent((e) => {
+  // El manejador se re-crea en cada render, pero el efecto se suscribía UNA vez
+  // y capturaba el del primero: todo lo que no fuera un ref quedaba congelado en
+  // el render inicial. `profile`, `project` y `model` se usan al guardar la
+  // conversación de un compañero, así que se guardaba con el perfil que hubiera
+  // al arrancar la app, no con el de ahora.
+  //
+  // Se suscribe a un ref que siempre apunta al último manejador: una sola
+  // suscripción y closures frescos. Añadir las dependencias no valía —esas
+  // funciones se recrean en cada render y el efecto se re-suscribiría sin parar—.
+  const manejaEventoRef = useRef(null)
+  manejaEventoRef.current = (e) => {
       try {
         // 🔧 diagnóstico: todo evento (menos el chorro de texto) queda en el buffer
         if (e.kind !== 'text') {
@@ -1111,7 +1119,10 @@ export default function App() {
         diagRef.current.push({ t: Date.now(), role: e.role || '—', kind: 'error-evento', info: `${e.kind}: ${err?.message || err}` })
         console.error('[oficina] evento', e.kind, err)
       }
-    })
+  }
+  useEffect(() => {
+    if (!window.oficina?.onEvent) return
+    return window.oficina.onEvent((e) => manejaEventoRef.current?.(e))
   }, [])
 
   // Auto-scroll del chat SOLO si ya estabas pegado al fondo: si subiste a
