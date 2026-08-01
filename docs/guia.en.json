@@ -466,5 +466,19 @@
   "Actualizaciones 🔄": "Updates 🔄",
   "La app se actualiza sola: comprueba al arrancar, descarga la versión nueva en segundo plano y te avisa cuando está lista.": "The app updates itself: it checks on startup, downloads the new version in the background and tells you when it is ready.",
   "No se reinicia por su cuenta": "It does not restart on its own",
-  "— se aplica cuando tú lo decidas, porque reiniciar a mitad de una tarea sería perderla. Si algo falla (sin red, o un release publicado a mano sin sus metadatos), se cae al aviso de siempre: te notifica y te descarga el instalador.": "— it is applied when you decide, because restarting mid-task would lose it. If anything fails (no network, or a release published by hand without its metadata), it falls back to the old notice: it tells you and downloads the installer."
+  "— se aplica cuando tú lo decidas, porque reiniciar a mitad de una tarea sería perderla. Si algo falla (sin red, o un release publicado a mano sin sus metadatos), se cae al aviso de siempre: te notifica y te descarga el instalador.": "— it is applied when you decide, because restarting mid-task would lose it. If anything fails (no network, or a release published by hand without its metadata), it falls back to the old notice: it tells you and downloads the installer.",
+  "🗑 Quitar lo cancelado:": "🗑 Remove what you cancelled:",
+  "si sacas un mensaje de la cola o detienes a un agente, ese mensaje queda marcado como cancelado y puedes": "if you pull a message out of the queue or stop an agent, that message is marked as cancelled and you can",
+  "quitarlo del chat": "remove it from the chat",
+  ". En un hilo largo, la constancia de cosas que nunca pasaron estorba. Los turnos que terminaron": ". In a long thread, a record of things that never happened gets in the way. Turns that ended",
+  "con error": "with an error",
+  "se quedan: eso sí es información.": "stay: that is information.",
+  "Al terminar, la respuesta de quien repartió dice cuánto contexto ocuparon sus compañeros —": "When it is done, the answer from whoever split the work says how much context the teammates used —",
+  "«👥 240k fuera de este hilo»": "“👥 240k outside this thread”",
+  ". Sin repartir, todo eso habría tenido que caber en esta conversación, y es lo que te dice si valió la pena.": ". Without splitting, all of it would have had to fit in this conversation — that is what tells you whether it was worth it.",
+  "Cuando terminan te avisa, con el nombre de cada personaje. Si acaban varios casi a la vez los junta en un solo aviso —cinco notificaciones seguidas se ignoran las cinco— y al cerrar el turno avisa otra vez: así distingues «ya puedes leer una parte» de «ya está todo».": "You get a notification as each one finishes, with its character’s name. If several finish at nearly the same time they are grouped into one — five notifications in a row and all five get ignored — and there is another when the turn closes: that way you can tell “one part is ready to read” from “everything is done”.",
+  "(UI/UX con Opus, QA con Haiku… los demás usan el global) y su": "(UI/UX on Opus, QA on Haiku… the rest use the global one) and its",
+  "🎚 esfuerzo propio": "🎚 own effort",
+  "(un QA que solo corre tests no necesita el mismo que quien implementa)": "(a QA that only runs tests does not need the same as whoever implements)",
+  "(un QA que solo corre tests no necesita el mismo que quien implementa). Arriba hay": "(a QA that only runs tests does not need the same as whoever implements). At the top there are"
 }
