@@ -503,6 +503,9 @@ export default function App() {
   }
   // modelo efectivo de un agente: el suyo propio si lo fijó, si no el global
   const memberModel = (id) => squad.find((m) => m.id === id)?.model || model
+  // Mismo criterio para el esfuerzo: el del rol si lo fijó, y si no el global.
+  // Un QA que solo corre tests no necesita el mismo que quien implementa.
+  const memberEffort = (id) => squad.find((m) => m.id === id)?.effort || effort
 
   const projects = cfg?.projectsByProfile?.[profile] || []
   const running = Object.keys(roleStates)
@@ -1946,6 +1949,15 @@ export default function App() {
     const name = updated.find((r) => r.id === id)?.name || id
     showToast(mdl ? t('toast.memberModel', { name, label: modelLabelOf(mdl) }) : t('toast.memberModelGlobal', { name }))
   }
+  const setMemberEffort = async (id, ef) => {
+    setDraft((d) => d.map((r) => (r.id === id ? { ...r, effort: ef || null } : r)))
+    if (!roster.some((r) => r.id === id)) return // rol aún no guardado: queda en el draft
+    const updated = roster.map((r) => (r.id === id ? { ...r, effort: ef || null } : r))
+    setRoster(updated)
+    await window.oficina?.squad?.save(profile, updated)
+    const name = updated.find((r) => r.id === id)?.name || id
+    showToast(ef ? t('toast.memberEffort', { name, label: t(`effort.${ef}`) }) : t('toast.memberEffortGlobal', { name }))
+  }
   // avatar efectivo de un miembro (elegido o el default de su rol)
   const effectiveAvatar = (r) => r.avatar || metaOf(r).url.split('/').pop()
   // modelos ya ocupados por OTROS miembros activos (no se pueden repetir)
@@ -2840,7 +2852,7 @@ export default function App() {
         setTimeout(() => {
           setRS(m.id, 'listening')
           window.oficina
-            ?.ask({ prompt: standupPrompt(), profile, cwd: project, writeMode: false, model: memberModel(m.id), effort, role: m.id, standup: true })
+            ?.ask({ prompt: standupPrompt(), profile, cwd: project, writeMode: false, model: memberModel(m.id), effort: memberEffort(m.id), role: m.id, standup: true })
             .then((res) => {
               if (!res?.ok) setRS(m.id, 'idle')
             })
@@ -2876,7 +2888,7 @@ export default function App() {
       cwd: project,
       writeMode,
       model: memberModel(job.target),
-      effort,
+      effort: memberEffort(job.target),
       role: job.target,
       standup: job.standup,
     })
@@ -4064,6 +4076,19 @@ export default function App() {
                     {Object.keys(MODEL_OPTIONS).map((id) => (
                       <option key={id} value={id}>
                         {modelLabelOf(id)}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    className="squad-avatar-btn squad-model"
+                    value={r.effort || ''}
+                    onChange={(e) => setMemberEffort(r.id, e.target.value)}
+                    title={t('ag.effortTitle')}
+                  >
+                    <option value="">{t('ag.globalEffort')}</option>
+                    {EFFORTS.map((ef) => (
+                      <option key={ef} value={ef}>
+                        {t(`effort.${ef}`)}
                       </option>
                     ))}
                   </select>

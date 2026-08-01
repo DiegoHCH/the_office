@@ -1284,3 +1284,32 @@ describe('agentesDeEquipo', () => {
     expect(buildClaudeArgs({ prompt: 'x', allowed: 'Read', persona: 'p' }).includes('--agents')).toBe(false)
   })
 })
+
+// El modelo y el esfuerzo propios de un agente son suyos, no del catálogo de
+// roles: si el guardado del squad no los conserva, se pierden en silencio en el
+// siguiente guardado y el usuario ve que su elección «no se aplicó».
+describe('el roster conserva lo que es del rol', () => {
+  // réplica del saneado de squad:save, para fijar qué campos sobreviven
+  const guardado = (r) =>
+    r.custom
+      ? { id: r.id, name: r.name, enabled: !!r.enabled, avatar: r.avatar || null, custom: true, emoji: r.emoji || '🛠️', color: r.color || '#38bdf8', hair: r.hair || '#1f2937', focus: r.focus || '', kw: r.kw || '', model: r.model || null, effort: r.effort || null }
+      : { id: r.id, name: r.name, enabled: !!r.enabled, avatar: r.avatar || null, custom: false, model: r.model || null, effort: r.effort || null }
+
+  it('un built-in conserva su modelo y su esfuerzo', () => {
+    const g = guardado({ id: 'qa', name: 'Nami', enabled: true, model: 'claude-haiku-4-5', effort: 'low' })
+    expect(g.model).toBe('claude-haiku-4-5')
+    expect(g.effort).toBe('low')
+  })
+
+  it('un rol personalizado también', () => {
+    const g = guardado({ id: 'x', name: 'Ana', enabled: true, custom: true, model: 'claude-opus-5[1m]', effort: 'max' })
+    expect(g.model).toBe('claude-opus-5[1m]')
+    expect(g.effort).toBe('max')
+  })
+
+  it('sin elección propia queda null, que es «usa el global»', () => {
+    const g = guardado({ id: 'dev', name: 'Luffy', enabled: true })
+    expect(g.model).toBe(null)
+    expect(g.effort).toBe(null)
+  })
+})

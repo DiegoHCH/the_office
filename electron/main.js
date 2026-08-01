@@ -783,8 +783,20 @@ ipcMain.handle('squad:save', (_e, { profile, roster }) => {
             hair: r.hair || '#1f2937',
             focus: r.focus || '',
             kw: r.kw || '',
+            // el modelo y el esfuerzo propios son del rol, no del catálogo, así
+            // que si no se guardan aquí se pierden en el siguiente guardado
+            model: r.model || null,
+            effort: r.effort || null,
           }
-        : { id: r.id, name: r.name, enabled: !!r.enabled, avatar: r.avatar || null, custom: false },
+        : {
+            id: r.id,
+            name: r.name,
+            enabled: !!r.enabled,
+            avatar: r.avatar || null,
+            custom: false,
+            model: r.model || null,
+            effort: r.effort || null,
+          },
     )
     // Built-ins borrables que ya NO están en el roster → tombstone para que
     // getSquad no los re-agregue. Los protegidos nunca se marcan como borrados.
