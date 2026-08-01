@@ -1473,16 +1473,70 @@ export default function App() {
     }
   }
 
-  const changeProfile = (p) => {
+  // Escritorio de cada cuenta: sus pestañas y todo lo que cuelga de ellas. Se
+  // guarda al salir y se restaura al volver, así que cambiar de cuenta no
+  // interrumpe lo que tenías abierto en la otra.
+  const escritoriosRef = useRef({})
+
+  const changeProfile = async (p) => {
     if (p === profile) return
+    // Cambiar de cuenta con el squad trabajando dejaría ese trabajo huérfano: su
+    // stream sigue vivo, y al volver aterrizaría con las sesiones de otra cuenta.
+    if (busy) return showToast(t('toast.profileBusy'))
+    // guardar el escritorio de la cuenta que se deja
+    snapshotTab()
+    escritoriosRef.current[profile] = {
+      tabs,
+      activeTab,
+      estados: tabStateRef.current,
+      tabDeRol: tabDeRolRef.current,
+      subs: subsRef.current,
+      subMeta: subMetaRef.current,
+      invitados,
+    }
     setProfile(p)
-    setProject(cfg?.projectsByProfile?.[p]?.[0]?.path || '')
     const proy = cfg?.projectsByProfile?.[p]?.[0]?.path || ''
+    setProject(proy)
     setModel(leerPref('oficina-model', p, proy) || cfg?.defaultModels?.[p] || FALLBACK_MODEL)
     setEffort(leerPref('oficina-effort', p, proy) || '')
     setWriteMode(leerPref('oficina-write', p, proy) !== '0')
     setTheme(localStorage.getItem(`oficina-theme-${p}`) || 'clasico') // tema por cuenta
-    clearConversation()
+
+    const suyo = escritoriosRef.current[p]
+    if (suyo) {
+      // volver a una cuenta la deja como la dejaste, con sus pestañas y su hilo
+      tabStateRef.current = suyo.estados || {}
+      tabDeRolRef.current = suyo.tabDeRol || {}
+      subsRef.current = suyo.subs || {}
+      subMetaRef.current = suyo.subMeta || {}
+      setInvitados(suyo.invitados || [])
+      setTabs(suyo.tabs)
+      setActiveTab(suyo.activeTab)
+      const st = (suyo.estados || {})[suyo.activeTab] || {}
+      setMessages(st.messages || [])
+      setChatFilter(null)
+      setConvTokens(st.tokens || { in: 0, out: 0, cache: 0 })
+      convIdRef.current = st.convId || null
+      sessionsRef.current = st.sessions || {}
+      queuesRef.current = st.queues || {}
+      editedPathsRef.current = st.editedPaths || []
+      ultimoRef.current = st.ultimo || null
+      syncQueues()
+      // las sesiones se restauran con la cuenta NUEVA, no con la del closure:
+      // `profile` todavía no ha cambiado en este render
+      await window.oficina?.setSession?.({ sessions: st.sessions || {}, profile: p, cwd: proy })
+    } else {
+      // primera vez en esta cuenta: escritorio limpio
+      tabStateRef.current = {}
+      tabDeRolRef.current = {}
+      subsRef.current = {}
+      subMetaRef.current = {}
+      colaAsientoRef.current = []
+      setInvitados([])
+      setTabs([{ id: 'tab-1', title: t('hud.new') }])
+      setActiveTab('tab-1')
+      clearConversation()
+    }
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
   }
