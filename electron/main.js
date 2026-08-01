@@ -617,10 +617,12 @@ function makeLineHandler(role, claveSesion, displayName) {
       // con veinte herramientas reporta millones de tokens: el monitor marcaba
       // 100% en el primer mensaje de la conversación. Aquí, además, se actualiza
       // mientras el turno avanza en vez de solo al final.
-      // …del PRINCIPAL. Un subagente tiene su propio contexto, así que su usage
-      // no dice nada de lo que ocupa esta conversación.
+      // El del PRINCIPAL es el que ocupa esta conversación. El de un subagente va
+      // marcado como suyo: no cuenta para el monitor, pero sirve para saber
+      // cuánto trabajo se hizo FUERA de este hilo, que es lo que justifica haber
+      // repartido.
       const sub = subDeMensaje(msg)
-      if (msg.message.usage && !sub) emit({ kind: 'ctx', role, usage: msg.message.usage })
+      if (msg.message.usage) emit({ kind: 'ctx', role, sub, usage: msg.message.usage })
       for (const block of msg.message.content) {
         // El texto del principal llega por deltas (stream_event) y NO se emite
         // aquí, o saldría dos veces. El de un subagente no: verificado contra el

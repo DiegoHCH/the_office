@@ -216,6 +216,9 @@ export default function App() {
   // orquestación porque esa
   // entrada se borra al terminar, y el historial se sigue guardando después.
   const subMetaRef = useRef({}) // tabId → { title, parentId }
+  // Pico de contexto de cada compañero, para poder decir cuánto se trabajó fuera
+  // del hilo. Se acumula por turno y se vacía al empezar el siguiente.
+  const picoSubRef = useRef({})
 
   // Abre el sitio de un subagente: su pestaña, su puesto y sus metadatos. Se
   // llama al verlo arrancar y TAMBIÉN al recibir trabajo suyo del que no había
@@ -859,6 +862,13 @@ export default function App() {
           }
           if (isP) setStatus(t('status.thinking'))
         } else if (e.kind === 'ctx') {
+          // El de un compañero NO toca el monitor —tiene su propio contexto— pero
+          // se guarda su pico: la suma es el trabajo que no tuvo que caber en
+          // este hilo, y es lo único que dice si repartir sirvió de algo.
+          if (e.sub?.id) {
+            picoSubRef.current[e.sub.id] = Math.max(picoSubRef.current[e.sub.id] || 0, contextoUsado(e.usage))
+            return
+          }
           // ocupación real del contexto: la de la última llamada a la API
           setCtxUsado(contextoUsado(e.usage))
         } else if (e.kind === 'todos') {
@@ -932,14 +942,19 @@ export default function App() {
           delete editedRef.current[who]
           const thinking = pendingThinkingRef.current[who] || null
           delete pendingThinkingRef.current[who]
+          // Lo que se trabajó FUERA de este hilo: la suma de lo que llegó a
+          // ocupar cada compañero. Es la respuesta a «¿sirvió de algo repartir?»
+          // — ese contexto habría tenido que caber aquí dentro.
+          const fuera = Object.values(picoSubRef.current).reduce((a, b) => a + b, 0)
+          picoSubRef.current = {}
           enTab(who, (ms) => {
             const idx = ms.findLastIndex((m) => m.role === 'assistant' && m.who === who && m.streaming)
             if (idx >= 0) {
               const copy = [...ms]
-              copy[idx] = { ...copy[idx], streaming: false, usage, dur, edited, thinking }
+              copy[idx] = { ...copy[idx], streaming: false, usage, dur, edited, thinking, fuera }
               return copy
             }
-            return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, dur, edited, thinking }] : ms
+            return e.result ? [...ms, { role: 'assistant', who, text: e.result, usage, dur, edited, thinking, fuera }] : ms
           })
           // La ocupación del contexto NO se calcula aquí: el usage del `result` es
           // el acumulado del turno, no lo que ocupa el contexto. Llega por 'ctx',
@@ -4989,11 +5004,19 @@ export default function App() {
                   m.text
                 )}
                 {m.streaming ? '▍' : ''}
-                {(m.usage || m.dur > 0) && (
+                {(m.usage || m.dur > 0 || m.fuera > 0) && (
                   <div className="msg-tokens" title={m.usage ? usageTitle(m.usage) : ''}>
                     {m.usage && t('chat.tokens', { n: fmtTokens(usageTotal(m.usage)) })}
                     {m.usage && m.dur > 0 && ' · '}
                     {m.dur > 0 && <span title={t('chat.tookTitle')}>⏱ {fmtElapsed(m.dur)}</span>}
+                    {/* lo que se trabajó fuera de este hilo: es la respuesta a
+                        «¿sirvió repartir?», y sin el dato se reparte a ciegas */}
+                    {m.fuera > 0 && (
+                      <>
+                        {' · '}
+                        <span title={t('chat.outsideTitle')}>👥 {t('chat.outside', { n: fmtTokens(m.fuera) })}</span>
+                      </>
+                    )}
                   </div>
                 )}
                 {m.role === 'assistant' && !m.streaming && !m.error && (
