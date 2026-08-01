@@ -33,7 +33,9 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🔎 Revisor PR** — corre tus skills de PR de punta a punta (self-review + `push` + `gh pr create` + tracking en Jira/Slack vía conectores MCP).
 - **🚀 Publicador** — sube tus documentos a **GitHub Pages** (crea el repo si no existe, genera el índice y devuelve la URL), siempre con confirmación previa.
 - **🧠 Modelo por agente** — cada rol puede fijar su modelo (UI/UX con Opus, QA con Haiku…); el selector global queda de default.
+- **🎚 Nivel de esfuerzo** — cuánto razona antes de responder (`bajo` … `máximo`), con herencia perfil→proyecto. Por defecto usa el del CLI, así que no cambia nada si no lo tocas.
 - **📢 Broadcast** — `@todos <mensaje>` envía el mismo prompt a todos los agentes libres a la vez.
+- **👥 Repartir el trabajo** — un encargo con partes independientes se reparte entre compañeros, cada uno con su propio contexto. Toman un puesto en la oficina y abren **su pestaña**, titulada con lo que se les encargó; los personajes salen del equipo (incluidos miembros inactivos, que entran para esto y se van al acabar). Máximo cinco a la vez — hay seis sillas y quien reparte ocupa una. El que reparte espera y cierra con el resumen.
 
 ### Superpoderes (skills, plugins y MCP)
 - **🧩 Skills por perfil** — catálogo curado del repo oficial de Anthropic con recomendaciones por cargo (frontend design para UI/UX, testing para QA, Word/PDF/PowerPoint/Excel para Docs…), instalación desde **cualquier repo de GitHub** (detecta los `SKILL.md` adentro) y **crear skills propias** con el esqueleto listo. Se instalan en el `CLAUDE_CONFIG_DIR` del perfil: los agentes las usan solos.
@@ -48,6 +50,7 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente, con **cronómetro**, su **checklist 📝 en tiempo real** (TodoWrite) y **🪙 tokens por tarea** (acumulado en el monitor); botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones.
 - **🔀 Vista de diff** — si la tarea editó archivos, la respuesta ofrece el `git diff` coloreado del proyecto.
 - **🔍 Buscar en la conversación** — ⌘F con n/total y navegación entre coincidencias.
+- **🧠 Traspaso de contexto** — al 85% de la ventana del modelo, un aviso ofrece continuar en un chat nuevo: pide el resumen a quien viene trabajando y lo deja en el composer sin enviarlo. Antes del tope a propósito: al llenarse, Claude resume solo y se pierde el detalle.
 - **💬 Citar** — selecciona un fragmento de una respuesta y pásalo al composer como cita.
 - **⚠️ Aviso de colisión** — si dos agentes van a editar el mismo repo a la vez, la app avisa.
 - **🔁 Errores recuperables** — si `claude` falla, el error llega al chat **con el stderr** y un botón Reintentar; cualquier mensaje tuyo se puede **✏️ editar y reenviar**.
