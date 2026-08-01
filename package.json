@@ -12,7 +12,7 @@
     "preview": "vite preview",
     "start": "NODE_ENV=production electron .",
     "dist:app": "vite build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir",
-    "dist:mac": "vite build && electron-builder --mac dmg",
+    "dist:mac": "vite build && electron-builder --mac dmg zip",
     "dist:win": "vite build && electron-builder --win nsis",
     "test": "vitest run",
     "lint": "eslint .",
@@ -38,7 +38,8 @@
     "mac": {
       "target": [
         "dir",
-        "dmg"
+        "dmg",
+        "zip"
       ],
       "hardenedRuntime": true,
       "icon": "build/icon.icns",
@@ -66,12 +67,18 @@
       "dist/models/**",
       "dist/textures/**",
       "dist/*.svg"
-    ]
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "DiegoHCH",
+      "repo": "the_office"
+    }
   },
   "dependencies": {
     "@react-three/drei": "^9.114.0",
     "@react-three/fiber": "^8.17.10",
     "@react-three/postprocessing": "^2.19.1",
+    "electron-updater": "^6.8.9",
     "highlight.js": "^11.11.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

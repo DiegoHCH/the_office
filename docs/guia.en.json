@@ -462,5 +462,9 @@
   "—así conservas el hilo viejo para consultarlo— o": "— that way you keep the old thread to refer back to — or",
   "seguir aquí": "stay here",
   ", que arranca de cero en la misma pestaña y te la deja con su nombre y su sitio.": ", which starts fresh in the same tab and keeps its name and position.",
-  ", que arranca de cero en la misma pestaña y te la deja con su nombre y su sitio. Conviene hacerlo": ", which starts fresh in the same tab and keeps its name and position. Best done"
+  ", que arranca de cero en la misma pestaña y te la deja con su nombre y su sitio. Conviene hacerlo": ", which starts fresh in the same tab and keeps its name and position. Best done",
+  "Actualizaciones 🔄": "Updates 🔄",
+  "La app se actualiza sola: comprueba al arrancar, descarga la versión nueva en segundo plano y te avisa cuando está lista.": "The app updates itself: it checks on startup, downloads the new version in the background and tells you when it is ready.",
+  "No se reinicia por su cuenta": "It does not restart on its own",
+  "— se aplica cuando tú lo decidas, porque reiniciar a mitad de una tarea sería perderla. Si algo falla (sin red, o un release publicado a mano sin sus metadatos), se cae al aviso de siempre: te notifica y te descarga el instalador.": "— it is applied when you decide, because restarting mid-task would lose it. If anything fails (no network, or a release published by hand without its metadata), it falls back to the old notice: it tells you and downloads the installer."
 }

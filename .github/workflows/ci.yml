@@ -121,6 +121,10 @@ jobs:
           echo "— ticket de notarización —"
           xcrun stapler validate "$APP" 2>&1 || echo "sin ticket"
 
+      # El auto-update necesita los TRES: el zip es lo que instala electron-updater
+      # en macOS —no puede autoinstalar desde un DMG—, latest-mac.yml es cómo se
+      # entera de que hay versión nueva, y el DMG es lo que descarga quien
+      # instala a mano por primera vez. Si falta el yml, la app se cae al aviso.
       # --clobber pisa el asset que ya esté subido. Desde que la app se firma,
       # un DMG sin firmar es peor que ninguno: reemplazaría uno bueno subido a
       # mano por otro que macOS pone en cuarentena. Así que sin certificado no
@@ -130,8 +134,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "$GITHUB_REF_NAME" release/*.dmg --clobber ||
-            gh release create "$GITHUB_REF_NAME" release/*.dmg \
+          gh release upload "$GITHUB_REF_NAME" release/*.dmg release/*-mac.zip release/latest-mac.yml --clobber ||
+            gh release create "$GITHUB_REF_NAME" release/*.dmg release/*-mac.zip release/latest-mac.yml \
               --title "La Oficina $GITHUB_REF_NAME" --generate-notes
       - name: Avisar que el binario hay que subirlo a mano
         if: env.firmado == 'no'

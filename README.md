@@ -154,7 +154,7 @@ npm run dist:app       # build rápido sin instalador (carpeta .app)
 
 Instalando el `.dmg`: ábrelo y arrastra **La Oficina** a Aplicaciones.
 
-La app va firmada con Developer ID, así que ya no aparece el *"está dañada"* que obligaba a rescatarla con `xattr -cr`. Falta el ticket de notarización, y hasta que esté macOS dirá que *no pudo verificarla*: la primera vez ábrela con **clic derecho → Abrir** y confirma. Una sola vez; después arranca normal.
+La app se **actualiza sola**: comprueba al arrancar, descarga en segundo plano y te avisa cuando está lista — sin reiniciarse por su cuenta. Va firmada con Developer ID, así que ya no aparece el *"está dañada"* que obligaba a rescatarla con `xattr -cr`. Falta el ticket de notarización, y hasta que esté macOS dirá que *no pudo verificarla*: la primera vez ábrela con **clic derecho → Abrir** y confirma. Una sola vez; después arranca normal.
 
 ### Hablarle al squad
 

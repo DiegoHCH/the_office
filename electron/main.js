@@ -2519,6 +2519,50 @@ function downloadUpdate(dmgUrl, version) {
   ses.downloadURL(dmgUrl)
 }
 
+// ── Auto-update ─────────────────────────────────────────────────────────────
+// Descarga la versión nueva en segundo plano y la instala al reiniciar, en vez
+// de dejarte un DMG que hay que arrastrar a mano. Solo es posible desde que la
+// app va firmada y notarizada: macOS no deja reemplazar una app por otra que no
+// pueda verificar, y por eso esto llevaba parado desde la v1.0.
+//
+// Si algo falla —sin red, sin metadatos en el release, una versión publicada a
+// mano sin `latest-mac.yml`— se cae al aviso de siempre, que descarga el DMG y
+// abre el instalador. Preferible a no enterarse de que hay versión nueva.
+function iniciaAutoUpdate() {
+  if (isDev) return false // el dev comparte userData con la app instalada
+  let updater
+  try {
+    updater = require('electron-updater').autoUpdater
+  } catch {
+    return false
+  }
+  updater.autoDownload = true
+  // Instalar sin avisar sería reiniciarle la app a alguien con un agente
+  // trabajando: se descarga sola y se aplica cuando la persona decida.
+  updater.autoInstallOnAppQuit = true
+  updater.on('update-downloaded', (info) => {
+    const v = info?.version || ''
+    if (!Notification.isSupported()) return
+    const n = new Notification({
+      title: 'La Oficina',
+      body: `v${v} lista para instalar. Clic para reiniciar y aplicarla.`,
+    })
+    n.on('click', () => {
+      // isSilent false: si la instalación pide algo, que se vea
+      try {
+        updater.quitAndInstall(false, true)
+      } catch {}
+    })
+    n.show()
+  })
+  updater.on('error', (err) => {
+    console.log('[oficina] auto-update no disponible:', err?.message || err)
+    checkForUpdates() // el camino de siempre
+  })
+  updater.checkForUpdates().catch(() => checkForUpdates())
+  return true
+}
+
 // Aviso de nueva versión (sin auto-update): consulta el último release de
 // GitHub en cada arranque y notifica como mucho una vez por versión (se
 // recuerda la última notificada). Clic en la notificación descarga el DMG
@@ -2629,7 +2673,10 @@ app.whenReady().then(() => {
       win.webContents.send('claude:event', { kind: 'focus-composer' })
     })
   } catch {}
-  setTimeout(checkForUpdates, 5000) // sin estorbar el arranque
+  // auto-update si se puede; si no, el aviso de siempre
+  setTimeout(() => {
+    if (!iniciaAutoUpdate()) checkForUpdates()
+  }, 5000) // sin estorbar el arranque
   if (!isDev) {
     protocol.handle('app', (req) => {
       let p = decodeURIComponent(new URL(req.url).pathname)
