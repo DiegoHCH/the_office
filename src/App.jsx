@@ -15,6 +15,7 @@ import { routeMessage, detectHandoff } from './lib/routing.js'
 import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n.js'
 import { prefKey, leerPref } from './lib/prefs.js'
 import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
+import { paraElPanel } from './lib/historial.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -2146,28 +2147,8 @@ export default function App() {
     return () => clearTimeout(timer)
   }, [histQuery, histOpen])
 
-  // filtro por título/proyecto o por contenido; 📌 arriba
-  const histFiltered = (histQuery.trim()
-    ? histList.filter((h) => norm(`${h.title || ''} ${h.project || ''}`).includes(norm(histQuery)) || histContent[h.id])
-    : histList
-  ).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
-
-  // Las conversaciones de subagentes van DEBAJO de la que las repartió, no
-  // sueltas por fecha: por sí solas no se entienden —«comparar X vs Y» sin saber
-  // de qué encargo salió—. Una huérfana (madre borrada o filtrada) se queda al
-  // primer nivel en vez de desaparecer.
-  const histAnidado = (() => {
-    const hijas = new Map()
-    for (const h of histFiltered) if (h.parentId) hijas.set(h.parentId, [...(hijas.get(h.parentId) || []), h])
-    const ids = new Set(histFiltered.map((h) => h.id))
-    const out = []
-    for (const h of histFiltered) {
-      if (h.parentId && ids.has(h.parentId)) continue // se pinta bajo su madre
-      out.push(h)
-      for (const c of hijas.get(h.id) || []) out.push(c)
-    }
-    return out
-  })()
+  // lo que ve el panel: filtrado y anidado (lib/historial.js, con sus tests)
+  const histAnidado = paraElPanel(histList, histQuery, histContent)
 
   // renombrar inline
   const [renaming, setRenaming] = useState(null) // {id, val} | null
@@ -4724,7 +4705,7 @@ export default function App() {
                 autoFocus
               />
             )}
-            {histFiltered.length === 0 && (
+            {histAnidado.length === 0 && (
               <div className="hist-empty">{histList.length ? t('hist.noResults') : t('hist.empty')}</div>
             )}
             {histAnidado.map((h) => (
