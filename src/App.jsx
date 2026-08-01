@@ -8,7 +8,7 @@ import { popSound, dingSound, buzzSound, setSoundEnabled } from './sound.js'
 import { NONHUMAN_AVATARS } from './scene/avatarThumbs.js'
 import {
   fmtReset, autoGrow, fmtElapsed, fmtTokens, usageTotal, usageTitle, norm, escRe, extractOptions,
-  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, asignaSubagente, modelLabelOf, contextoUsado,
+  MODEL_OPTIONS, MODEL_ALIASES, FALLBACK_MODEL, EFFORTS, asignaSubagente, modelLabelOf, contextoUsado, tocaTraspasar,
 } from './lib/helpers.js'
 import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avatarLabel, SQUAD_PRESETS } from './data/roles.js'
 import { routeMessage, detectHandoff } from './lib/routing.js'
@@ -903,6 +903,13 @@ export default function App() {
           // se acumula y se engancha al mensaje del agente cuando termine
           pendingThinkingRef.current[who] = (pendingThinkingRef.current[who] || '') + e.text
         } else if (e.kind === 'done') {
+          // El resumen de traspaso ES la respuesta de este turno: se guarda para
+          // abrirlo en un chat nuevo. No se hace aquí mismo porque cambiar de
+          // pestaña ahora leería un `messages` que aún no ha llegado al estado.
+          if (traspasoRef.current === who && e.result) {
+            traspasoRef.current = null
+            setTraspasoTexto(e.result)
+          }
           // Un subagente no sobrevive al turno del que lo lanzó: si su cierre no
           // llegó —el aviso se pierde, el turno se corta, lo que sea— se quedaba
           // trabajando en la escena para siempre, con su cronómetro corriendo.
@@ -1368,6 +1375,7 @@ export default function App() {
     handoffsRef.current = []
     editedPathsRef.current = []
     ultimoRef.current = null
+    setAvisoCtxOff(false) // el aviso de contexto se descarta por hilo, no para siempre
     window.oficina?.reset?.()
   }
 
@@ -1477,6 +1485,46 @@ export default function App() {
   // guarda al salir y se restaura al volver, así que cambiar de cuenta no
   // interrumpe lo que tenías abierto en la otra.
   const escritoriosRef = useRef({})
+
+  // Traspaso de hilo antes de que el contexto se llene. El aviso se descarta por
+  // conversación: si lo cierras, no vuelve a salir en este hilo — pero al abrir
+  // uno nuevo empieza de cero, porque ahí la decisión es otra.
+  const [avisoCtxOff, setAvisoCtxOff] = useState(false)
+  const traspasoRef = useRef(null) // rol al que se le pidió el resumen
+  const [traspasoTexto, setTraspasoTexto] = useState(null)
+  const avisaContexto = tocaTraspasar(ctxUsado, model) && !avisoCtxOff && messages.length > 0
+
+  useEffect(() => {
+    if (!traspasoTexto) return
+    ;(async () => {
+      await addTab()
+      // se deja en el composer y NO se envía: es un resumen generado por un
+      // modelo sobre una conversación larga, y merece una lectura antes de
+      // convertirse en el punto de partida del hilo nuevo
+      setInput(traspasoTexto)
+      inputRef.current?.focus()
+      showToast(t('ctx.ready'), 7000)
+      setTraspasoTexto(null)
+    })()
+  }, [traspasoTexto])
+
+  const pedirTraspaso = () => {
+    // se le pide a quien viene trabajando en el hilo: es quien tiene el contexto
+    const target = ultimoRef.current || principal
+    if (roleStates[target]) return showToast(t('ctx.busy'))
+    if (!convIdRef.current) convIdRef.current = crypto.randomUUID()
+    traspasoRef.current = target
+    setAvisoCtxOff(true)
+    showToast(t('ctx.asking'))
+    dispatchJob({
+      id: crypto.randomUUID(),
+      target,
+      text: t('ctx.prompt'),
+      display: t('ctx.prompt'),
+      prompt: t('ctx.prompt'),
+      atts: [],
+    })
+  }
 
   const changeProfile = async (p) => {
     if (p === profile) return
@@ -4685,6 +4733,20 @@ export default function App() {
         {doneChip && (
           <div className="toolchip" key={doneChip}>
             {doneChip}
+          </div>
+        )}
+
+        {/* Aviso de contexto casi lleno. Con acción, no solo con alarma: sin el
+            botón el usuario sabe que va a perder el hilo pero no qué hacer. */}
+        {avisaContexto && (
+          <div className="ctxwarn">
+            <span className="ctxwarn-txt">{t('ctx.nearLimit')}</span>
+            <button type="button" className="ctxwarn-go" onClick={pedirTraspaso} title={t('ctx.handoffTitle')}>
+              {t('ctx.handoff')}
+            </button>
+            <button type="button" className="ctxwarn-x" onClick={() => setAvisoCtxOff(true)}>
+              {t('ctx.later')}
+            </button>
           </div>
         )}
 

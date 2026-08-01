@@ -96,6 +96,18 @@ const VENTANAS = {
 }
 export const ventanaDe = (id) => VENTANAS[id] ?? (id?.includes('haiku') ? 200_000 : 1_000_000)
 
+// A partir de aquí conviene traspasar el hilo a un chat nuevo. El 85% no es
+// redondeo: cuando Claude llega al tope compacta solo, y compactar RESUME —el
+// agente conserva la conclusión pero pierde el detalle, y eso se nota justo en
+// las conversaciones largas, que son las que más caro sale rehacer. Avisar antes
+// deja margen para pedir un traspaso ordenado mientras el contexto aún lo tiene
+// todo. Ni tan pronto que moleste, ni tan tarde que ya se haya perdido nada.
+export const UMBRAL_TRASPASO = 85
+export const tocaTraspasar = (usado, modelo) => {
+  const v = ventanaDe(modelo)
+  return v > 0 && (usado / v) * 100 >= UMBRAL_TRASPASO
+}
+
 // Tokens realmente enviados en el último turno = ocupación del contexto.
 export const contextoUsado = (u) =>
   (u?.input_tokens || 0) + (u?.cache_read_input_tokens || 0) + (u?.cache_creation_input_tokens || 0)

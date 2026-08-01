@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ventanaDe, contextoUsado } from './helpers.js'
+import { ventanaDe, contextoUsado, tocaTraspasar } from './helpers.js'
 
 describe('ventanaDe', () => {
   it('Haiku tiene 200k y el resto 1M', () => {
@@ -51,5 +51,29 @@ describe('el acumulado del turno no es la ocupación del contexto', () => {
     // 3,5× en un turno de cuatro llamadas; con decenas de lecturas, pasa del 100%
     expect(acumuladoDelResult / llamadas.at(-1)).toBeGreaterThan(3)
     expect(acumuladoDelResult / ventanaDe('opus-1m')).toBeGreaterThan(0) // no revienta con alias raros
+  })
+})
+
+// Aviso de traspaso: cuando el contexto se acerca al tope, conviene pasar el
+// hilo a un chat nuevo ANTES de que Claude compacte solo, porque compactar
+// resume y el detalle de una conversación larga es justo lo que cuesta rehacer.
+describe('tocaTraspasar', () => {
+  const M = 1_000_000
+
+  it('no avisa mientras sobra sitio', () => {
+    expect(tocaTraspasar(0, 'claude-opus-5[1m]')).toBe(false)
+    expect(tocaTraspasar(M * 0.5, 'claude-opus-5[1m]')).toBe(false)
+    expect(tocaTraspasar(M * 0.84, 'claude-opus-5[1m]')).toBe(false)
+  })
+
+  it('avisa a partir del umbral, no cuando ya es tarde', () => {
+    expect(tocaTraspasar(M * 0.85, 'claude-opus-5[1m]')).toBe(true)
+    expect(tocaTraspasar(M * 0.99, 'claude-opus-5[1m]')).toBe(true)
+  })
+
+  it('se mide contra la ventana del modelo, no contra un número fijo', () => {
+    // 180k es el 90% de un Haiku (200k) y el 18% de un Opus 1M
+    expect(tocaTraspasar(180_000, 'claude-haiku-4-5')).toBe(true)
+    expect(tocaTraspasar(180_000, 'claude-opus-5[1m]')).toBe(false)
   })
 })
