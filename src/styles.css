@@ -1252,6 +1252,29 @@ select.squad-model {
 /* iconos del selector de contexto (perfiles y carpetas) */
 .ctx-ico { display: inline-flex; align-items: center; vertical-align: -3px; margin-right: 6px; color: var(--accent-2); }
 .ctx-item { display: flex; align-items: center; }
+/* Fila del desplegable: el proyecto y su ✕. El ✕ solo aparece al pasar por
+   encima — está siempre presente pero no compite con el nombre. */
+.ctx-row { display: flex; align-items: center; gap: 2px; }
+.ctx-row > .ctx-item { flex: 1; min-width: 0; }
+/* Un proyecto que vive dentro de otro se ve dentro. La línea marca la relación
+   sin necesidad de explicarla. */
+.ctx-row.hijo > .ctx-item { margin-left: 14px; border-left: 1px solid var(--line, rgba(255, 255, 255, 0.12)); padding-left: 10px; }
+.ctx-del {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  opacity: 0;
+  cursor: pointer;
+}
+.ctx-row:hover .ctx-del { opacity: 0.5; }
+.ctx-del:hover { opacity: 1; background: rgba(255, 255, 255, 0.1); }
 .ctx-item.on .ctx-ico, .ctx-tab.on .ctx-ico { color: var(--accent); }
 .ctx-add .ctx-ico { color: var(--accent); }
 /* iconos inline dentro de botones y etiquetas: alineados con el texto */

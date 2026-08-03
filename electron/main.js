@@ -47,6 +47,8 @@ const {
   tocaLimpiarCache,
   CACHE_MAX,
   clavesDeSesion,
+  quitaProyecto,
+  agregaProyecto,
 } = require('./lib/core.js')
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -710,20 +712,49 @@ function getCustomProjects(profile) {
     return []
   }
 }
+// Proyectos que el usuario quitó de la lista. Los detectados (subcarpetas de la
+// raíz del perfil) se recalculan leyendo el disco, así que la única forma de que
+// dejen de aparecer es recordar que se ocultaron.
+const hiddenProjectsFile = (profile) => path.join(app.getPath('userData'), `hidden-projects-${profile}.json`)
+function getHiddenProjects(profile) {
+  try {
+    return JSON.parse(fs.readFileSync(hiddenProjectsFile(profile), 'utf8'))
+  } catch {
+    return []
+  }
+}
+function guardaListas(profile, { custom, ocultos }) {
+  fs.writeFileSync(customProjectsFile(profile), JSON.stringify(custom, null, 2))
+  fs.writeFileSync(hiddenProjectsFile(profile), JSON.stringify(ocultos, null, 2))
+}
+
 ipcMain.handle('projects:add', async (_e, profile) => {
   const res = await dialog.showOpenDialog(win, { properties: ['openDirectory'], title: 'Agregar proyecto' })
   if (res.canceled || !res.filePaths[0]) return { ok: false }
   const dir = res.filePaths[0]
-  const list = getCustomProjects(profile)
-  if (!list.includes(dir)) {
-    list.push(dir)
-    try {
-      fs.writeFileSync(customProjectsFile(profile), JSON.stringify(list, null, 2))
-    } catch (err) {
-      return { ok: false, error: err.message }
-    }
+  try {
+    guardaListas(
+      profile,
+      agregaProyecto({ custom: getCustomProjects(profile), ocultos: getHiddenProjects(profile), path: dir })
+    )
+  } catch (err) {
+    return { ok: false, error: err.message }
   }
   return { ok: true, path: dir, name: path.basename(dir) }
+})
+
+ipcMain.handle('projects:remove', (_e, { profile, path: dir }) => {
+  if (!dir) return { ok: false, error: 'sin ruta' }
+  try {
+    const custom = getCustomProjects(profile)
+    guardaListas(
+      profile,
+      quitaProyecto({ custom, ocultos: getHiddenProjects(profile), path: dir, detectado: !custom.includes(dir) })
+    )
+  } catch (err) {
+    return { ok: false, error: err.message }
+  }
+  return { ok: true }
 })
 
 // Config para el renderer: perfiles, proyectos y modelos default.
@@ -739,24 +770,33 @@ ipcMain.handle('config:get', () => {
     const list = []
     for (const rootName of rootNames) {
       const root = path.join(home, rootName)
-      list.push({ name: `🗂 ${rootName}`, path: root })
+      // `raiz`/`padre`: la lista es plana pero el desplegable la pinta anidada.
+      // Un proyecto que vive DENTRO de otro debe verse dentro, no al lado: si no,
+      // `Workspace` y `Workspace/front-mobile-b2c` parecen dos sitios sin
+      // relación, y el segundo hereda el CLAUDE.md del primero.
+      list.push({ name: `🗂 ${rootName}`, path: root, raiz: true })
       try {
         fs.readdirSync(root, { withFileTypes: true })
           .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
           .forEach((d) =>
             list.push({
-              name: rootNames.length > 1 ? `${rootName}/${d.name}` : d.name,
+              name: d.name,
               path: path.join(root, d.name),
+              padre: root,
             })
           )
       } catch {}
     }
-    if (!list.length) list.push({ name: '🏠 Home', path: home })
     // proyectos añadidos a mano (📌): van al final, sin duplicar los detectados
     for (const cp of getCustomProjects(p)) {
       if (!list.some((x) => x.path === cp)) list.push({ name: `📌 ${path.basename(cp)}`, path: cp })
     }
-    projectsByProfile[p] = list
+    // los que el usuario quitó de la lista
+    const ocultos = new Set(getHiddenProjects(p))
+    let visibles = list.filter((x) => !ocultos.has(x.path))
+    // nunca dejarlo sin nada donde trabajar
+    if (!visibles.length) visibles = [{ name: '🏠 Home', path: home }]
+    projectsByProfile[p] = visibles
   }
   const defaultModels = {}
   for (const p of profiles) {

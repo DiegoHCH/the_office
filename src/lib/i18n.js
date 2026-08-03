@@ -19,6 +19,9 @@ const ES = {
   'hud.settingsKey': 'Configuración (⌘,)',
   'ctx.title': 'Perfil y proyecto',
   'ctx.addProject': 'Agregar proyecto…',
+  'ctx.removeProject': 'Quitar de la lista (no borra la carpeta)',
+  'toast.removedProject': '{{name}} ya no aparece en la lista',
+  'toast.removeProjectFail': 'No se pudo quitar el proyecto',
 
   // — composer —
   'composer.send': 'Enviar',
@@ -663,6 +666,9 @@ const EN = {
   'hud.settingsKey': 'Settings (⌘,)',
   'ctx.title': 'Profile and project',
   'ctx.addProject': 'Add project…',
+  'ctx.removeProject': 'Remove from list (does not delete the folder)',
+  'toast.removedProject': '{{name}} no longer shows in the list',
+  'toast.removeProjectFail': "Couldn't remove the project",
 
   'composer.send': 'Send',
   'composer.attach': 'Attach images or files',

@@ -1673,6 +1673,21 @@ export default function App() {
       showToast(t('toast.noGitOpen'), 6000)
     }
   }
+  // Quitar un proyecto de la lista del perfil. No toca el disco.
+  const removeProjectFlow = async (p) => {
+    const r = await window.oficina?.removeProject?.({ profile, path: p.path })
+    if (!r?.ok) return showToast(r?.error || t('toast.removeProjectFail'), 5000)
+    const c = await window.oficina?.getConfig?.()
+    if (c) setCfg(c)
+    // si era el que estabas usando, hay que irse a otro: seguir apuntando a un
+    // proyecto que ya no está en la lista deja la barra mintiendo
+    if (p.path === project) {
+      const queda = c?.projectsByProfile?.[profile]?.[0]?.path
+      if (queda) selectProject(queda)
+    }
+    showToast(t('toast.removedProject', { name: p.name.replace(/^(🗂|📌)\s*/, '') }))
+  }
+
   // "➕ Agregar proyecto…": picker de carpeta; se persiste por perfil
   const addProjectFlow = async () => {
     const res = await window.oficina?.addProject?.(profile)
@@ -3228,19 +3243,36 @@ export default function App() {
                   </div>
                 )}
                 {projects.map((p) => (
-                  <button
-                    key={p.path}
-                    type="button"
-                    className={p.path === project ? 'ctx-item on' : 'ctx-item'}
-                    title={p.path}
-                    onClick={() => {
-                      selectProject(p.path)
-                      setCtxOpen(false)
-                    }}
-                  >
-                    <span className="ctx-ico">{p.name.startsWith('📌') ? <IconPin size={15} /> : <IconFolder size={15} />}</span>
-                    {p.name.replace(/^(🗂|📌)\s*/, '')}
-                  </button>
+                  <div key={p.path} className={p.padre ? 'ctx-row hijo' : 'ctx-row'}>
+                    <button
+                      type="button"
+                      className={p.path === project ? 'ctx-item on' : 'ctx-item'}
+                      title={p.path}
+                      onClick={() => {
+                        selectProject(p.path)
+                        setCtxOpen(false)
+                      }}
+                    >
+                      <span className="ctx-ico">
+                        {p.name.startsWith('📌') ? <IconPin size={15} /> : <IconFolder size={15} />}
+                      </span>
+                      {p.name.replace(/^(🗂|📌)\s*/, '')}
+                    </button>
+                    {/* Quitarlo de la lista. No borra nada del disco: solo deja de
+                        ofrecerlo, y por eso el aviso lo dice explícitamente. */}
+                    <button
+                      type="button"
+                      className="ctx-del"
+                      title={t('ctx.removeProject')}
+                      aria-label={t('ctx.removeProject')}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeProjectFlow(p)
+                      }}
+                    >
+                      <IconClose size={11} />
+                    </button>
+                  </div>
                 ))}
                 <button
                   type="button"

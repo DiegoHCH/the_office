@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import core from './core.js'
 
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
-const { clavesDeSesion } = core
+const { clavesDeSesion, quitaProyecto, agregaProyecto } = core
 const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
 const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = core
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
@@ -1369,5 +1369,39 @@ describe('clavesDeSesion', () => {
   it('las sesiones vacías no ocupan clave', () => {
     const m = clavesDeSesion({ sessions: { dev: 's1', qa: null, pr: '' }, profile: 'work', cwd: '/p', home, existe })
     expect(m.size).toBe(1)
+  })
+})
+
+describe('quitar y agregar proyectos de la lista', () => {
+  it('un proyecto DETECTADO se recuerda como oculto: no hay de dónde borrarlo', () => {
+    // Los detectados son subcarpetas de la raíz del perfil y se recalculan
+    // leyendo el disco en cada arranque. Sin lista de ocultos volvían siempre.
+    const r = quitaProyecto({ custom: [], ocultos: [], path: '/w/copia-vieja', detectado: true })
+    expect(r.ocultos).toEqual(['/w/copia-vieja'])
+    expect(r.custom).toEqual([])
+  })
+
+  it('un proyecto añadido a mano se borra de su lista y NO se marca oculto', () => {
+    // Ocultarlo además sería una trampa: al volver a añadirlo con el picker
+    // seguiría sin aparecer, y eso es imposible de diagnosticar.
+    const r = quitaProyecto({ custom: ['/fuera/repo'], ocultos: [], path: '/fuera/repo', detectado: false })
+    expect(r.custom).toEqual([])
+    expect(r.ocultos).toEqual([])
+  })
+
+  it('volver a agregar un proyecto oculto lo devuelve a la vista', () => {
+    const r = agregaProyecto({ custom: [], ocultos: ['/w/proyecto'], path: '/w/proyecto' })
+    expect(r.ocultos).toEqual([])
+    expect(r.custom).toEqual(['/w/proyecto'])
+  })
+
+  it('agregar dos veces el mismo no lo duplica', () => {
+    const r = agregaProyecto({ custom: ['/w/p'], ocultos: [], path: '/w/p' })
+    expect(r.custom).toEqual(['/w/p'])
+  })
+
+  it('ocultar dos veces no duplica la entrada', () => {
+    const r = quitaProyecto({ custom: [], ocultos: ['/w/p'], path: '/w/p', detectado: true })
+    expect(r.ocultos).toEqual(['/w/p'])
   })
 })

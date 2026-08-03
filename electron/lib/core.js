@@ -844,8 +844,37 @@ function parsePathDeShell(salida) {
   return [...new Set(trozos.map((d) => d.trim()).filter((d) => d.startsWith('/')))]
 }
 
+// Quitar un proyecto de la lista de un perfil.
+//
+// Hay dos clases de proyecto y hay que tratarlas distinto: los añadidos a mano
+// (📌) se borran de su lista, y los DETECTADOS —subcarpetas de la raíz del
+// perfil— no se pueden borrar porque se recalculan leyendo el disco cada vez.
+// A esos hay que recordar que se ocultaron.
+//
+// Un proyecto oculto vuelve si se añade a mano: si el usuario lo busca con el
+// picker es porque lo quiere, y dejarlo oculto sería un fantasma imposible de
+// diagnosticar.
+function quitaProyecto({ custom = [], ocultos = [], path: ruta, detectado = true }) {
+  const enCustom = custom.includes(ruta)
+  return {
+    custom: custom.filter((p) => p !== ruta),
+    // si solo era custom, con quitarlo de ahí desaparece; ocultarlo además
+    // impediría volver a añadirlo
+    ocultos: detectado || !enCustom ? [...new Set([...ocultos, ruta])] : ocultos,
+  }
+}
+
+function agregaProyecto({ custom = [], ocultos = [], path: ruta }) {
+  return {
+    custom: custom.includes(ruta) ? custom : [...custom, ruta],
+    ocultos: ocultos.filter((p) => p !== ruta),
+  }
+}
+
 module.exports = {
   clavesDeSesion,
+  quitaProyecto,
+  agregaProyecto,
   sanitizeEnv,
   sessionKey,
   pickSafeMcp,

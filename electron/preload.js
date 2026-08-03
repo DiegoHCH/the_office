@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('oficina', {
   openTerminal: (cwd) => ipcRenderer.invoke('terminal:open', cwd),
   // Agrega un proyecto al perfil desde un picker de carpeta (persistido).
   addProject: (profile) => ipcRenderer.invoke('projects:add', profile),
+  removeProject: (data) => ipcRenderer.invoke('projects:remove', data),
   // Badge del Dock con el nº de agentes trabajando.
   dockBadge: (n) => ipcRenderer.invoke('dock:badge', n),
   // Guarda una imagen adjunta y devuelve su ruta local.
