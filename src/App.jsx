@@ -1444,6 +1444,18 @@ export default function App() {
     activeTabRef.current = activeTab
   }, [activeTab])
 
+  // La primera pestaña existe desde el arranque y nunca pasaba por `addTab`, así
+  // que se quedaba sin entrada hasta el primer cambio de pestaña.
+  useEffect(() => {
+    if (!project) return
+    // Se asigna siempre, no solo si falta: el proyecto de la pestaña activa ES
+    // el que está seleccionado. Si solo se rellenara cuando está vacío, cambiar
+    // de proyecto en una pestaña vacía dejaría el valor viejo guardado.
+    const st = tabStateRef.current[activeTabRef.current]
+    if (st) st.project = project
+    else tabStateRef.current[activeTabRef.current] = { messages: [], project, convId: null, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
+  }, [project])
+
   const snapshotTab = () => {
     tabStateRef.current[activeTab] = {
       messages,
@@ -1508,12 +1520,17 @@ export default function App() {
   /// su instantánea.
   const proyectoDeTab = (id) => (id === activeTab ? project : tabStateRef.current[id]?.project || '')
 
-  const addTab = async () => {
+  const addTab = async (suProyecto = project) => {
     snapshotTab()
     const id = `tab-${Date.now()}`
+    // Se registra YA, no al abandonarla: hasta ahora el estado de una pestaña
+    // solo se escribía al salir de ella, así que si volvías antes de haber
+    // salido no había proyecto que restaurar y se quedaba el de la otra.
+    tabStateRef.current[id] = { messages: [], project: suProyecto, convId: null, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
     setTabs((prev) => [...prev, { id, title: t('hud.new') }])
     setActiveTab(id)
     clearConversation()
+    return id
   }
   const closeTab = async (e, id) => {
     e.stopPropagation()
@@ -1689,7 +1706,7 @@ export default function App() {
     // pestaña y el proyecto nuevo abre otra. Antes `clearConversation()` borraba
     // el hilo y sus sesiones, así que pasar de desarrollo a release perdía la
     // conversación de desarrollo — justo el caso de tener un clon por workflow.
-    if (messages.length) await addTab()
+    if (messages.length) await addTab(v)
     else clearConversation()
     setProject(v)
     const suEdicion = aplicaPrefsDeProyecto(v)
