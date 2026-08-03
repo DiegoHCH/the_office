@@ -3236,7 +3236,6 @@ export default function App() {
             type="button"
             className="ctxbtn"
             onClick={() => setCtxOpen((o) => !o)}
-            disabled={busy}
             title={t('ctx.title')}
           >
             <span className="ctx-ico">{profile === 'work' ? <IconWork size={16} /> : profile === 'private' ? <IconPrivate size={16} /> : <IconPerson size={16} />}</span> {profile}
@@ -3257,6 +3256,12 @@ export default function App() {
                         key={p}
                         type="button"
                         className={p === profile ? 'ctx-tab on' : 'ctx-tab'}
+                        // El PROYECTO se puede cambiar con gente trabajando: el
+                        // proceso ya arrancó con su directorio y su hilo se queda
+                        // en su pestaña. La CUENTA no: cambia el
+                        // CLAUDE_CONFIG_DIR, el squad y el escritorio entero.
+                        disabled={busy && p !== profile}
+                        title={busy && p !== profile ? t('ctx.profileBusy') : ''}
                         onClick={() => changeProfile(p)}
                       >
                         <span className="ctx-ico">
