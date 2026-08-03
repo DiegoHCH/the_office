@@ -21,7 +21,7 @@ const VERBO = {
 const hora = (ms) =>
   ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''
 
-export default function ActividadPanel({ open, onClose, pasos = [], proyecto = '', memberOf, trabajando = false }) {
+export default function ActividadPanel({ open, onClose, pasos = [], proyecto = '', memberOf, trabajando = false, conversacion = '' }) {
   const finRef = useRef(null)
   const cajaRef = useRef(null)
   const pegadoRef = useRef(true)
@@ -42,7 +42,13 @@ export default function ActividadPanel({ open, onClose, pasos = [], proyecto = '
   return (
     <div className="drawer over">
       <div className="drawer-head">
-        <b>{t('panel.activity')}</b>
+        {/* De qué conversación es. El panel sigue a la pestaña activa, así que al
+            cambiar de pestaña cambia lo que muestra: sin decir de quién es, ese
+            cambio parecería que el rastro se ha borrado. */}
+        <b>
+          {t('panel.activity')}
+          {conversacion && <span className="act-de"> · {conversacion}</span>}
+        </b>
         <button onClick={() => onClose()} title={t('panel.back')}>
           <IconClose size={16} />
         </button>

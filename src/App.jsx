@@ -903,15 +903,20 @@ export default function App() {
         } else if (e.kind === 'todos') {
           setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
         } else if (e.kind === 'tool') {
-          actividadRef.current = registra(actividadRef.current, {
-            t: Date.now(),
-            role: who,
-            name: e.name,
-            detail: e.detail || '',
-            path: e.path || '',
-          })
-          // solo se refleja en el estado si hay alguien mirando
-          if (actOpen) setActividad(actividadRef.current)
+          // El rastro es de la CONVERSACIÓN, así que va a la pestaña de quien
+          // trabaja y no a la que estés mirando. Mismo patrón que las sesiones
+          // (arriba): un agente que sigue trabajando para otra pestaña mientras
+          // tú encargas algo aquí anotaría sus pasos en el rastro de esta.
+          const paso = { t: Date.now(), role: who, name: e.name, detail: e.detail || '', path: e.path || '' }
+          const suyaAct = tabDeRolRef.current[who]
+          if (suyaAct && suyaAct !== activeTabRef.current) {
+            const st = tabStateRef.current[suyaAct]
+            if (st) st.actividad = registra(st.actividad || [], paso)
+          } else {
+            actividadRef.current = registra(actividadRef.current, paso)
+            // solo se refleja en el estado si hay alguien mirando
+            if (actOpen) setActividad(actividadRef.current)
+          }
           setTool({ role: who, name: e.name, detail: e.detail || null })
           setAgentTool((prev) => ({ ...prev, [who]: e.name }))
           // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
@@ -3622,6 +3627,7 @@ export default function App() {
           proyecto={project}
           memberOf={memberOf}
           trabajando={busy}
+          conversacion={project ? project.split('/').pop() : ''}
         />
         <DiagPanel open={diagOpen} onClose={() => setDiagOpen(false)} rows={diagRows} text={diagText} memberOf={memberOf} onRefresh={openDiag} toast={showToast} />
 
