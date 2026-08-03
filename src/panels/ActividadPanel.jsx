@@ -18,8 +18,10 @@ const VERBO = {
   otro: t('act.uses'),
 }
 
+// En 24 h a propósito: «03:29:03 p. m.» se come un tercio del ancho de la fila,
+// y en un registro el meridiano no aporta nada.
 const hora = (ms) =>
-  ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''
+  ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }) : ''
 
 export default function ActividadPanel({ open, onClose, pasos = [], proyecto = '', memberOf, trabajando = false, conversacion = '' }) {
   const finRef = useRef(null)
@@ -40,7 +42,7 @@ export default function ActividadPanel({ open, onClose, pasos = [], proyecto = '
   const lista = familia ? pasos.filter((p) => p.familia === familia) : pasos
 
   return (
-    <div className="drawer over">
+    <div className="drawer over ancho col">
       <div className="drawer-head">
         {/* De qué conversación es. El panel sigue a la pestaña activa, así que al
             cambiar de pestaña cambia lo que muestra: sin decir de quién es, ese

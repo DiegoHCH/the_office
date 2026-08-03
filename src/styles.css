@@ -657,6 +657,15 @@ body {
 .drawer-head button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; }
 /* submenu (p. ej. Agentes): se apila ENCIMA del drawer normal, que queda
    abierto debajo y recupera el foco al cerrarlo */
+/* Variante ancha: el rastro de actividad son comandos y rutas, y a 420px se
+   cortan justo donde está la información. */
+.drawer.ancho { width: min(760px, 74%); }
+/* Variante en columna: el que scrollea es el contenido, no el cajón. Con el
+   cajón como scroller, el `onScroll` de la lista NUNCA se disparaba y el
+   «seguir el final» se quedaba pegado siempre — arrastrándote al final aunque
+   hubieras subido a leer algo, que es lo que se quería evitar. */
+.drawer.col { display: flex; flex-direction: column; overflow: hidden; }
+.drawer.col > .act-list { flex: 1; min-height: 0; }
 .drawer.over { z-index: 7; box-shadow: 0 10px 34px rgba(4, 10, 13, 0.55); }
 .hist-item {
   position: relative; padding: 10px 34px 10px 12px; border-radius: 14px; cursor: pointer;
@@ -1653,7 +1662,10 @@ select.squad-model {
 .act-tag.corre, .act-row.corre .act-verb { color: #c9a63d; }
 .act-tag.piensa, .act-row.piensa .act-verb { color: #8b5cf6; }
 
-.act-dirs { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 14px 10px; }
+/* Con el cajón sin scroll, muchas carpetas empujarían el registro fuera de la
+   vista. Se le da su propio tope y su propio scroll. */
+.act-dirs { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 14px 10px; max-height: 76px; overflow-y: auto; flex: 0 0 auto; }
+.act-sum, .drawer-head { flex: 0 0 auto; }
 .act-dirs code {
   font-family: var(--mono); font-size: 10.5px; color: var(--muted);
   background: var(--surface-2, rgba(255, 255, 255, 0.05));
@@ -1667,10 +1679,18 @@ select.squad-model {
   padding: 3px 0; font-family: var(--mono); font-size: 11.5px;
   border-bottom: 1px solid color-mix(in srgb, var(--line) 45%, transparent);
 }
-.act-time { color: var(--muted); opacity: 0.6; flex: none; font-variant-numeric: tabular-nums; }
+.act-time { color: var(--muted); opacity: 0.55; font-size: 10.5px; flex: none; font-variant-numeric: tabular-nums; }
 .act-who { flex: none; font-weight: 600; }
 .act-verb { flex: none; }
 /* El qué es lo importante: se queda con el espacio y se corta por el principio,
    porque el final de una ruta —el archivo— es lo que identifica la línea. */
-.act-what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: left; }
+/* Hasta dos líneas en vez de una cortada. Antes se recortaba por el principio
+   para dejar ver el final de las rutas, pero en un comando —que es la mayoría
+   de lo que sale aquí— eso esconde el propio comando: se veía
+   «…ego.hoyos/Workspace -maxdepth» sin saber qué se ejecutó. */
+.act-what {
+  flex: 1; min-width: 0; word-break: break-word;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.act-row { align-items: flex-start; }
 .act-veces { flex: none; color: var(--muted); opacity: 0.7; }
