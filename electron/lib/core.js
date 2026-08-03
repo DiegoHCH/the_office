@@ -845,6 +845,7 @@ function parsePathDeShell(salida) {
 }
 
 module.exports = {
+  clavesDeSesion,
   sanitizeEnv,
   sessionKey,
   pickSafeMcp,
@@ -896,3 +897,25 @@ module.exports = {
   ordenaDispositivos,
   tipoDeDispositivo,
 }
+
+// Claves de sesión para el mapa `rol::perfil::proyecto`.
+//
+// El directorio es POR ROL, no uno para todos: con una pestaña por proyecto,
+// cada personaje puede estar trabajando en un sitio distinto. Cuando esto
+// recibía un solo `cwd`, al cambiar de pestaña las sesiones ajenas se
+// registraban bajo el proyecto de la pestaña que abrías — y como el mapa se
+// reconstruye entero, eso además borraba las buenas. El síntoma era el peor
+// posible: el agente contestaba sin su contexto, o con el de otro proyecto, sin
+// un aviso por ningún lado.
+function clavesDeSesion({ sessions = {}, profile = 'work', cwd = '', cwds = {}, home = '', existe = () => true }) {
+  const dir = (role) => {
+    const d = cwds[role] || cwd
+    return d && existe(d) ? d : home
+  }
+  const out = new Map()
+  for (const [role, sid] of Object.entries(sessions)) {
+    if (sid) out.set(`${role}::${profile}::${dir(role)}`, sid)
+  }
+  return out
+}
+

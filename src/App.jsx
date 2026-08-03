@@ -323,7 +323,7 @@ export default function App() {
     const titulo = (desc || t('sub.working')).slice(0, 38)
     // convId propio desde que nace: el autosave del historial solo guarda la
     // pestaña ACTIVA y solo si tiene id, y tú estás mirando la del principal.
-    tabStateRef.current[tabId] = { messages: [], convId: tabId, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
+    tabStateRef.current[tabId] = { messages: [], project, convId: tabId, sessions: {}, queues: {}, editedPaths: [], ultimo: null, tokens: { in: 0, out: 0, cache: 0 } }
     // `fijo`: su título es el encargo y no debe seguir a la conversación. El
     // autotítulo usa el primer mensaje del USUARIO, y aquí no hay ninguno.
     setTabs((prev) => (prev.some((x) => x.id === tabId) ? prev : [...prev, { id: tabId, title: titulo, sub: true, fijo: true }]))
@@ -1427,6 +1427,10 @@ export default function App() {
   const snapshotTab = () => {
     tabStateRef.current[activeTab] = {
       messages,
+      // El proyecto es de la conversación, no de la ventana. Cada terminal
+      // lleva su `cd` pegado; una pestaña tiene que hacer lo mismo, o al
+      // volver a ella se contesta en el directorio equivocado.
+      project,
       convId: convIdRef.current,
       sessions: { ...sessionsRef.current },
       queues: { ...queuesRef.current },
@@ -1437,6 +1441,12 @@ export default function App() {
   }
   const restoreTab = async (id) => {
     const st = tabStateRef.current[id] || {}
+    // Su proyecto primero: lo que venga después (sesiones, cwd) depende de él.
+    const suProyecto = st.project || project
+    if (suProyecto !== project) {
+      setProject(suProyecto)
+      aplicaPrefsDeProyecto(suProyecto)
+    }
     setMessages(st.messages || [])
     setChatFilter(null)
     setConvTokens(st.tokens || { in: 0, out: 0, cache: 0 })
@@ -1449,10 +1459,24 @@ export default function App() {
     // los agentes que siguen trabajando para OTRA pestaña conservan su sesión:
     // limpiarla aquí haría que su siguiente turno arrancara sin contexto
     const enCurso = {}
+    const suyoDe = {} // proyecto de cada rol que trabaja para otra pestaña
     for (const [rol, tabId] of Object.entries(tabDeRolRef.current)) {
-      if (tabId && tabId !== id) enCurso[rol] = tabStateRef.current[tabId]?.sessions?.[rol]
+      if (tabId && tabId !== id) {
+        enCurso[rol] = tabStateRef.current[tabId]?.sessions?.[rol]
+        const proy = tabStateRef.current[tabId]?.project
+        if (proy) suyoDe[rol] = proy
+      }
     }
-    await window.oficina?.setSession?.({ sessions: { ...enCurso, ...(st.sessions || {}) }, profile, cwd: project })
+    // `suProyecto`, no `project`: `setProject` es asíncrono y aquí la variable
+    // todavía vale la de la pestaña que acabamos de dejar. Registrar la sesión
+    // bajo el proyecto equivocado es exactamente lo que hacía que el hilo
+    // arrancara de cero sin avisar.
+    await window.oficina?.setSession?.({
+      sessions: { ...enCurso, ...(st.sessions || {}) },
+      profile,
+      cwd: suProyecto,
+      cwds: suyoDe,
+    })
   }
   const switchTab = async (id) => {
     if (id === activeTab) return
@@ -1460,6 +1484,10 @@ export default function App() {
     setActiveTab(id)
     await restoreTab(id)
   }
+  /// El proyecto de una pestaña: la activa lo tiene en el estado, las demás en
+  /// su instantánea.
+  const proyectoDeTab = (id) => (id === activeTab ? project : tabStateRef.current[id]?.project || '')
+
   const addTab = async () => {
     snapshotTab()
     const id = `tab-${Date.now()}`
@@ -1623,15 +1651,22 @@ export default function App() {
     window.oficina?.refreshUsage?.() // refrescar el % de uso al cambiar de cuenta
     loadSquad(p) // cada cuenta tiene su squad
   }
+  // Preferencias que dependen del proyecto: modelo, permiso de edición (#124) y
+  // esfuerzo. Se aplican tanto al elegir proyecto como al volver a una pestaña,
+  // y por eso están fuera de `selectProject`: volver a una pestaña NO debe
+  // borrar su conversación, y `selectProject` sí la borra.
+  const aplicaPrefsDeProyecto = (v) => {
+    const suEdicion = leerPref('oficina-write', profile, v) !== '0'
+    setModel(leerPref('oficina-model', profile, v) || cfg?.defaultModels?.[profile] || FALLBACK_MODEL)
+    setWriteMode(suEdicion)
+    setEffort(leerPref('oficina-effort', profile, v) || '')
+    return suEdicion
+  }
+
   const selectProject = async (v) => {
     if (v === project) return
     setProject(v)
-    // cada proyecto recupera su modelo, su permiso (#124) y su esfuerzo
-    const suModelo = leerPref('oficina-model', profile, v) || cfg?.defaultModels?.[profile] || FALLBACK_MODEL
-    const suEdicion = leerPref('oficina-write', profile, v) !== '0'
-    setModel(suModelo)
-    setWriteMode(suEdicion)
-    setEffort(leerPref('oficina-effort', profile, v) || '')
+    const suEdicion = aplicaPrefsDeProyecto(v)
     clearConversation()
     // edición activa + proyecto sin git = sin red de seguridad
     if (suEdicion && !(await hasGit(v))) {
@@ -4878,6 +4913,13 @@ export default function App() {
                 ) : (
                   <>
                     <span className="tab-title">{tb.title}</span>
+                    {/* En qué proyecto trabaja esta pestaña. Con varias abiertas en
+                        proyectos distintos, sin esto hay que adivinar. Solo se
+                        muestra si no es el de la pestaña activa: repetirlo en todas
+                        sería ruido. */}
+                    {proyectoDeTab(tb.id) && proyectoDeTab(tb.id) !== project && (
+                      <span className="tab-proj">{proyectoDeTab(tb.id).split('/').pop()}</span>
+                    )}
                     <span className="tab-x" onClick={(e) => closeTab(e, tb.id)} title={t('chat.closeTab')}>
                       <IconClose size={11} />
                     </span>

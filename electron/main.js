@@ -46,6 +46,7 @@ const {
   subDeMensaje,
   tocaLimpiarCache,
   CACHE_MAX,
+  clavesDeSesion,
 } = require('./lib/core.js')
 
 const isDev = process.env.NODE_ENV === 'development'
@@ -833,11 +834,19 @@ ipcMain.handle('claude:reset', () => {
 })
 
 // Restaura las sesiones de una conversación del historial (por rol).
-ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd }) => {
-  const workdir = cwd && fs.existsSync(cwd) ? cwd : app.getPath('home')
+ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd, cwds = {} }) => {
+  // `cwds` trae el proyecto de cada rol: con una pestaña por proyecto, cada uno
+  // puede estar trabajando en un sitio distinto. Ver `clavesDeSesion`.
   sessions.clear()
-  for (const [role, sid] of Object.entries(saved)) {
-    if (sid) sessions.set(`${role}::${profile}::${workdir}`, sid)
+  for (const [k, v] of clavesDeSesion({
+    sessions: saved,
+    profile,
+    cwd,
+    cwds,
+    home: app.getPath('home'),
+    existe: (d) => fs.existsSync(d),
+  })) {
+    sessions.set(k, v)
   }
   return { ok: true }
 })

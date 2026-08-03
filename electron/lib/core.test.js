@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import core from './core.js'
 
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
+const { clavesDeSesion } = core
 const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
 const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = core
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
@@ -1323,5 +1324,50 @@ describe('rutaContenida', () => {
     expect(rutaContenida(dir, '')).toBe(false)
     expect(rutaContenida('', '/x')).toBe(false)
     expect(rutaContenida(null, null)).toBe(false)
+  })
+})
+
+describe('clavesDeSesion', () => {
+  const home = '/home/yo'
+  const existe = () => true
+
+  it('cada rol se registra bajo SU proyecto, no bajo uno común', () => {
+    // El fallo real: con una pestaña por proyecto, al cambiar de pestaña se
+    // reenviaban también las sesiones de los que trabajan para otras. Con un
+    // solo `cwd` todas caían en el proyecto de la pestaña que abrías, y como el
+    // mapa se reconstruye entero, las buenas se perdían. El agente contestaba
+    // luego sin contexto, o con el de otro proyecto, sin ningún aviso.
+    const m = clavesDeSesion({
+      sessions: { dev: 's1', qa: 's2' },
+      profile: 'work',
+      cwd: '/proyectos/uno',
+      cwds: { qa: '/proyectos/dos' },
+      home,
+      existe,
+    })
+    expect(m.get('dev::work::/proyectos/uno')).toBe('s1')
+    expect(m.get('qa::work::/proyectos/dos')).toBe('s2')
+    expect(m.size).toBe(2)
+  })
+
+  it('sin `cwds` todos usan el proyecto común (comportamiento de siempre)', () => {
+    const m = clavesDeSesion({ sessions: { dev: 's1', qa: 's2' }, profile: 'work', cwd: '/p/uno', home, existe })
+    expect([...m.keys()]).toEqual(['dev::work::/p/uno', 'qa::work::/p/uno'])
+  })
+
+  it('un proyecto que ya no existe cae en el home, no en una ruta inventada', () => {
+    const m = clavesDeSesion({
+      sessions: { dev: 's1' },
+      profile: 'work',
+      cwd: '/borrado',
+      home,
+      existe: (d) => d !== '/borrado',
+    })
+    expect(m.get(`dev::work::${home}`)).toBe('s1')
+  })
+
+  it('las sesiones vacías no ocupan clave', () => {
+    const m = clavesDeSesion({ sessions: { dev: 's1', qa: null, pr: '' }, profile: 'work', cwd: '/p', home, existe })
+    expect(m.size).toBe(1)
   })
 })
