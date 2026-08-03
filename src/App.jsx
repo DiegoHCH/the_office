@@ -16,7 +16,7 @@ import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n
 import { prefKey, leerPref } from './lib/prefs.js'
 import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
 import { paraElPanel } from './lib/historial.js'
-import { decideDespacho } from './lib/despacho.js'
+import { decideDespacho, quienColisiona } from './lib/despacho.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -3069,8 +3069,15 @@ export default function App() {
   // pisarse (git add -A cruzados, el mismo archivo a la vez). No se bloquea
   // —a veces es lo que quieres—, pero se advierte una vez por tarea.
   const warnCollision = (target) => {
-    if (!writeMode || !project) return
-    const otros = running.filter((r) => r !== target && roleStates[r] && roleStates[r] !== 'delivering')
+    if (!writeMode) return
+    // Solo cuentan los que trabajan en ESTE directorio: ver `quienColisiona`.
+    const otros = quienColisiona({
+      target,
+      running,
+      roleStates,
+      proyecto: project,
+      proyectoDe: (r) => proyectoDeTab(tabDeRolRef.current[r]),
+    })
     if (!otros.length) return
     const quien = otros.map((r) => memberOf(r).name).join(', ')
     showToast(t('toast.collision', { who: quien, project: project.split('/').pop() }), 6000)

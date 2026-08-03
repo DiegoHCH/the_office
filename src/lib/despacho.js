@@ -20,3 +20,25 @@ export function decideDespacho({ target, tabDeRol, activa, ocupado, enCola }) {
   return { accion: 'despachar', rol: target }
 }
 
+
+// Quién puede pisarse con quién (#99).
+//
+// El aviso de colisión existe por una razón concreta: dos agentes editando el
+// MISMO directorio se estorban —`git add -A` cruzados, el mismo archivo a la
+// vez—. Con un proyecto por pestaña eso deja de ser cualquier pareja de agentes
+// ocupados: dos que trabajan en clones distintos no pueden pisarse, y avisar
+// ahí es ruido. Peor: el aviso nombraba el proyecto que tú estabas mirando, así
+// que decía «Luffy está trabajando en release» cuando Luffy estaba en workspace.
+//
+// `proyectoDe(rol)` devuelve dónde trabaja cada uno. Si de alguno no se sabe, se
+// cuenta como colisión: un aviso de más molesta, uno de menos deja que se pisen.
+export function quienColisiona({ target, running = [], roleStates = {}, proyectoDe = () => '', proyecto = '' }) {
+  if (!proyecto) return []
+  return running.filter((r) => {
+    if (r === target) return false
+    const estado = roleStates[r]
+    if (!estado || estado === 'delivering') return false
+    const suyo = proyectoDe(r)
+    return !suyo || suyo === proyecto
+  })
+}
