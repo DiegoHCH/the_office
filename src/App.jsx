@@ -17,6 +17,7 @@ import { prefKey, leerPref } from './lib/prefs.js'
 import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
 import { paraElPanel } from './lib/historial.js'
 import { decideDespacho, quienColisiona } from './lib/despacho.js'
+import { registra, resumen as resumenActividad } from './lib/actividad.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -24,6 +25,7 @@ import Tour from './components/Tour.jsx'
 const Intro = lazy(() => import('./scene/Intro.jsx'))
 import { AvatarThumb, AttThumb } from './components/thumbs.jsx'
 import StatsPanel from './panels/StatsPanel.jsx'
+import ActividadPanel from './panels/ActividadPanel.jsx'
 import DiagPanel from './panels/DiagPanel.jsx'
 import {
   IconAgents, IconBook, IconSkills, IconMcp, IconStats, IconDiag, IconTour,
@@ -408,6 +410,12 @@ export default function App() {
   const [statsOpen, setStatsOpen] = useState(false) // panel 📈 Estadísticas
   const [statsData, setStatsData] = useState({})
   const [diagOpen, setDiagOpen] = useState(false) // panel 🔧 Diagnóstico
+  // Lo que va haciendo el agente por detrás. En un ref porque llega en ráfagas
+  // —varias herramientas por segundo— y re-renderizar en cada una tiraría los
+  // fps de la escena; el estado espejo solo se actualiza con el panel abierto.
+  const actividadRef = useRef([])
+  const [actividad, setActividad] = useState([])
+  const [actOpen, setActOpen] = useState(false)
   const [diagRows, setDiagRows] = useState([])
   const diagRef = useRef([]) // ring buffer de eventos del stream (máx 500)
   const [installedSkills, setInstalledSkills] = useState(null) // null = leyendo
@@ -700,7 +708,7 @@ export default function App() {
   }
   // ¿hay algún panel lateral abierto? (el dropdown de contexto tiene su propio backdrop)
   const panelOpen =
-    histOpen || artsOpen || prefsOpen || agentsOpen || skillsOpen || mcpOpen || statsOpen || diagOpen || prefsPanelOpen || !!diffView
+    histOpen || artsOpen || prefsOpen || agentsOpen || skillsOpen || mcpOpen || statsOpen || diagOpen || actOpen || prefsPanelOpen || !!diffView
   // Cierra SOLO la capa de arriba: los submenus se apilan sobre Configuración,
   // así que el primer cierre los quita a ellos y deja el panel de abajo abierto.
   // La usan Esc y el clic fuera, para que ambos se comporten igual.
@@ -710,6 +718,7 @@ export default function App() {
     if (mcpOpen) return setMcpOpen(false)
     if (statsOpen) return setStatsOpen(false)
     if (prefsPanelOpen) return setPrefsPanelOpen(false)
+    if (actOpen) return setActOpen(false)
     if (diagOpen) return setDiagOpen(false)
     if (agentsOpen) return closeAgents()
     closePanels()
@@ -894,6 +903,15 @@ export default function App() {
         } else if (e.kind === 'todos') {
           setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
         } else if (e.kind === 'tool') {
+          actividadRef.current = registra(actividadRef.current, {
+            t: Date.now(),
+            role: who,
+            name: e.name,
+            detail: e.detail || '',
+            path: e.path || '',
+          })
+          // solo se refleja en el estado si hay alguien mirando
+          if (actOpen) setActividad(actividadRef.current)
           setTool({ role: who, name: e.name, detail: e.detail || null })
           setAgentTool((prev) => ({ ...prev, [who]: e.name }))
           // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
@@ -1413,6 +1431,8 @@ export default function App() {
     convIdRef.current = null
     sessionsRef.current = {}
     queuesRef.current = {}
+    actividadRef.current = []
+    setActividad([])
     setQueuedCounts({})
     try {
       localStorage.removeItem('oficina-pending-queue')
@@ -1463,6 +1483,7 @@ export default function App() {
       // lleva su `cd` pegado; una pestaña tiene que hacer lo mismo, o al
       // volver a ella se contesta en el directorio equivocado.
       project,
+      actividad: actividadRef.current,
       convId: convIdRef.current,
       sessions: { ...sessionsRef.current },
       queues: { ...queuesRef.current },
@@ -1487,6 +1508,8 @@ export default function App() {
     queuesRef.current = st.queues || {}
     editedPathsRef.current = st.editedPaths || []
     ultimoRef.current = st.ultimo || null
+    actividadRef.current = st.actividad || []
+    setActividad(actividadRef.current)
     syncQueues()
     // los agentes que siguen trabajando para OTRA pestaña conservan su sesión:
     // limpiarla aquí haría que su siguiente turno arrancara sin contexto
@@ -3592,6 +3615,14 @@ export default function App() {
           </div>
         )}
 
+        <ActividadPanel
+          open={actOpen}
+          onClose={() => setActOpen(false)}
+          pasos={actividad}
+          proyecto={project}
+          memberOf={memberOf}
+          trabajando={busy}
+        />
         <DiagPanel open={diagOpen} onClose={() => setDiagOpen(false)} rows={diagRows} text={diagText} memberOf={memberOf} onRefresh={openDiag} toast={showToast} />
 
         {prefsPanelOpen && (
@@ -5378,6 +5409,32 @@ export default function App() {
             </button>
           )}
         </div>
+      )}
+      {/* Qué está haciendo por detrás. Aparece mientras trabaja y SIGUE ahí al
+          terminar: el rastro es tan útil para supervisar en vivo como para
+          revisar después qué tocó. */}
+      {(busy || actividadRef.current.length > 0) && (
+        <button
+          type="button"
+          className={busy ? 'act-btn on' : 'act-btn'}
+          onClick={() => {
+            setActividad(actividadRef.current)
+            setActOpen(true)
+          }}
+          title={t('act.open')}
+        >
+          <span className="act-btn-dot" />
+          {t('act.watching')}
+          {(() => {
+            const r = resumenActividad(actividadRef.current)
+            return r.pasos ? (
+              <span className="act-btn-n">
+                {r.pasos}
+                {r.archivos.length ? ` · ${r.archivos.length} 📄` : ''}
+              </span>
+            ) : null
+          })()}
+        </button>
       )}
       <form className="composer" onSubmit={send}>
         {/* el permiso a la vista: edición (auto-acepta cambios) vs solo lectura */}
