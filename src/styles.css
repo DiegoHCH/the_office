@@ -1255,6 +1255,35 @@ select.squad-model {
 /* Fila del desplegable: el proyecto y su ✕. El ✕ solo aparece al pasar por
    encima — está siempre presente pero no compite con el nombre. */
 .ctx-row { display: flex; align-items: center; gap: 2px; }
+/* La flecha de plegar. Rota, no cambia de icono: el giro dice por sí solo si
+   está abierta, y es el mismo gesto que ya usa el bloque de razonamiento. */
+.ctx-caret-btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted-4);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.ctx-caret-btn.abierto { transform: rotate(90deg); }
+.ctx-caret-btn:hover { color: inherit; }
+/* Hueco del mismo ancho para las filas sin hijos: sin esto los nombres bailan */
+.ctx-caret-hueco { flex: 0 0 auto; width: 16px; }
+/* Cuántos proyectos esconde una raíz plegada */
+.ctx-cuenta {
+  margin-left: 6px;
+  font-size: 9.5px;
+  opacity: 0.55;
+  padding: 0 5px;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.08);
+}
 .ctx-row > .ctx-item { flex: 1; min-width: 0; }
 /* Un proyecto que vive dentro de otro se ve dentro. La línea marca la relación
    sin necesidad de explicarla. */

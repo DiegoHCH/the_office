@@ -20,6 +20,8 @@ const ES = {
   'ctx.title': 'Perfil y proyecto',
   'ctx.addProject': 'Agregar proyecto…',
   'ctx.removeProject': 'Quitar de la lista (no borra la carpeta)',
+  'ctx.collapse': 'Ocultar los proyectos de dentro',
+  'ctx.expand': 'Mostrar los proyectos de dentro',
   'toast.removedProject': '{{name}} ya no aparece en la lista',
   'toast.removeProjectFail': 'No se pudo quitar el proyecto',
 
@@ -667,6 +669,8 @@ const EN = {
   'ctx.title': 'Profile and project',
   'ctx.addProject': 'Add project…',
   'ctx.removeProject': 'Remove from list (does not delete the folder)',
+  'ctx.collapse': 'Hide the projects inside',
+  'ctx.expand': 'Show the projects inside',
   'toast.removedProject': '{{name}} no longer shows in the list',
   'toast.removeProjectFail': "Couldn't remove the project",
 

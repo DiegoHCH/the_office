@@ -789,11 +789,26 @@ ipcMain.handle('config:get', () => {
     }
     // proyectos añadidos a mano (📌): van al final, sin duplicar los detectados
     for (const cp of getCustomProjects(p)) {
-      if (!list.some((x) => x.path === cp)) list.push({ name: `📌 ${path.basename(cp)}`, path: cp })
+      if (list.some((x) => x.path === cp)) continue
+      // Una carpeta añadida a mano puede ser dos cosas muy distintas: un
+      // proyecto (un repo) o un workspace que CONTIENE proyectos. Listar las
+      // subcarpetas de un repo sería ruido puro —`src`, `ios`, `android`—, así
+      // que solo se expande lo que no es repo. Es la misma distinción que hace
+      // el usuario en su cabeza, y `.git` la responde sin preguntar.
+      const esRepo = fs.existsSync(path.join(cp, '.git'))
+      list.push({ name: `📌 ${path.basename(cp)}`, path: cp, raiz: !esRepo })
+      if (esRepo) continue
+      try {
+        fs.readdirSync(cp, { withFileTypes: true })
+          .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+          .forEach((d) => list.push({ name: d.name, path: path.join(cp, d.name), padre: cp }))
+      } catch {}
     }
     // los que el usuario quitó de la lista
     const ocultos = new Set(getHiddenProjects(p))
-    let visibles = list.filter((x) => !ocultos.has(x.path))
+    // ocultar una raíz oculta también lo que hay dentro: dejar hijos huérfanos
+    // sin su padre los pintaría indentados bajo la raíz equivocada
+    let visibles = list.filter((x) => !ocultos.has(x.path) && !(x.padre && ocultos.has(x.padre)))
     // nunca dejarlo sin nada donde trabajar
     if (!visibles.length) visibles = [{ name: '🏠 Home', path: home }]
     projectsByProfile[p] = visibles

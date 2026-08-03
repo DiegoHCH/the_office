@@ -414,6 +414,26 @@ export default function App() {
   const [skillBusy, setSkillBusy] = useState(null) // id de la skill en proceso
   const [prefsOpen, setPrefsOpen] = useState(false) // panel ⚙️ Configuración
   const [ctxOpen, setCtxOpen] = useState(false) // dropdown de perfil + proyecto
+  // Raíces plegadas en el selector. Se recuerda: con varios workspaces, tener
+  // que plegar los mismos en cada arranque cansa enseguida.
+  const [plegados, setPlegados] = useState(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem('oficina-plegados') || '[]'))
+    } catch {
+      return new Set()
+    }
+  })
+  const alternaPlegado = (ruta) => {
+    setPlegados((prev) => {
+      const s = new Set(prev)
+      if (s.has(ruta)) s.delete(ruta)
+      else s.add(ruta)
+      try {
+        localStorage.setItem('oficina-plegados', JSON.stringify([...s]))
+      } catch {}
+      return s
+    })
+  }
   const [draft, setDraft] = useState([]) // copia editable del roster en el panel Agentes
   const [avatarPicker, setAvatarPicker] = useState(null) // miembro eligiendo personaje
   const [addingRole, setAddingRole] = useState(false) // form "agregar rol" abierto
@@ -3242,8 +3262,31 @@ export default function App() {
                     ))}
                   </div>
                 )}
-                {projects.map((p) => (
+                {projects
+                  .filter((p) => !(p.padre && plegados.has(p.padre)))
+                  .map((p) => {
+                    const hijos = projects.filter((x) => x.padre === p.path).length
+                    return (
                   <div key={p.path} className={p.padre ? 'ctx-row hijo' : 'ctx-row'}>
+                    {/* La flecha pliega la raíz. Va antes del nombre y es un botón
+                        aparte: pulsar el nombre debe SELECCIONAR el proyecto, no
+                        plegarlo. */}
+                    {hijos > 0 ? (
+                      <button
+                        type="button"
+                        className={plegados.has(p.path) ? 'ctx-caret-btn' : 'ctx-caret-btn abierto'}
+                        title={plegados.has(p.path) ? t('ctx.expand') : t('ctx.collapse')}
+                        aria-expanded={!plegados.has(p.path)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          alternaPlegado(p.path)
+                        }}
+                      >
+                        <IconChevron size={12} />
+                      </button>
+                    ) : (
+                      <span className="ctx-caret-hueco" />
+                    )}
                     <button
                       type="button"
                       className={p.path === project ? 'ctx-item on' : 'ctx-item'}
@@ -3257,6 +3300,8 @@ export default function App() {
                         {p.name.startsWith('📌') ? <IconPin size={15} /> : <IconFolder size={15} />}
                       </span>
                       {p.name.replace(/^(🗂|📌)\s*/, '')}
+                      {/* Cuántos esconde: plegado sin esto parece una carpeta vacía */}
+                      {hijos > 0 && plegados.has(p.path) && <span className="ctx-cuenta">{hijos}</span>}
                     </button>
                     {/* Quitarlo de la lista. No borra nada del disco: solo deja de
                         ofrecerlo, y por eso el aviso lo dice explícitamente. */}
@@ -3273,7 +3318,8 @@ export default function App() {
                       <IconClose size={11} />
                     </button>
                   </div>
-                ))}
+                    )
+                  })}
                 <button
                   type="button"
                   className="ctx-item ctx-add"
