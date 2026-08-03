@@ -1685,9 +1685,14 @@ export default function App() {
 
   const selectProject = async (v) => {
     if (v === project) return
+    // Cambiar de proyecto con una conversación viva NO la pisa: se queda en su
+    // pestaña y el proyecto nuevo abre otra. Antes `clearConversation()` borraba
+    // el hilo y sus sesiones, así que pasar de desarrollo a release perdía la
+    // conversación de desarrollo — justo el caso de tener un clon por workflow.
+    if (messages.length) await addTab()
+    else clearConversation()
     setProject(v)
     const suEdicion = aplicaPrefsDeProyecto(v)
-    clearConversation()
     // edición activa + proyecto sin git = sin red de seguridad
     if (suEdicion && !(await hasGit(v))) {
       showToast(t('toast.noGitOpen'), 6000)
