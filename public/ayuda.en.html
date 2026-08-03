@@ -130,6 +130,14 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <li><b>⚙️ Settings</b> — preferences and access to Agents (<kbd>⌘,</kbd>).</li>
   </ul>
 
+  <h2>One project per conversation 🗂</h2>
+  <ul>
+    <li><b>Each tab carries its own project</b>, the way each terminal window carries its own folder. Come back to a tab and the bar returns to its project on its own, with the model, the permission and the effort you had there.</li>
+    <li><b>Switching project doesn't overwrite the conversation:</b>if the thread has messages, the new project opens a new tab and the previous one stays untouched. That's how you can ask for development in one clone and publish from another, at the same time.</li>
+    <li><b>You can switch project while people are working.</b>Each agent started in its own folder and stays there. What you can't change is the<b>account</b>while they work: that changes the settings, the squad and the whole desktop.</li>
+    <li><b>In the picker:</b>projects that live inside a root folder show nested under it — and that matters, because they inherit its<code>CLAUDE.md</code>—; the arrow collapses each root, and the ✕ removes a project from the list without deleting the folder. With<b>➕ Add project</b>you can add any folder: if it isn't a repo, the projects inside it are listed too.</li>
+  </ul>
+
   <h2>Talking to the squad</h2>
   <div class="tablewrap"><table>
     <tr><th>You type…</th><th>What happens</th></tr>
@@ -150,6 +158,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
     <li><b>✏️ Edit and resend:</b> hover any of your messages and the pencil loads it into the composer so you can fix it.</li>
     <li><b>🧠 Reasoning:</b> under the agent's name you can unfold what it thought before answering — handy when a response comes out odd and you want to see how it got there.</li>
     <li><b>👁 Live detail:</b> each agent's bubble shows what they are doing and for how long; if they organize their work, their <b>checklist 📝 2/5</b> appears next to the character in real time.</li>
+    <li><b>🔎 See what it's doing:</b>while someone is working, a button appears above the composer with the number of steps and files touched; pressing it opens the<b>trail</b>: which files it reads, which it edits, what commands it runs and which folders it's moving through, with the time and who did it. The tags at the top filter by kind. The button<b>stays there when it finishes</b>, so you can review afterwards what was touched, and each conversation keeps its own.</li>
     <li><b>🪙 Tokens:</b> every response shows how many tokens it used (breakdown in the tooltip) and the monitor keeps the conversation total.</li>
     <li><b>🔀 View changes:</b> if the task edited files, the response offers the project's coloured <code>git diff</code>, with new files listed separately.</li>
     <li><b>🔍 Search (⌘F):</b> a small bar over the chat with n/total and navigation between matches. And clicking a message's <b>name</b> filters the chat down to that agent.</li>
