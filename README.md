@@ -49,11 +49,12 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **✏️/🔒 Chip de permiso** junto al composer — a la vista si el squad puede editar archivos (ámbar) o solo investigar (gris); un clic lo alterna. En proyectos **sin git**, la app advierte que no hay red de seguridad.
 - **🖱 Click en un personaje** — le diriges el mensaje (igual que ⌘1–⌘6). Y click en el **nombre** de un mensaje filtra el chat a solo ese agente.
 - **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente, con **cronómetro**, su **checklist 📝 en tiempo real** (TodoWrite) y **🪙 tokens por tarea** (acumulado en el monitor); botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones.
+- **🔎 Ver qué está haciendo** — mientras alguien trabaja, un botón sobre el composer abre el **rastro**: qué archivos lee, cuáles edita, qué comandos ejecuta y por qué carpetas anda, con la hora y quién lo hizo; filtrable por tipo. Sigue disponible al terminar, para revisar después qué se tocó, y **cada conversación guarda el suyo**.
 - **🔀 Vista de diff** — si la tarea editó archivos, la respuesta ofrece el `git diff` coloreado del proyecto.
 - **🔍 Buscar en la conversación** — ⌘F con n/total y navegación entre coincidencias.
 - **🧠 Traspaso de contexto** — al 85% de la ventana del modelo (y otra vez al 95% si lo ignoras), un aviso ofrece continuar en un chat nuevo **o seguir en el mismo**: pide el resumen a quien viene trabajando y lo deja en el composer sin enviarlo. Antes del tope a propósito: al llenarse, Claude resume solo y se pierde el detalle.
 - **💬 Citar** — selecciona un fragmento de una respuesta y pásalo al composer como cita.
-- **⚠️ Aviso de colisión** — si dos agentes van a editar el mismo repo a la vez, la app avisa.
+- **⚠️ Aviso de colisión** — si dos agentes van a editar el **mismo directorio** a la vez, la app avisa. Trabajar en proyectos distintos no colisiona y no interrumpe.
 - **🔁 Errores recuperables** — si `claude` falla, el error llega al chat **con el stderr** y un botón Reintentar; cualquier mensaje tuyo se puede **✏️ editar y reenviar**.
 - **🎨 Resaltado de sintaxis** — bloques de código coloreados (12 lenguajes), con botón de copiar; cada respuesta tiene el suyo.
 - **📎 Adjuntos** — arrastra carpetas, archivos e imágenes (o pega con ⌘V).
@@ -72,12 +73,13 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🌐 Web y escritorio (npm)** — en proyectos npm el objetivo es un **script** del `package.json`, no un dispositivo: los que se quedan corriendo van primero, el gestor lo decide el lockfile y la URL se detecta de la salida del servidor.
 
 ### La app
-- **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs, proyectos y **➕ Agregar proyecto…** para carpetas fuera de la raíz del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
+- **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs y los proyectos del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
+- **🗂 Selector de proyectos con jerarquía** — los que viven dentro de una carpeta raíz se ven **anidados** bajo ella, que es la relación que decide qué `CLAUDE.md` heredan; la flecha pliega cada raíz (recordando el estado) y la **✕** quita un proyecto de la lista sin borrar la carpeta. **➕ Agregar proyecto…** admite cualquier carpeta: si no es un repo, se listan también los proyectos de dentro.
 - **🌗 Tema claro u oscuro** — Auto sigue al sistema, o lo fijas en Preferencias; toda la interfaz, no solo la escena.
 - **🧠 Razonamiento a la vista** — cada respuesta puede desplegar lo que el agente pensó antes de contestar.
 - **🌐 Español o inglés** — toda la interfaz sale de un diccionario y arranca en el idioma del sistema; se cambia en ⚙️ Preferencias. Cambia también la Guía de uso y **los agentes responden en el idioma elegido**.
 - **🎨 Estilo Material 3 con iconos Material Symbols** — botones pill, switches M3, superficies con elevación, scrollbars propias.
-- **🗂 Pestañas de conversación** — los hilos que quieras, cada uno con sus mensajes, sesiones y colas, y se puede trabajar en varios a la vez con un agente distinto en cada uno; al cerrar uno, queda en el historial.
+- **🗂 Pestañas de conversación, cada una con su proyecto** — los hilos que quieras, cada uno con sus mensajes, sesiones, colas **y su propio directorio de trabajo**, como cada ventana de terminal lleva su `cd`. Volver a una pestaña devuelve la barra a su proyecto (con su modelo, permiso y esfuerzo); cambiar de proyecto con el hilo empezado **abre una pestaña nueva** en vez de pisarlo, así que puedes pedir desarrollo en un clon y publicar desde otro a la vez. Se puede cambiar de proyecto con el squad trabajando —cada agente arrancó en su carpeta— pero no de cuenta. Al cerrar una, queda en el historial.
 - **🕘 Historial con búsqueda** — cada conversación se guarda sola y se retoma con todo su contexto; busca por título, proyecto **y contenido de los mensajes**, **✏️ renombra**, **📌 fija** (a salvo de la purga) y **⬇ exporta a Markdown**.
 - **📊 Monitores** — dos burbujas: Sistema (CPU/RAM reales) y Claude (modelo en uso, 🪙 tokens de la conversación + % de sesión y semana, con **aviso al pasar del 90%**). El modelo se **sincroniza con el `/model` de tu terminal**.
 - **🖥 Integración macOS** — badge del **Dock** y **Tray 🏢** en la barra de menús con el nº de agentes trabajando, atajo global **⌥Espacio** (trae la app con el composer listo desde cualquier parte), y **powerSaveBlocker**: el Mac no se duerme mientras el squad trabaja.
@@ -183,6 +185,8 @@ La app se **actualiza sola**: comprueba al arrancar, descarga en segundo plano y
 - `src/App.jsx` — chat, enrutado por rol, handoffs, cola, comandos, paneles y configuración.
 - `src/Office.jsx` — la escena 3D (sala, escritorios, personajes, temas, vida ambiental, render por visibilidad).
 - `src/scene/` — carga de personajes glTF (`Character3D`), props (`GltfProp`), miniaturas de avatares.
+- `src/lib/` — las reglas que se pueden probar sin abrir la app, cada una con sus tests: enrutado de mensajes (`routing`), despacho y colisiones (`despacho`), orquestación de subagentes (`subagentes`), historial (`historial`), rastro de actividad (`actividad`), preferencias con herencia perfil→proyecto (`prefs`), i18n.
+- `src/panels/` y `electron/ipc/` — paneles y handlers extraídos de los dos archivos grandes; cada módulo recibe lo que necesita en vez de importarlo.
 
 ## 🎨 Créditos de assets
 
