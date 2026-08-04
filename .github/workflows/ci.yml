@@ -78,16 +78,24 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      # Si ya se creó a mano con notas escritas, no se toca: --generate-notes
-      # las reemplazaría por la lista de commits.
+      # Las notas se escriben en el repo, en docs/releases/<tag>.md, y viajan en
+      # el mismo commit que sube la versión. Antes solo se respetaban si el
+      # release YA existía —creado a mano— y al publicar por tag nunca existe:
+      # el resultado eran seis versiones seguidas con la lista de commits por
+      # toda nota. Es información que hay que escribir cuando la tienes fresca,
+      # no reconstruir después leyendo el historial.
       - name: Crear el release si no existe
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          NOTAS="docs/releases/$GITHUB_REF_NAME.md"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             echo "ya existe, se respetan sus notas"
+          elif [ -f "$NOTAS" ]; then
+            gh release create "$GITHUB_REF_NAME" --title "La Oficina $GITHUB_REF_NAME" --notes-file "$NOTAS"
           else
             gh release create "$GITHUB_REF_NAME" --title "La Oficina $GITHUB_REF_NAME" --generate-notes
+            echo "::warning::Sin $NOTAS — las notas salen autogeneradas (la lista de commits)"
           fi
       # Re-pushear un tag degrada su release a borrador, y publicar uno viejo lo
       # marca «latest» (GitHub ordena por fecha, no por versión). Como el aviso
