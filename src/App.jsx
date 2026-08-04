@@ -1344,7 +1344,11 @@ export default function App() {
   // si el clic los cerrara antes, la barra no podría volver a cerrar nada.
   useEffect(() => {
     if (!panelOpen) return
-    const DENTRO = '.drawer, .hud, .ctx-pop, .ctx-backdrop, .snip-pop, .tour, .lightbox'
+    // `.act-btn` está aquí por el mismo motivo que `.hud`: es un toggle y ya
+    // cierra lo que abre. Sin excluirlo, el `mousedown` cerraba el panel y el
+    // `click` posterior —ya con el estado nuevo— lo volvía a abrir, así que
+    // parpadeaba y se quedaba abierto.
+    const DENTRO = '.drawer, .hud, .act-btn, .ctx-pop, .ctx-backdrop, .snip-pop, .tour, .lightbox'
     const onDown = (e) => {
       if (e.target.closest?.(DENTRO)) return
       closeTopPanel()
