@@ -169,8 +169,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload "$GITHUB_REF_NAME" release/*.dmg release/*-mac.zip release/latest-mac.yml --clobber ||
-            gh release create "$GITHUB_REF_NAME" release/*.dmg release/*-mac.zip release/latest-mac.yml \
+          # `release/*.zip` y no `*-mac.zip`: al quitar el espacio del nombre del
+          # artefacto (para que el manifiesto y GitHub coincidan) el zip perdió
+          # el sufijo `-mac` y este patrón dejó de encontrarlo. El build entero
+          # —firma y notarización incluidas— terminaba bien y solo fallaba aquí.
+          gh release upload "$GITHUB_REF_NAME" release/*.dmg release/*.zip release/latest-mac.yml --clobber ||
+            gh release create "$GITHUB_REF_NAME" release/*.dmg release/*.zip release/latest-mac.yml \
               --title "La Oficina $GITHUB_REF_NAME" --generate-notes
       - name: Avisar que el binario hay que subirlo a mano
         if: env.firmado == 'no'
