@@ -211,6 +211,14 @@ export default function App() {
   // El rastro de actividad sigue la MISMA regla que los mensajes: va a la
   // pestaña del paso, no a la que estés mirando. Se escribe aparte de
   // `enTabId` porque la activa vive en un ref y no en el estado.
+  // Quién trabaja para la pestaña que estás mirando. Un subagente vive en la
+  // pestaña de su asiento, no en el mapa de roles despachados — el mismo detalle
+  // que hacía que en la pestaña de una apareciera otro trabajando dentro.
+  const tabDeAgente = (rol) => {
+    const asiento = Object.values(orqRef.current.subs || {}).find((x) => x?.rol === rol)
+    return asiento?.tabId || tabDeRolRef.current[rol] || activeTab
+  }
+
   const actividadEnTab = (tabId, paso) => {
     if (!tabId || tabId === activeTabRef.current) {
       actividadRef.current = registra(actividadRef.current, paso)
@@ -5450,7 +5458,16 @@ export default function App() {
           title={actOpen ? t('act.close') : t('act.open')}
         >
           <span className="act-btn-dot" />
-          {t('act.watching')}
+          {(() => {
+            const aqui = running.filter((r) => roleStates[r] && roleStates[r] !== 'delivering' && tabDeAgente(r) === activeTab)
+            // Con uno se dice su nombre, que es lo que estás mirando. Con varios
+            // el nombre sobra: lo que quieres saber es cuántos hay dentro.
+            if (aqui.length === 1) return t('act.watchingWho', { name: memberOf(aqui[0]).name })
+            if (aqui.length > 1) return t('act.watchingN', { n: aqui.length })
+            // Ya terminó: el rastro sigue sirviendo para revisar qué tocó.
+            const ultimo = actividadRef.current[actividadRef.current.length - 1]
+            return ultimo?.role ? t('act.didWho', { name: memberOf(ultimo.role).name }) : t('act.watching')
+          })()}
           {(() => {
             const r = resumenActividad(actividadRef.current)
             return r.pasos ? (
