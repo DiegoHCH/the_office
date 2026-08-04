@@ -58,6 +58,7 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🔁 Errores recuperables** — si `claude` falla, el error llega al chat **con el stderr** y un botón Reintentar; cualquier mensaje tuyo se puede **✏️ editar y reenviar**.
 - **🎨 Resaltado de sintaxis** — bloques de código coloreados (12 lenguajes), con botón de copiar; cada respuesta tiene el suyo.
 - **📎 Adjuntos** — arrastra carpetas, archivos e imágenes (o pega con ⌘V).
+- **👥 Repartir el trabajo, cuando lo pides** — `/repartir …` (o decirlo: «reparte esto entre el equipo») divide un encargo entre compañeros, cada uno con su pestaña y su propio contexto. **Si no lo pides, no se reparte**, aunque el encargo lleve dentro una lista de tareas: una lista describe el trabajo, no pide dividirlo. Si el agente cree que conviene, lo sugiere en una frase y decides tú.
 - **📋 Standup** — `/standup` y cada agente retoma su última sesión y reporta — mientras, en la escena, **el squad se reúne en círculo en el centro de la sala**.
 
 ### Documentos (antes "artifacts")
