@@ -106,6 +106,13 @@ describe('pideReparto', () => {
     expect(pideReparto('reparte esto entre el equipo')).toBe(true)
     expect(pideReparto('delégalo en dos compañeros')).toBe(true)
     expect(pideReparto('repártelo entre varios')).toBe(true) // con tilde, que es como se escribe
+  })
+
+  it('funciona igual sin tildes: nadie las escribe al teclear rápido', () => {
+    expect(pideReparto('repartelo entre varios')).toBe(true)
+    expect(pideReparto('delegalo en dos companeros')).toBe(true)
+    expect(pideReparto('reparte esto')).toBe(true)
+    expect(pideReparto('delega esto en el equipo')).toBe(true)
     expect(pideReparto('hazlo en paralelo, son partes independientes')).toBe(true)
   })
 
