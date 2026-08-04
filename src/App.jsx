@@ -436,6 +436,10 @@ export default function App() {
   const actividadRef = useRef([])
   const [actividad, setActividad] = useState([])
   const [actOpen, setActOpen] = useState(false)
+  // Versión descargada y esperando a que la apliques. Va dentro de la app y no
+  // solo en una notificación del sistema: si el clic en la notificación no
+  // llega, la actualización se quedaba descargada sin forma de aplicarla.
+  const [updateLista, setUpdateLista] = useState('')
   const [diagRows, setDiagRows] = useState([])
   const diagRef = useRef([]) // ring buffer de eventos del stream (máx 500)
   const [installedSkills, setInstalledSkills] = useState(null) // null = leyendo
@@ -1566,6 +1570,10 @@ export default function App() {
   /// El proyecto de una pestaña: la activa lo tiene en el estado, las demás en
   /// su instantánea.
   const proyectoDeTab = (id) => (id === activeTab ? project : tabStateRef.current[id]?.project || '')
+
+  useEffect(() => {
+    window.oficina?.onUpdateReady?.((d) => setUpdateLista(d?.version || '?'))
+  }, [])
 
   const addTab = async (suProyecto = project) => {
     snapshotTab()
@@ -5441,6 +5449,26 @@ export default function App() {
               <IconAdd size={13} /> {t('snip.new')}
             </button>
           )}
+        </div>
+      )}
+      {updateLista && (
+        <div className="upd-bar">
+          <span className="upd-dot" />
+          {t('upd.ready', { v: updateLista })}
+          <button
+            type="button"
+            onClick={async () => {
+              const r = await window.oficina?.installUpdate?.()
+              // Si falla, decirlo: antes el error se perdía y la app se quedaba
+              // igual, como si el botón no hiciera nada.
+              if (!r?.ok) showToast(`⚠️ ${r?.error || t('upd.failed')}`, 7000)
+            }}
+          >
+            {t('upd.install')}
+          </button>
+          <button type="button" className="upd-x" onClick={() => setUpdateLista('')} title={t('upd.later')}>
+            <IconClose size={12} />
+          </button>
         </div>
       )}
       {/* Qué está haciendo por detrás. Aparece mientras trabaja y SIGUE ahí al

@@ -2629,6 +2629,32 @@ function anotaFalloUpdate(err) {
   } catch {}
 }
 
+// El actualizador con la descarga ya lista, para poder aplicarla desde la app.
+let updaterListo = null
+let versionListaRef = ''
+
+// Aplicar la actualización descargada. Devuelve el motivo si no pudo.
+//
+// El `quitAndInstall` estaba envuelto en un `catch {}` vacío: si fallaba, no
+// pasaba nada y no quedaba rastro — el usuario pulsaba y la app seguía igual.
+function aplicaUpdate(desde) {
+  if (!updaterListo) return 'no hay ninguna actualización descargada'
+  try {
+    anotaFalloUpdate(`aplicando v${versionListaRef} desde ${desde}`)
+    // isSilent false: si la instalación pide algo, que se vea
+    updaterListo.quitAndInstall(false, true)
+    return null
+  } catch (err) {
+    anotaFalloUpdate(err)
+    return err?.message || String(err)
+  }
+}
+
+ipcMain.handle('update:install', () => {
+  const error = aplicaUpdate('botón')
+  return error ? { ok: false, error } : { ok: true }
+})
+
 function iniciaAutoUpdate() {
   if (isDev) return false // el dev comparte userData con la app instalada
   let updater
@@ -2643,17 +2669,20 @@ function iniciaAutoUpdate() {
   updater.autoInstallOnAppQuit = true
   updater.on('update-downloaded', (info) => {
     const v = info?.version || ''
+    updaterListo = updater
+    versionListaRef = v
+    anotaFalloUpdate(`descargada v${v}, lista para instalar`)
+    // Dentro de la app, y no solo en una notificación del sistema: si el clic
+    // en la notificación no llega —se descarta, expira, o macOS no lo entrega—
+    // no había NINGUNA otra forma de aplicarla, y la actualización se quedaba
+    // descargada para siempre sin que el usuario supiera por qué.
+    if (win && !win.isDestroyed()) win.webContents.send('update:ready', { version: v })
     if (!Notification.isSupported()) return
     const n = new Notification({
       title: 'La Oficina',
       body: `v${v} lista para instalar. Clic para reiniciar y aplicarla.`,
     })
-    n.on('click', () => {
-      // isSilent false: si la instalación pide algo, que se vea
-      try {
-        updater.quitAndInstall(false, true)
-      } catch {}
-    })
+    n.on('click', () => aplicaUpdate('notificación'))
     n.show()
   })
   updater.on('error', (err) => {
