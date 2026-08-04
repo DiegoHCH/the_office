@@ -22,6 +22,7 @@
     "guia:check": "node scripts/guia.mjs --check"
   },
   "build": {
+    "artifactName": "La-Oficina-${version}-${arch}.${ext}",
     "appId": "com.diegohoyos.laoficina",
     "productName": "La Oficina",
     "directories": {

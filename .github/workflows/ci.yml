@@ -193,3 +193,18 @@ jobs:
           # tres: dmg (instalación a mano), zip y latest-mac.yml (auto-update).
           # Con menos, la app no se entera de que hay versión nueva.
           [ "$ASSETS" -ge 3 ] || { echo "::error::faltan artefactos: hay $ASSETS de 3"; exit 1; }
+          # Y que cada archivo que nombra el manifiesto EXISTA de verdad en el
+          # release. Contar tres no basta: la v1.15.0 salió con sus tres
+          # artefactos y la actualización automática rota igual, porque
+          # `latest-mac.yml` apuntaba a un nombre que GitHub había cambiado al
+          # subirlo (los espacios se convierten en puntos). La app pedía una URL
+          # que devolvía 404, y eso no se ve mirando la lista de assets.
+          NOMBRES=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name')
+          for URL in $(grep -oE '^  - url: .+$' release/latest-mac.yml | sed 's/^  - url: //'); do
+            echo "$NOMBRES" | grep -qx "$URL" || {
+              echo "::error::latest-mac.yml apunta a '$URL' y ese asset no existe en el release"
+              echo "assets: $NOMBRES"
+              exit 1
+            }
+          done
+          echo "✓ los archivos del manifiesto existen en el release"
