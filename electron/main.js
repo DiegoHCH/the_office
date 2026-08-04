@@ -2611,6 +2611,24 @@ function downloadUpdate(dmgUrl, version) {
 // Si algo falla —sin red, sin metadatos en el release, una versión publicada a
 // mano sin `latest-mac.yml`— se cae al aviso de siempre, que descarga el DMG y
 // abre el instalador. Preferible a no enterarse de que hay versión nueva.
+// Por qué se cayó el auto-update, en un archivo.
+//
+// Antes solo iba a la consola, así que en una app instalada —donde nadie mira
+// la consola— el síntoma era este: sale el aviso de siempre ofreciendo el DMG y
+// parece que la actualización automática «no existe». Sin el motivo no se puede
+// distinguir «no hay versión nueva» de «la hay y falló», que es justo lo que
+// hay que saber.
+function anotaFalloUpdate(err) {
+  const msg = err?.stack || err?.message || String(err)
+  console.log('[oficina] auto-update no disponible:', msg)
+  try {
+    fs.appendFileSync(
+      path.join(app.getPath('userData'), 'auto-update.log'),
+      `${new Date().toISOString()}  v${app.getVersion()}  ${msg}\n`
+    )
+  } catch {}
+}
+
 function iniciaAutoUpdate() {
   if (isDev) return false // el dev comparte userData con la app instalada
   let updater
@@ -2639,10 +2657,13 @@ function iniciaAutoUpdate() {
     n.show()
   })
   updater.on('error', (err) => {
-    console.log('[oficina] auto-update no disponible:', err?.message || err)
+    anotaFalloUpdate(err)
     checkForUpdates() // el camino de siempre
   })
-  updater.checkForUpdates().catch(() => checkForUpdates())
+  updater.checkForUpdates().catch((err) => {
+    anotaFalloUpdate(err)
+    checkForUpdates()
+  })
   return true
 }
 
