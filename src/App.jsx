@@ -208,6 +208,18 @@ export default function App() {
     const st = tabStateRef.current[tabId]
     if (st) st.messages = fn(st.messages || [])
   }
+  // El rastro de actividad sigue la MISMA regla que los mensajes: va a la
+  // pestaña del paso, no a la que estés mirando. Se escribe aparte de
+  // `enTabId` porque la activa vive en un ref y no en el estado.
+  const actividadEnTab = (tabId, paso) => {
+    if (!tabId || tabId === activeTabRef.current) {
+      actividadRef.current = registra(actividadRef.current, paso)
+      return true // hay que reflejarlo si el panel está abierto
+    }
+    const st = tabStateRef.current[tabId]
+    if (st) st.actividad = registra(st.actividad || [], paso)
+    return false
+  }
   // subId → { rol prestado (o null), pestaña, encargo }. Vive en un ref porque
   // lo leen los manejadores del stream, que no se re-crean por render.
   // Toda la orquestación (quién tiene qué silla, quién espera, quién es invitado)
@@ -903,20 +915,15 @@ export default function App() {
         } else if (e.kind === 'todos') {
           setAgentTodos((prev) => ({ ...prev, [who]: e.todos }))
         } else if (e.kind === 'tool') {
-          // El rastro es de la CONVERSACIÓN, así que va a la pestaña de quien
-          // trabaja y no a la que estés mirando. Mismo patrón que las sesiones
-          // (arriba): un agente que sigue trabajando para otra pestaña mientras
-          // tú encargas algo aquí anotaría sus pasos en el rastro de esta.
+          // El rastro es de la CONVERSACIÓN. La pestaña se resuelve igual que
+          // para los mensajes (`escribe`, arriba): un subagente va a la de su
+          // asiento y el resto a la de su rol. Usar solo `tabDeRol` estaba mal:
+          // un personaje PRESTADO no está en ese mapa, así que sus pasos caían
+          // en la pestaña que estuvieras mirando — abrías la de Nami y veías a
+          // Franky trabajando dentro.
           const paso = { t: Date.now(), role: who, name: e.name, detail: e.detail || '', path: e.path || '' }
-          const suyaAct = tabDeRolRef.current[who]
-          if (suyaAct && suyaAct !== activeTabRef.current) {
-            const st = tabStateRef.current[suyaAct]
-            if (st) st.actividad = registra(st.actividad || [], paso)
-          } else {
-            actividadRef.current = registra(actividadRef.current, paso)
-            // solo se refleja en el estado si hay alguien mirando
-            if (actOpen) setActividad(actividadRef.current)
-          }
+          const suTab = asiento ? asiento.tabId : tabDeRolRef.current[who]
+          if (actividadEnTab(suTab, paso) && actOpen) setActividad(actividadRef.current)
           setTool({ role: who, name: e.name, detail: e.detail || null })
           setAgentTool((prev) => ({ ...prev, [who]: e.name }))
           // ¿editó archivos? su respuesta final ofrecerá «ver cambios» (git diff)
@@ -5430,12 +5437,17 @@ export default function App() {
       {(busy || actividadRef.current.length > 0) && (
         <button
           type="button"
-          className={busy ? 'act-btn on' : 'act-btn'}
+          className={[busy ? 'act-btn on' : 'act-btn', actOpen ? 'abierto' : ''].filter(Boolean).join(' ')}
+          // Alterna: el mismo botón que lo abre lo cierra. Un botón que solo
+          // abre deja al usuario buscando la ✕ del panel, y aquí lo normal es
+          // asomarse y volver al chat.
+          aria-expanded={actOpen}
           onClick={() => {
+            if (actOpen) return setActOpen(false)
             setActividad(actividadRef.current)
             setActOpen(true)
           }}
-          title={t('act.open')}
+          title={actOpen ? t('act.close') : t('act.open')}
         >
           <span className="act-btn-dot" />
           {t('act.watching')}

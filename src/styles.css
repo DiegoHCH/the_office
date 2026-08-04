@@ -1632,6 +1632,8 @@ select.squad-model {
 }
 .act-btn:hover { border-color: var(--accent); color: var(--ink); }
 .act-btn.on { color: var(--ink); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+/* Abierto: el botón se ve hundido, para que se lea que ese clic lo cierra. */
+.act-btn.abierto { background: var(--surface-2, rgba(255, 255, 255, 0.08)); color: var(--ink); border-color: var(--accent); }
 .act-btn-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex: none; }
 /* Late solo mientras trabaja: en reposo un punto latiendo miente. */
 .act-btn.on .act-btn-dot { background: var(--accent); animation: act-pulse 1.4s ease-in-out infinite; }
