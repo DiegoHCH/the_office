@@ -42,3 +42,36 @@ export function quienColisiona({ target, running = [], roleStates = {}, proyecto
     return !suyo || suyo === proyecto
   })
 }
+
+// ¿El usuario está pidiendo que se reparta el trabajo?
+//
+// Importa porque el reparto NO es gratis: abre una pestaña por parte y parte el
+// encargo en trozos independientes. Para un documento único —un refinamiento
+// técnico, un análisis— eso es peor que hacerlo de un tirón: salen cinco piezas
+// que hay que recoser.
+//
+// Antes la app autorizaba a repartir en CADA mensaje, así que un encargo con una
+// lista de tareas dentro se repartía solo. El usuario pedía un documento y
+// recibía cinco pestañas. Ahora hay que pedirlo, con `/repartir` o diciéndolo.
+//
+// La lista es corta a propósito: un falso positivo devuelve el comportamiento
+// que queríamos quitar. `divide` no está —«divide el total entre doce» no es
+// una petición de reparto— y `asigna` tampoco, que aparece en cualquier
+// especificación.
+// Ojo con las tildes: en imperativo con pronombre se acentúan —«repártelo»,
+// «delégalo»— y sin contemplarlo el patrón fallaba justo en la forma más
+// natural de pedirlo.
+const PIDE_REPARTO = [
+  /\brep[aá]rt(e|elo|ela|irlo|irla|ir)\b/i,
+  /\bdel[eé]g(a|alo|ala|arlo|arla|ar)\b/i,
+  /\ben paralelo\b/i,
+  /\bentre (varios|el equipo|compañeros|companeros)\b/i,
+  /\bsplit (this|it|the work)\b/i,
+  /\bdelegate\b/i,
+  /\bin parallel\b/i,
+]
+
+export function pideReparto(texto = '') {
+  if (/^\/repartir\b/i.test(texto.trim())) return true
+  return PIDE_REPARTO.some((r) => r.test(texto))
+}

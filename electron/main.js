@@ -907,7 +907,7 @@ ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd, c
 })
 
 ipcMain.handle('claude:ask', async (_e, payload) => {
-  const { prompt, profile = 'work', cwd, writeMode = false, model = '', effort = '', role = 'dev', standup = false } =
+  const { prompt, profile = 'work', cwd, writeMode = false, model = '', effort = '', role = 'dev', standup = false, repartir = false } =
     typeof payload === 'string' ? { prompt: payload } : payload
 
   if (children.has(role)) return { ok: false, error: `${role} ya está trabajando en algo` }
@@ -930,28 +930,47 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
     `Dilo en una frase, di de quién del equipo es, y ofrece pasárselo. ` +
     `Una respuesta genérica de quien no es el experto es peor que no responder: parece una respuesta, y ocupa el sitio de la buena.`
 
-  // Delegación: el tope de 5 no es capricho. La oficina tiene seis puestos y
-  // este agente ya ocupa uno, así que cinco es lo que cabe en escena y en
-  // pestañas; y cada subagente es trabajo real compitiendo por la máquina del
+  // Delegación: solo si el usuario la pidió.
+  //
+  // Antes esto se inyectaba en CADA mensaje, así que todo agente iba autorizado
+  // a repartir «un encargo con partes independientes» — y un encargo con una
+  // lista de tareas dentro (un refinamiento técnico, una HU con sus tareas de
+  // front) encaja en esa descripción. El usuario pedía UN documento y recibía
+  // cinco pestañas que luego hay que recoser. Repartir es caro y cambia la forma
+  // del resultado, así que ahora se pide: con `/repartir` o diciéndolo.
+  //
+  // El tope de 5 no es capricho: la oficina tiene seis puestos y este agente ya
+  // ocupa uno, y cada subagente es trabajo real compitiendo por la máquina del
   // usuario. Cuántos lanza lo decide el modelo —el CLI no ofrece limitarlo— así
   // que aquí se pide, y en el renderer se aplica el tope de puestos.
-  persona +=
-    `\n\nDELEGAR: para un encargo con partes independientes, puedes repartirlo con la herramienta Agent, ` +
-    `que da a cada subagente su propio contexto y evita saturar el tuyo. Máximo CINCO subagentes a la vez. ` +
-    `Dale a cada uno una descripción corta y concreta de su parte: se muestra al usuario como título de su pestaña. `
-    // El usuario ve una oficina con personajes, no un CLI: «lancé dos
-    // subagentes en paralelo» nombra la tubería. Lo que ve es que asignaste
-    // trabajo a gente que se puso a trabajar.
-    + `Cuéntalo como lo que el usuario ve: ASIGNAS partes del trabajo a miembros del equipo, cada uno con su pestaña. ` +
-    `Di «asigno» o «reparto», no «lanzo subagentes en paralelo» ni «uso la herramienta Agent»: eso nombra la tubería, no el trabajo. ` +
-    `Usa SIEMPRE subagent_type "companero": es el miembro del equipo definido para esto, y es lo que garantiza que te contesten en ${answerLang}. `
-    // El subagente arranca con el system prompt del CLI, no con esta persona, así
-    // que la instrucción de idioma NO le llega: contestaba en inglés aunque el
-    // usuario tenga español. Solo el que delega puede pasársela, en el encargo.
-    + `Escribe el encargo de cada subagente en ${answerLang} y pídele explícitamente que responda en ${answerLang}: ` +
-    `su respuesta la lee el usuario en una pestaña propia, y no hereda tus instrucciones de idioma. ` +
-    `Cuando terminen, resume tú el conjunto en tu respuesta — el usuario ve el detalle de cada uno por separado, ` +
-    `así que tu resumen debe ser la conclusión, no la transcripción.`
+  if (repartir) {
+    persona +=
+      `\n\nDELEGAR: este encargo tiene partes independientes y el usuario ha pedido repartirlo. ` +
+      `Usa la herramienta Agent: da a cada subagente su propio contexto y evita saturar el tuyo. Máximo CINCO a la vez. ` +
+      `Dale a cada uno una descripción corta y concreta de su parte: se muestra al usuario como título de su pestaña. `
+      // El usuario ve una oficina con personajes, no un CLI: «lancé dos
+      // subagentes en paralelo» nombra la tubería. Lo que ve es que asignaste
+      // trabajo a gente que se puso a trabajar.
+      + `Cuéntalo como lo que el usuario ve: ASIGNAS partes del trabajo a miembros del equipo, cada uno con su pestaña. ` +
+      `Di «asigno» o «reparto», no «lanzo subagentes en paralelo» ni «uso la herramienta Agent»: eso nombra la tubería, no el trabajo. ` +
+      `Usa SIEMPRE subagent_type "companero": es el miembro del equipo definido para esto, y es lo que garantiza que te contesten en ${answerLang}. `
+      // El subagente arranca con el system prompt del CLI, no con esta persona, así
+      // que la instrucción de idioma NO le llega: contestaba en inglés aunque el
+      // usuario tenga español. Solo el que delega puede pasársela, en el encargo.
+      + `Escribe el encargo de cada subagente en ${answerLang} y pídele explícitamente que responda en ${answerLang}: ` +
+      `su respuesta la lee el usuario en una pestaña propia, y no hereda tus instrucciones de idioma. ` +
+      `Cuando terminen, resume tú el conjunto en tu respuesta — el usuario ve el detalle de cada uno por separado, ` +
+      `así que tu resumen debe ser la conclusión, no la transcripción.`
+  } else {
+    // Sin esto el modelo reparte igual cuando el encargo «parece» divisible: la
+    // herramienta Agent sigue estando disponible aunque no la nombremos.
+    persona +=
+      `\n\nHAZLO TÚ: el usuario te lo ha pedido a ti. NO uses la herramienta Agent ni repartas el trabajo entre otros, ` +
+      `aunque el encargo contenga una lista de tareas o partes que parezcan independientes: una lista dentro de un ` +
+      `encargo describe el trabajo, no pide que se divida. Si de verdad crees que conviene repartirlo, dilo en una frase ` +
+      `al final y deja que el usuario lo decida — puede pedirlo con /repartir.`
+  }
+
   // instrucción de artifacts: si el usuario pide un "artifact"/página/dashboard/visual,
   // generar un HTML autocontenido (CSS/JS inline) en esta carpeta.
   const artDir = getArtifactsDir(profile)

@@ -16,7 +16,7 @@ import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n
 import { prefKey, leerPref } from './lib/prefs.js'
 import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
 import { paraElPanel } from './lib/historial.js'
-import { decideDespacho, quienColisiona } from './lib/despacho.js'
+import { decideDespacho, pideReparto, quienColisiona } from './lib/despacho.js'
 import { registra, resumen as resumenActividad } from './lib/actividad.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
@@ -3026,6 +3026,9 @@ export default function App() {
       effort: memberEffort(job.target),
       role: job.target,
       standup: job.standup,
+      // Repartir solo si lo pediste: la app ya no autoriza a delegar por su
+      // cuenta. Ver `pideReparto`.
+      repartir: !!job.repartir,
     })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'Error desconocido'}` }])
@@ -3247,8 +3250,12 @@ export default function App() {
     // «/repartir …»: forzar el reparto en vez de esperar a que el modelo lo vea.
     // Se le quita el prefijo a lo que se muestra —el chat enseña lo que pediste,
     // no la instrucción interna— pero el encargo que viaja sí la lleva.
-    const repartir = /^\/repartir\s+/i.test(prompt)
-    if (repartir) {
+    // `/repartir …` o pedirlo con palabras. Sin esto el agente NO reparte:
+    // antes se le autorizaba en cada mensaje y un encargo con una lista de
+    // tareas dentro se repartía solo.
+    const repartir = pideReparto(prompt)
+    const conComando = /^\/repartir\s+/i.test(prompt)
+    if (conComando) {
       prompt = prompt.replace(/^\/repartir\s+/i, '')
       prompt =
         `Reparte este encargo entre compañeros con la herramienta Agent, una parte independiente por cada uno, ` +
@@ -3265,8 +3272,9 @@ export default function App() {
       id: crypto.randomUUID(),
       target,
       text,
-      display: (repartir ? text.replace(/^\/repartir\s+/i, '') : text) || (rfs.length ? '📁' : '🖼'),
+      display: (conComando ? text.replace(/^\/repartir\s+/i, '') : text) || (rfs.length ? '📁' : '🖼'),
       prompt,
+      repartir,
       handoffTo,
       // imágenes con su path (para miniatura); refs solo por nombre
       atts: [...atts.map((a) => ({ name: a.name, path: a.path })), ...rfs.map((r) => r.name)],

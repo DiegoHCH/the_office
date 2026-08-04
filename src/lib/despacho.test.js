@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decideDespacho, quienColisiona } from './despacho.js'
+import { decideDespacho, pideReparto, quienColisiona } from './despacho.js'
 
 describe('decideDespacho', () => {
   const base = { target: 'dev', tabDeRol: {}, activa: 'tab-1', ocupado: false, enCola: false }
@@ -94,5 +94,47 @@ describe('quienColisiona', () => {
       proyectoDe: () => '/w/uno',
     })
     expect(otros).toEqual([])
+  })
+})
+
+describe('pideReparto', () => {
+  it('el comando explícito lo pide', () => {
+    expect(pideReparto('/repartir revisa estos tres módulos')).toBe(true)
+  })
+
+  it('pedirlo con palabras también cuenta', () => {
+    expect(pideReparto('reparte esto entre el equipo')).toBe(true)
+    expect(pideReparto('delégalo en dos compañeros')).toBe(true)
+    expect(pideReparto('repártelo entre varios')).toBe(true) // con tilde, que es como se escribe
+    expect(pideReparto('hazlo en paralelo, son partes independientes')).toBe(true)
+  })
+
+  it('un encargo con lista de tareas dentro NO es pedir reparto', () => {
+    // El caso real: un refinamiento técnico con cinco «Tareas Front» numeradas.
+    // El usuario quería UN documento y recibió cinco pestañas, porque la app
+    // autorizaba a repartir en cada mensaje y esa lista parecía «partes
+    // independientes».
+    const hu = `Refinamiento técnico de la HU-P4-01.
+      Tareas Front:
+      1. Integración de servicios del BE
+      2. Creación del widget de salud del crédito
+      3. Maquetación de la vista general
+      4. Maquetación del listado de activos
+      5. Integración del servicio que lista los activos
+      cuando finalices pásaselo a nami`
+    expect(pideReparto(hu)).toBe(false)
+  })
+
+  it('«divide» no cuenta: aparece en cualquier cálculo', () => {
+    expect(pideReparto('divide el total entre doce meses')).toBe(false)
+  })
+
+  it('«asigna» tampoco: sale en cualquier especificación', () => {
+    expect(pideReparto('la vista asigna el color según el estado')).toBe(false)
+  })
+
+  it('pasar el trabajo a UNA persona no es repartir', () => {
+    // «pásaselo a nami» es un relevo, no una división del encargo.
+    expect(pideReparto('cuando termines pásaselo a nami')).toBe(false)
   })
 })
