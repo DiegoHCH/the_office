@@ -1472,13 +1472,22 @@ export default function App() {
     window.oficina?.reset?.()
   }
 
-  // «Conversación nueva» con su aviso: para cuando el usuario la PIDE —el botón
-  // + Nueva, ⌘K, /nueva, el Tray—. Vaciar el hilo por un efecto secundario
-  // (cerrar la última pestaña, borrar del historial la que tenías abierta) usa
-  // `clearConversation` a secas: anunciar «conversación nueva» cuando lo que
-  // hiciste fue cerrar una es contarte algo que no pediste.
-  const newChat = () => {
-    clearConversation()
+  // «Conversación nueva»: abre una PESTAÑA nueva y deja la actual donde estaba.
+  //
+  // Antes vaciaba la pestaña en la que estabas. El hilo no se perdía —el
+  // historial guarda en cada mensaje— pero desaparecía de la vista, y con él su
+  // pestaña: su proyecto, su modelo y su permiso de edición. Desde que cada
+  // pestaña lleva su propio contexto de trabajo, reemplazarla cuesta bastante
+  // más que antes, y «nueva» sugiere añadir una, no sustituir la que hay.
+  //
+  // Si la pestaña ya está vacía no se abre otra en blanco al lado: ya estás en
+  // una conversación nueva.
+  //
+  // Para cuando el usuario la PIDE —el botón + Nueva, ⌘K, /nueva, el Tray—.
+  // Vaciar el hilo por un efecto secundario (cerrar la última pestaña, borrar
+  // del historial la que tenías abierta) usa `clearConversation` a secas.
+  const newChat = async () => {
+    if (messages.length) await addTab()
     showToast(t('toast.newChat'))
   }
 

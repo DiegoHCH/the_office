@@ -74,7 +74,7 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🌐 Web y escritorio (npm)** — en proyectos npm el objetivo es un **script** del `package.json`, no un dispositivo: los que se quedan corriendo van primero, el gestor lo decide el lockfile y la URL se detecta de la salida del servidor.
 
 ### La app
-- **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs y los proyectos del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria y ⚙️.
+- **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs y los proyectos del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria —abre una pestaña nueva y deja la actual donde estaba— y ⚙️.
 - **🗂 Selector de proyectos con jerarquía** — los que viven dentro de una carpeta raíz se ven **anidados** bajo ella, que es la relación que decide qué `CLAUDE.md` heredan; la flecha pliega cada raíz (recordando el estado) y la **✕** quita un proyecto de la lista sin borrar la carpeta. **➕ Agregar proyecto…** admite cualquier carpeta: si no es un repo, se listan también los proyectos de dentro.
 - **🌗 Tema claro u oscuro** — Auto sigue al sistema, o lo fijas en Preferencias; toda la interfaz, no solo la escena.
 - **🧠 Razonamiento a la vista** — cada respuesta puede desplegar lo que el agente pensó antes de contestar.
