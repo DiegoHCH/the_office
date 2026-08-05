@@ -2629,6 +2629,13 @@ function anotaFalloUpdate(err) {
   } catch {}
 }
 
+/// Cada cuánto se vuelve a mirar si hay versión nueva.
+///
+/// Dos horas es una petición diminuta y cubre el caso de una versión publicada
+/// mientras trabajas. Más a menudo no aporta: aplicarla siempre la decides tú,
+/// así que enterarse dos horas antes no cambia nada.
+const CADA_CUANTO = 2 * 60 * 60 * 1000
+
 // El actualizador con la descarga ya lista, para poder aplicarla desde la app.
 let updaterListo = null
 let versionListaRef = ''
@@ -2693,6 +2700,16 @@ function iniciaAutoUpdate() {
     anotaFalloUpdate(err)
     checkForUpdates()
   })
+  // Y cada tanto, no solo al arrancar. Quien deja la app abierta días no se
+  // enteraba de ninguna versión hasta que la cerraba y la volvía a abrir — que
+  // es justo el patrón de uso de esta app: se queda abierta trabajando.
+  //
+  // Si ya hay una descargada esperando, no se vuelve a preguntar: ya está el
+  // aviso puesto y descargarla otra vez no aporta nada.
+  setInterval(() => {
+    if (updaterListo) return
+    updater.checkForUpdates().catch((err) => anotaFalloUpdate(err))
+  }, CADA_CUANTO)
   return true
 }
 
@@ -2808,7 +2825,12 @@ app.whenReady().then(() => {
   } catch {}
   // auto-update si se puede; si no, el aviso de siempre
   setTimeout(() => {
-    if (!iniciaAutoUpdate()) checkForUpdates()
+    // el respaldo también se repite: si el auto-update no está disponible, al
+    // menos que el aviso de versión nueva no dependa de reiniciar la app
+    if (!iniciaAutoUpdate()) {
+      checkForUpdates()
+      setInterval(checkForUpdates, CADA_CUANTO)
+    }
   }, 5000) // sin estorbar el arranque
   if (!isDev) {
     protocol.handle('app', (req) => {
