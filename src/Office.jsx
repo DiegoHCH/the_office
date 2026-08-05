@@ -1364,8 +1364,15 @@ export default function Office({ roleStates = {}, status = '', squad = [], deliv
       {/* Acabado de cámara (glow-up #111): bloom en lámparas y pantallas,
           tilt-shift para el efecto maqueta, viñeta y antialiasing. En calidad
           «ligera» se apaga entero; oculta la ventana tampoco se compone. */}
-      {quality !== 'ligera' && visible && (
-        <EffectComposer multisampling={0} enableNormalPass={false}>
+      {/* `enabled` en vez de desmontarlo con `visible`.
+          Desmontar el compositor tira sus render targets —varios buffers a
+          pantalla completa más la cadena de mipmaps del bloom— y volver a
+          montarlo crea otros. Con la ventana ocultándose y volviendo decenas de
+          veces al día, eso deja memoria de GPU por el camino: se midió 1,1 GB en
+          `IOAccelerator` repartidos en 1.512 regiones tras seis horas de uso.
+          Apagado no compone nada, que era todo el ahorro que se buscaba. */}
+      {quality !== 'ligera' && (
+        <EffectComposer multisampling={0} enableNormalPass={false} enabled={visible}>
           <Bloom intensity={quality === 'cine' ? 0.75 : 0.45} luminanceThreshold={0.82} luminanceSmoothing={0.5} mipmapBlur radius={0.72} />
           {/* tilt-shift: efecto maqueta, solo en calidad Cine */}
           {quality === 'cine' && <DepthOfField focusDistance={0.015} focalLength={0.05} bokehScale={2.6} height={480} />}
