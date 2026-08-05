@@ -11,6 +11,58 @@ const { execFile } = require('node:child_process')
 const { ipcMain, dialog, shell, BrowserWindow } = require('electron')
 const { rutaContenida } = require('../lib/core.js')
 
+// Ventanas de visor abiertas, por archivo.
+const abiertos = new Map()
+
+/// Recarga el visor cuando el documento cambia en disco.
+///
+/// Es lo que convierte «pídele cambios y ábrelo otra vez» en verlos aparecer:
+/// el agente reescribe el archivo y la ventana que tienes delante se actualiza.
+///
+/// Tres detalles que no son evidentes:
+///
+/// - Se vigila la CARPETA, no el archivo. Guardar no siempre es escribir
+///   encima: muchas herramientas escriben un temporal y lo renombran, y eso
+///   deja al vigía del archivo mirando un inodo que ya nadie usa.
+/// - Con espera antes de recargar. Un guardado no es atómico: el archivo pasa
+///   por vacío o a medias, y recargar en ese instante muestra una página en
+///   blanco. Además llegan varios eventos por guardado.
+/// - Se conserva la posición del scroll. Sin eso, cada cambio te devuelve
+///   arriba del todo, que en un documento largo es peor que no recargar.
+function vigilaArchivo(file, w) {
+  const dir = path.dirname(file)
+  const base = path.basename(file)
+  let espera = null
+  let vigia = null
+
+  const recarga = async () => {
+    if (w.isDestroyed()) return
+    try {
+      if (!fs.existsSync(file) || fs.statSync(file).size === 0) return
+      const y = await w.webContents.executeJavaScript('window.scrollY').catch(() => 0)
+      w.webContents.once('did-finish-load', () => {
+        w.webContents.executeJavaScript(`window.scrollTo(0, ${y})`).catch(() => {})
+      })
+      w.reload()
+    } catch {}
+  }
+
+  try {
+    vigia = fs.watch(dir, (_ev, name) => {
+      if (name && name !== base) return
+      clearTimeout(espera)
+      espera = setTimeout(recarga, 250)
+    })
+  } catch {}
+
+  w.on('closed', () => {
+    clearTimeout(espera)
+    try {
+      vigia?.close()
+    } catch {}
+  })
+}
+
 function registra({ getArtifactsDir, artifactsDirFile, ventana }) {
   const win = () => ventana()
   ipcMain.handle('artifacts:getDir', (_e, profile) => getArtifactsDir(profile))
@@ -56,8 +108,19 @@ function registra({ getArtifactsDir, artifactsDirFile, ventana }) {
   })
   ipcMain.handle('artifacts:open', (_e, file, profile) => {
     if (!dentroDeArtifacts(file, profile)) return { ok: false }
+    // Si ya está abierto, se trae al frente en vez de abrir otra ventana: al
+    // pedir cambios sobre un documento lo normal es volver al que ya tienes
+    // delante, y con la recarga automática esa ventana ya está al día.
+    const ya = abiertos.get(file)
+    if (ya && !ya.isDestroyed()) {
+      ya.focus()
+      return { ok: true }
+    }
     const w = new BrowserWindow({ width: 1000, height: 780, backgroundColor: '#ffffff', title: path.basename(file) })
     w.loadFile(file)
+    abiertos.set(file, w)
+    w.on('closed', () => abiertos.delete(file))
+    vigilaArchivo(file, w)
     // El visor local se queda en el archivo; links externos dentro del artifact van al navegador.
     w.webContents.setWindowOpenHandler(({ url }) => {
       shell.openExternal(url)
