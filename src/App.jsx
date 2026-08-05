@@ -1472,6 +1472,11 @@ export default function App() {
     window.oficina?.reset?.()
   }
 
+  // «Conversación nueva» con su aviso: para cuando el usuario la PIDE —el botón
+  // + Nueva, ⌘K, /nueva, el Tray—. Vaciar el hilo por un efecto secundario
+  // (cerrar la última pestaña, borrar del historial la que tenías abierta) usa
+  // `clearConversation` a secas: anunciar «conversación nueva» cuando lo que
+  // hiciste fue cerrar una es contarte algo que no pediste.
   const newChat = () => {
     clearConversation()
     showToast(t('toast.newChat'))
@@ -1589,7 +1594,8 @@ export default function App() {
   }
   const closeTab = async (e, id) => {
     e.stopPropagation()
-    if (tabs.length === 1) return newChat() // la última no se cierra: se vacía
+    // la última no se cierra: se vacía. Sin aviso — cerrar no es crear
+    if (tabs.length === 1) return clearConversation()
     if (busy && id === activeTab) return showToast(t('toast.busy'))
     delete tabStateRef.current[id] // el hilo ya está guardado en el historial
     const resto = tabs.filter((x) => x.id !== id)
@@ -2365,7 +2371,9 @@ export default function App() {
     // se avisa de las hijas que cayeron con ella: borrar más de lo que se ve
     // marcado no puede pasar en silencio
     if (res?.hijas) showToast(t('toast.convChildrenDeleted', { n: res.hijas }))
-    if (id === convIdRef.current) newChat()
+    // si borraste la que tenías abierta, el hilo se va con ella; sin aviso de
+    // «conversación nueva», que además se solaparía con el de las hijas
+    if (id === convIdRef.current) clearConversation()
     setHistList((await window.oficina?.history?.list(profile)) || [])
   }
 
