@@ -3036,6 +3036,13 @@ export default function App() {
     if (s?.ok) showToast(t('toast.vaultSynced', { n: s.hechas, total: s.total }), 6000)
     else if (s?.error) showToast(`⚠️ ${s.error}`, 6000)
   }
+  const reexporta = async () => {
+    const r = await window.oficina?.obsidian?.syncAll?.()
+    if (!r?.ok) return showToast(`⚠️ ${r?.error || '—'}`, 6000)
+    // Si alguna falló se dice cuál: «12 de 14» sin más deja adivinando qué pasó
+    // con las dos, y son justo las que no se van a ver en la lista.
+    showToast(r.fallos?.length ? `${t('toast.vaultSynced', { n: r.hechas, total: r.total })} · ${r.fallos[0]}` : t('toast.vaultSynced', { n: r.hechas, total: r.total }), 8000)
+  }
   const quitaVault = async () => {
     await window.oficina?.obsidian?.clearDir?.()
     setVaultDir('')
@@ -4184,6 +4191,15 @@ export default function App() {
                     </button>
                     <button type="button" className="sel pref-mini" onClick={eligeVault} title={t('pref.vaultChange')}>
                       <IconEdit size={13} />
+                    </button>
+                    {/* Re-exportar todo. Existe por un borde real: con el vault
+                        conectado la lista SALE de las notas, así que una nota que
+                        no se llegó a escribir —la carpeta no estaba en ese
+                        momento— deja su conversación invisible en la app aunque
+                        su dato esté intacto. Esto la trae de vuelta sin tener que
+                        desconectar y reconectar la carpeta. */}
+                    <button type="button" className="sel pref-mini" onClick={reexporta} title={t('pref.vaultResync')}>
+                      <IconRefresh size={13} />
                     </button>
                     <button type="button" className="sel pref-mini" onClick={quitaVault} title={t('pref.vaultOff')}>
                       <IconClose size={13} />
