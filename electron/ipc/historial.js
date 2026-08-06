@@ -10,8 +10,14 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const { ipcMain, dialog } = require('electron')
+const obs = require('../lib/obsidian.js')
 
-function registra({ HIST_DIR, ventana }) {
+// `escribeNota` viene de ipc/obsidian.js y es opcional: sin vault configurado
+// devuelve `{off:true}` y aquí no cambia nada. Se llama desde el guardado —y no
+// desde el renderer— porque este es el ÚNICO sitio por donde pasa una
+// conversación al persistirse: cualquier otro punto de enganche se acabaría
+// olvidando de alguna ruta (el autosave, el cierre de un subagente, el renombrar).
+function registra({ HIST_DIR, ventana, escribeNota, listaDesdeVault }) {
   const win = () => ventana()
   ipcMain.handle('history:save', (_e, convo) => {
     try {
@@ -31,7 +37,11 @@ function registra({ HIST_DIR, ventana }) {
         }
       } catch {}
       fs.writeFileSync(p, JSON.stringify(convo, null, 2))
-      return { ok: true }
+      // Y la nota del vault, si hay uno. Va DESPUÉS y su resultado viaja aparte:
+      // la conversación ya está a salvo en su JSON pase lo que pase con el vault,
+      // y si la nota no se pudo escribir se dice en vez de perderse en silencio.
+      const nota = escribeNota ? escribeNota(convo) : { ok: true, off: true }
+      return { ok: true, vault: nota.ok || nota.off ? null : nota.error }
     } catch (err) {
       return { ok: false, error: err.message }
     }
@@ -41,6 +51,28 @@ function registra({ HIST_DIR, ventana }) {
   // conversación del otro. Cada conversación ya guardaba su `profile`, así que no
   // hay que mover nada — solo dejar de mostrarlas todas juntas.
   ipcMain.handle('history:list', (_e, profile) => {
+    // Con vault conectado, el ÍNDICE es el vault: la lista sale de las notas, así
+    // que borrar una en Obsidian la quita también de aquí. Lo que se sigue leyendo
+    // del JSON es el dato de cada una —fijada, de quién es hija, si tiene sesión
+    // con la que retomar—, porque eso una nota no lo tiene.
+    const delVault = listaDesdeVault ? listaDesdeVault(profile) : null
+    if (delVault) {
+      return delVault
+        .map((e) => {
+          let extra
+          try {
+            const c = JSON.parse(fs.readFileSync(path.join(HIST_DIR, `${e.id}.json`), 'utf8'))
+            extra = { pinned: !!c.pinned, parentId: c.parentId || null, title: c.titleCustom ? c.title : e.title }
+          } catch {
+            // hay nota pero no datos: se ve en la lista y se dice al abrirla, en
+            // vez de desaparecer sin explicación o fingir que se puede retomar
+            extra = { sinDatos: true, pinned: false, parentId: null }
+          }
+          return { ...e, ...extra }
+        })
+        .filter((c) => !profile || (c.profile || 'work') === profile)
+        .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+    }
     try {
       return fs
         .readdirSync(HIST_DIR)
@@ -174,21 +206,10 @@ function registra({ HIST_DIR, ventana }) {
       filters: [{ name: 'Markdown', extensions: ['md'] }],
     })
     if (res.canceled || !res.filePath) return { ok: false, canceled: true }
-    const when = convo.updatedAt ? new Date(convo.updatedAt).toLocaleString('es') : ''
-    const lines = [
-      `# ${convo.title || 'Conversación'}`,
-      '',
-      `> Perfil: ${convo.profile || '—'} · Proyecto: \`${convo.project || '—'}\` · Modelo: ${convo.model || '—'}${when ? ` · ${when}` : ''}`,
-      '',
-    ]
-    for (const m of convo.messages || []) {
-      const head = m.role === 'user' ? `## 👤 Tú${m.to ? ` → ${m.to}` : ''}` : `## 🤖 ${m.who || 'Agente'}`
-      lines.push(head, '', m.text || '', '')
-      if (m.artifact) lines.push(`> 📄 Documento: \`${m.artifact}\``, '')
-      if (m.atts?.length) lines.push(`> 📎 Adjuntos: ${m.atts.map((a) => `\`${a.name || a.path || a}\``).join(', ')}`, '')
-    }
     try {
-      fs.writeFileSync(res.filePath, lines.join('\n'))
+      // El mismo renderizador que usan las notas del vault: si cada salida tuviera
+      // su formato, la misma conversación se leería distinta según por dónde saliera.
+      fs.writeFileSync(res.filePath, obs.cuerpoDeConversacion(convo))
       return { ok: true, path: res.filePath }
     } catch (err) {
       return { ok: false, error: err.message }

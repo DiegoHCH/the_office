@@ -48,6 +48,21 @@ contextBridge.exposeInMainWorld('oficina', {
   gitBranches: (arg) => ipcRenderer.invoke('git:branches', arg),
   // Cambiar de rama (checkout de verdad, sin forzar).
   gitCheckout: (arg) => ipcRenderer.invoke('git:checkout', arg),
+  // Vault de Obsidian: carpeta donde se dejan las conversaciones como notas .md,
+  // separadas por perfil y proyecto. Sin carpeta configurada, no se escribe nada.
+  obsidian: {
+    getDir: () => ipcRenderer.invoke('obsidian:getDir'),
+    pickDir: () => ipcRenderer.invoke('obsidian:pickDir'),
+    clearDir: () => ipcRenderer.invoke('obsidian:clearDir'),
+    reveal: () => ipcRenderer.invoke('obsidian:reveal'),
+    syncAll: () => ipcRenderer.invoke('obsidian:syncAll'),
+    // La memoria del proyecto: la escribes tú en Obsidian y entra en la persona
+    // de cada agente de ese perfil+proyecto.
+    openMemoria: (arg) => ipcRenderer.invoke('obsidian:openMemoria', arg),
+    memoriaInfo: (arg) => ipcRenderer.invoke('obsidian:memoriaInfo', arg),
+    // Abre el vault de este proyecto en Obsidian (cada proyecto es un vault).
+    openVault: (arg) => ipcRenderer.invoke('obsidian:openVault', arg),
+  },
   // ¿hay un proyecto Flutter a la vista? (instantáneo, solo disco)
   flutterProject: (cwd) => ipcRenderer.invoke('flutter:project', cwd),
   // dónde puede correr el proyecto Flutter: dispositivos y emuladores
