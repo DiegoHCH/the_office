@@ -41,6 +41,13 @@ contextBridge.exposeInMainWorld('oficina', {
   // Diff del proyecto (cambios de los agentes en modo edición).
   // acepta la ruta del proyecto o { cwd, paths } con los archivos editados
   gitDiff: (arg) => ipcRenderer.invoke('git:diff', arg),
+  // En qué rama está el repo en el que se está trabajando (acepta { cwd, paths }
+  // porque el proyecto elegido puede ser la carpeta padre y no el repo).
+  gitBranch: (arg) => ipcRenderer.invoke('git:branch', arg),
+  // Las ramas locales de un repo, la más reciente primero.
+  gitBranches: (arg) => ipcRenderer.invoke('git:branches', arg),
+  // Cambiar de rama (checkout de verdad, sin forzar).
+  gitCheckout: (arg) => ipcRenderer.invoke('git:checkout', arg),
   // ¿hay un proyecto Flutter a la vista? (instantáneo, solo disco)
   flutterProject: (cwd) => ipcRenderer.invoke('flutter:project', cwd),
   // dónde puede correr el proyecto Flutter: dispositivos y emuladores

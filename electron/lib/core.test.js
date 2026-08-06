@@ -1338,6 +1338,81 @@ describe('tocaBuscarUpdate', () => {
 // el renderer no decía de qué perfil era el documento, el main asumía «work», y
 // a quien trabajaba en otro perfil no se le abría NADA —ni el archivo, ni la
 // carpeta, ni el zip— sin un solo error por ningún lado.
+// Elegir el repo cuando el proyecto es la carpeta padre. El caso real: se elige
+// ~/Workspace —que no está versionada— para que los agentes carguen ai-context,
+// y dentro hay dos repos (ai-context y front-mobile-b2c). Enseñar la rama del
+// que no es sería peor que no enseñar ninguna.
+describe('eligeRepoDeDentro', () => {
+  const { eligeRepoDeDentro } = core
+
+  it('sin candidatos no hay repo', () => {
+    expect(eligeRepoDeDentro([])).toBe(null)
+    expect(eligeRepoDeDentro(undefined)).toBe(null)
+  })
+
+  it('con uno solo, ese', () => {
+    expect(eligeRepoDeDentro([{ dir: '/w/front-mobile-b2c', head: 0 }])).toBe('/w/front-mobile-b2c')
+  })
+
+  it('con varios, el del HEAD más reciente: ahí se hizo el último checkout', () => {
+    // fechas reales medidas en el workspace: ai-context 11:07, b2c 11:20
+    const elegido = eligeRepoDeDentro([
+      { dir: '/w/ai-context', head: 1_000_000 },
+      { dir: '/w/front-mobile-b2c', head: 1_780_000 },
+    ])
+    expect(elegido).toBe('/w/front-mobile-b2c')
+  })
+
+  it('un archivo escrito hace un momento gana a un checkout viejo', () => {
+    // editar NO toca HEAD: sin esta regla, una tarde entera trabajando en un
+    // repo seguía mostrando la rama de aquel donde se commiteó por última vez
+    const elegido = eligeRepoDeDentro([
+      { dir: '/w/ai-context', head: 9_000_000, tocado: 0 },
+      { dir: '/w/front-mobile-b2c', head: 1_000_000, tocado: 9_500_000 },
+    ])
+    expect(elegido).toBe('/w/front-mobile-b2c')
+  })
+
+  it('y una rama recién creada gana a un archivo tocado antes', () => {
+    // el caso de «créame la rama» por el chat: el agente hace checkout -b en un
+    // repo y no edita nada dentro; si mandaran los archivos editados, el HUD
+    // seguiría mostrando la rama del repo que se tocó al empezar
+    const elegido = eligeRepoDeDentro([
+      { dir: '/w/ai-context', head: 1_000_000, tocado: 4_000_000 },
+      { dir: '/w/front-mobile-b2c', head: 8_000_000, tocado: 0 },
+    ])
+    expect(elegido).toBe('/w/front-mobile-b2c')
+  })
+
+  it('empate de fechas: se queda el primero, sin bailar entre refrescos', () => {
+    const cand = [
+      { dir: '/w/a', head: 5_000_000 },
+      { dir: '/w/b', head: 5_000_000 },
+    ]
+    expect(eligeRepoDeDentro(cand)).toBe('/w/a')
+    expect(eligeRepoDeDentro(cand)).toBe('/w/a')
+  })
+
+  it('no depende del orden en que lleguen', () => {
+    const elegido = eligeRepoDeDentro([
+      { dir: '/w/front-mobile-b2c', head: 1_780_000 },
+      { dir: '/w/ai-context', head: 1_000_000 },
+    ])
+    expect(elegido).toBe('/w/front-mobile-b2c')
+  })
+
+  it('un HEAD ilegible no gana, pero tampoco descarta al repo', () => {
+    expect(eligeRepoDeDentro([{ dir: '/w/roto' }, { dir: '/w/bueno', head: 5 }])).toBe('/w/bueno')
+    expect(eligeRepoDeDentro([{ dir: '/w/roto' }])).toBe('/w/roto')
+    // el repo sin señal alguna sigue siendo elegible si es el único con algo
+    expect(eligeRepoDeDentro([{ dir: '/w/a', head: 0, tocado: 0 }, { dir: '/w/b', tocado: 1 }])).toBe('/w/b')
+  })
+
+  it('ignora entradas sin carpeta', () => {
+    expect(eligeRepoDeDentro([{ head: 9_999_999 }, { dir: '/w/bueno', head: 1 }])).toBe('/w/bueno')
+  })
+})
+
 describe('rutaContenida', () => {
   const { rutaContenida } = core
   const dir = '/Users/x/Artifacts/work'

@@ -242,6 +242,59 @@ body {
 .ctx-sep { color: var(--muted-4); }
 .ctx-proj { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ctx-caret { color: var(--muted-4); font-size: 10px; }
+/* Repo y rama, al lado del proyecto: es el mismo dato —dónde estás trabajando—
+   y se lee de un tirón. Son controles de verdad, no chips: se pulsan y eligen,
+   así que van con el mismo aire que el selector de contexto pero más pequeños,
+   porque el protagonista de la barra sigue siendo el proyecto. */
+.gitwrap { position: relative; display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.gitsel {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 210px; height: 28px;
+  background: var(--surface-2); color: var(--muted);
+  border: 1px solid var(--line); border-radius: 999px; padding: 0 10px;
+  font-size: 11.5px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  cursor: pointer; transition: border-color 0.15s, color 0.15s;
+}
+.gitsel svg { color: var(--accent-2); flex: none; }
+.gitsel:hover { color: var(--ink); border-color: var(--accent); }
+.gitsel.on { color: var(--ink); border-color: var(--accent); }
+.gitsel-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* HEAD suelta: no es una rama, y conviene que no se lea como si lo fuera. */
+.gitsel.suelta { color: var(--warn); }
+.gitsel.suelta svg { color: var(--warn); }
+.git-pop {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
+  width: 260px; max-height: 50vh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: 16px; padding: 8px;
+  box-shadow: 0 4px 8px 3px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+/* El de ramas cuelga del segundo control, así que se ancla a la derecha para no
+   salirse de la ventana cuando el nombre del repo es largo. */
+.git-pop.derecha { left: auto; right: 0; }
+.git-pop-head { color: var(--muted); font-size: 10.5px; padding: 4px 10px 8px; }
+.git-pop-msg { color: var(--muted); font-size: 11px; padding: 6px 10px; }
+.git-pop-msg.err { color: var(--warn); }
+/* Filtro de ramas: pegado arriba, que no se vaya con el scroll de la lista. */
+.git-filtro {
+  position: sticky; top: 0; z-index: 1;
+  width: 100%; margin-bottom: 4px; padding: 7px 10px;
+  background: var(--surface-2); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 10px; outline: none;
+  font-size: 11.5px; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.git-filtro:focus { border-color: var(--accent); }
+.git-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  width: 100%; text-align: left; padding: 8px 10px;
+  background: none; border: none; border-radius: 10px; color: var(--ink);
+  font-size: 12px; font-family: ui-monospace, "SF Mono", Menlo, monospace; cursor: pointer;
+}
+.git-item:hover { background: var(--surface-2); }
+.git-item.on { color: var(--accent); background: rgba(45, 212, 191, 0.08); }
+.git-item-repo { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.git-item-rama { display: inline-flex; align-items: center; gap: 4px; flex: none; color: var(--muted); font-size: 11px; }
+.git-item-rama.suelta { color: var(--warn); }
+.git-item.on .git-item-rama { color: var(--accent-2); }
 .ctx-backdrop { position: fixed; inset: 0; z-index: 29; }
 .ctx-pop {
   position: absolute; top: calc(100% + 8px); left: 0; z-index: 30;
@@ -1364,6 +1417,19 @@ select.squad-model {
 .tab-x { display: flex; opacity: 0; flex: none; border-radius: 999px; padding: 1px; }
 .tab:hover .tab-x { opacity: 0.55; }
 .tab-x:hover { opacity: 1 !important; background: rgba(233, 241, 238, 0.12); }
+/* Aparcar / traer de vuelta. Oculto hasta el hover como la ✕, PERO si está
+   aparcada se queda visible: es lo único que dice que el hilo sigue ahí y no se
+   ha cerrado. */
+.tab-min { position: relative; display: flex; opacity: 0; flex: none; border-radius: 999px; padding: 1px; }
+.tab:hover .tab-min { opacity: 0.55; }
+.tab-min:hover { opacity: 1 !important; background: rgba(233, 241, 238, 0.12); }
+.tab-min.on { opacity: 0.9; color: var(--accent-2); }
+/* Llegó algo mientras estaba aparcada. */
+.tab-min-dot {
+  position: absolute; top: -2px; right: -2px; width: 6px; height: 6px;
+  border-radius: 999px; background: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(18, 26, 31, 0.96);
+}
 .tab-add { flex: none; width: auto; justify-content: center; padding: 6px; color: var(--accent-2); }
 /* pestaña de subagente: el personaje es prestado, así que se distingue de las
    conversaciones propias — y cuando termina, deja de pedir atención */

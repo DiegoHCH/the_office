@@ -104,6 +104,20 @@ export const IconClose = (p) => (
     <path d="m256-200-56-56 224-224-224-224 56-56 224 224 224-224 56 56-224 224 224 224-56 56-224-224-224 224Z" />
   </Svg>
 )
+/* Rama de git: el símbolo de siempre (dos nodos y la bifurcación), para que se
+   lea como rama sin necesidad de etiqueta. */
+export const IconBranch = (p) => (
+  <Svg {...p}>
+    <path d="M280-80q-50 0-85-35t-35-85q0-39 22.5-70t57.5-43v-294q-35-12-57.5-43T160-720q0-50 35-85t85-35q50 0 85 35t35 85q0 39-22.5 70T320-607v147q29-22 62-34.5t68-12.5h60q50 0 85-35t35-85v-20q-35-12-57.5-43T550-760q0-50 35-85t85-35q50 0 85 35t35 85q0 39-22.5 70T710-647v20q0 83-58.5 141.5T510-427h-60q-50 0-85 35t-35 85v40q35 12 57.5 43t22.5 70q0 50-35 85t-85 35Zm0-640q17 0 28.5-11.5T320-760q0-17-11.5-28.5T280-800q-17 0-28.5 11.5T240-760q0 17 11.5 28.5T280-720Zm390 0q17 0 28.5-11.5T710-760q0-17-11.5-28.5T670-800q-17 0-28.5 11.5T630-760q0 17 11.5 28.5T670-720ZM280-160q17 0 28.5-11.5T320-200q0-17-11.5-28.5T280-240q-17 0-28.5 11.5T240-200q0 17 11.5 28.5T280-160Z" />
+  </Svg>
+)
+/* Aparcar la conversación: la raya baja, como el minimizar de una ventana. Una
+   raya centrada se leería como «quitar», que es lo contrario de lo que hace. */
+export const IconMinimize = (p) => (
+  <Svg {...p}>
+    <path d="M240-240v-80h480v80H240Z" />
+  </Svg>
+)
 export const IconTrash = (p) => (
   <Svg {...p}>
     <path d="M280-120q-33 0-56.5-23.5T200-200v-520h-40v-80h200v-40h240v40h200v80h-40v520q0 33-23.5 56.5T680-120H280Zm400-600H280v520h400v-520ZM360-280h80v-360h-80v360Zm160 0h80v-360h-80v360ZM280-720v520-520Z" />

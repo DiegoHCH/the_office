@@ -47,6 +47,7 @@ const {
   tocaLimpiarCache,
   CACHE_MAX,
   tocaBuscarUpdate,
+  eligeRepoDeDentro,
   clavesDeSesion,
   componeReglas,
   quitaProyecto,
@@ -2312,6 +2313,179 @@ async function diffDeRepo(root) {
   return { root, diff, untracked }
 }
 
+// Los repos de primer nivel de una carpeta. La usan el diff y la rama: cuando el
+// proyecto elegido es una carpeta padre —el caso normal aquí, se elige la raíz
+// del workspace para que los agentes tomen el contexto de ai-context— el repo de
+// verdad está un nivel más abajo.
+function reposDeDentro(cwd) {
+  try {
+    return fs
+      .readdirSync(cwd, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+      .map((d) => path.join(cwd, d.name))
+      .filter((h) => fs.existsSync(path.join(h, '.git')))
+      .slice(0, 40)
+  } catch {
+    return []
+  }
+}
+
+// La rama de un repo. `suelta` = HEAD detached (un checkout a un commit o a un
+// tag): ahí `--abbrev-ref` devuelve literalmente «HEAD», que no dice nada, y el
+// dato útil es el commit.
+async function ramaDeRepo(root) {
+  try {
+    const rama = (await execFileP('git', ['-C', root, 'rev-parse', '--abbrev-ref', 'HEAD'], { timeout: 5000 })).trim()
+    if (rama !== 'HEAD') return { rama, suelta: false }
+    const sha = (await execFileP('git', ['-C', root, 'rev-parse', '--short', 'HEAD'], { timeout: 5000 })).trim()
+    return { rama: sha, suelta: true }
+  } catch {
+    return null // repo sin commits todavía: no hay HEAD que resolver
+  }
+}
+
+// En qué repo se está trabajando. Suena a una línea de git y no lo es: el
+// proyecto elegido suele NO ser el repo —se elige la raíz del workspace, que no
+// está versionada— así que primero hay que averiguar de qué repo se habla.
+//
+// Solo tres pasos, y lo explícito va antes que lo deducido:
+//   1. el proyecto, si es un repo: no hay nada que adivinar.
+//   2. el que hayas elegido a mano para este proyecto.
+//   3. el de la señal más reciente (ver `eligeRepoDeDentro`), que mira tanto los
+//      checkouts como los archivos que el agente escribió.
+//
+// Los candidatos del 3 son los repos de dentro del proyecto MÁS los de los
+// archivos editados: un agente puede haber trabajado en un repo de fuera, y su
+// rama sigue siendo la respuesta correcta a «dónde estoy trabajando».
+const mtime = (p) => {
+  try {
+    return fs.statSync(p).mtimeMs
+  } catch {
+    return 0
+  }
+}
+
+async function repoEnJuego(cwd, { editados = [], preferido = '' } = {}) {
+  const propio = await repoRoot(cwd)
+  if (propio) return propio
+  const dentro = reposDeDentro(cwd)
+  // el preferido tiene que seguir estando dentro de este proyecto: una
+  // preferencia vieja no debe sacar la rama de un repo que ya no está a la vista
+  if (preferido && dentro.includes(preferido)) {
+    const r = await repoRoot(preferido)
+    if (r) return r
+  }
+  const porRepo = new Map() // raíz del repo → { dir, head, tocado }
+  const anota = (dir) => {
+    if (!porRepo.has(dir)) porRepo.set(dir, { dir, head: mtime(path.join(dir, '.git', 'HEAD')), tocado: 0 })
+    return porRepo.get(dir)
+  }
+  for (const dir of dentro) anota(dir)
+  for (const p of editados) {
+    let dir = p
+    try {
+      if (!fs.statSync(p).isDirectory()) dir = path.dirname(p)
+    } catch {
+      dir = path.dirname(p) // el archivo pudo borrarse: su carpeta sigue sirviendo
+    }
+    const root = await repoRoot(dir)
+    if (!root) continue
+    const c = anota(root)
+    c.tocado = Math.max(c.tocado, mtime(p))
+  }
+  const elegido = eligeRepoDeDentro([...porRepo.values()])
+  return elegido ? repoRoot(elegido) : null
+}
+
+// Cuántos repos se ofrecen para elegir. Con más que esto, la lista deja de ser
+// una elección y pasa a ser otro problema.
+const REPOS_A_ELEGIR = 12
+
+ipcMain.handle('git:branch', async (_e, arg) => {
+  const cwd = typeof arg === 'string' ? arg : arg?.cwd
+  const editados = (Array.isArray(arg?.paths) ? arg.paths : []).filter((p) => typeof p === 'string' && p)
+  const preferido = typeof arg?.preferido === 'string' ? arg.preferido : ''
+  if (!cwd) return { ok: false }
+  const root = await repoEnJuego(cwd, { editados, preferido })
+  if (!root) return { ok: false } // sin repo no hay rama: el HUD no muestra nada
+  const r = await ramaDeRepo(root)
+  if (!r) return { ok: false }
+  // Los demás repos del proyecto, con su rama, para poder cambiar de uno a otro
+  // sin salir del HUD. Solo cuando el proyecto es la carpeta padre: si el
+  // proyecto ES el repo, no hay nada que elegir.
+  let dentro = []
+  if (!(await repoRoot(cwd))) {
+    const hijos = reposDeDentro(cwd).slice(0, REPOS_A_ELEGIR)
+    dentro = (
+      await Promise.all(
+        hijos.map(async (dir) => {
+          const suRama = await ramaDeRepo(dir)
+          return suRama ? { dir, repo: path.basename(dir), rama: suRama.rama, suelta: suRama.suelta } : null
+        })
+      )
+    ).filter(Boolean)
+  }
+  return { ok: true, ...r, repo: path.basename(root), root, dentro }
+})
+
+// Tope de seguridad, no de producto: se mandan todas las ramas al renderer, que
+// filtra y pinta las que caben. Medido en un repo real del usuario, 131 ramas
+// locales —recortar aquí sería esconderle la mayoría—; el número es solo para no
+// mandar un repo absurdo por el puente.
+const RAMAS_A_LISTAR = 500
+
+// Las ramas locales de un repo, la usada más recientemente primero.
+//
+// Por fecha de commit y no por orden alfabético a propósito: alfabético pone
+// `chore/...` antes que la rama en la que llevas toda la semana, y con `feature/`
+// y el número del ticket delante la lista queda ordenada por casualidad del
+// nombre en vez de por lo que estás haciendo.
+ipcMain.handle('git:branches', async (_e, arg) => {
+  const root = typeof arg === 'string' ? arg : arg?.root
+  if (!root) return { ok: false, error: 'sin repo' }
+  try {
+    const out = await execFileP(
+      'git',
+      ['-C', root, 'for-each-ref', '--sort=-committerdate', '--format=%(refname:short)', 'refs/heads'],
+      { timeout: 8000 }
+    )
+    const todas = out.split('\n').map((s) => s.trim()).filter(Boolean)
+    const actual = await ramaDeRepo(root)
+    return {
+      ok: true,
+      ramas: todas.slice(0, RAMAS_A_LISTAR),
+      // Cuántas quedaron fuera. Se dice: una lista recortada en silencio se lee
+      // como «no tienes más ramas», que es justo lo contrario de la verdad.
+      resto: Math.max(0, todas.length - RAMAS_A_LISTAR),
+      actual: actual?.suelta ? '' : actual?.rama || '',
+    }
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) }
+  }
+})
+
+// Cambiar de rama. Esto ESCRIBE en el working tree, así que:
+//
+//  · Se hace `checkout` a secas, sin `-f` ni stash: si hay cambios que se
+//    perderían, git se niega y ese «no» hay que respetarlo y contarlo tal cual.
+//    Un `--force` aquí borraría trabajo sin preguntar.
+//  · El renderer no deja cambiar de rama con agentes trabajando. Ese guardarraíl
+//    vive allí porque es quien sabe quién está ocupado, pero el motivo es este:
+//    cambiar el árbol debajo de un agente que está leyendo y escribiendo
+//    archivos rompe su turno de una forma que no se ve venir.
+ipcMain.handle('git:checkout', async (_e, arg) => {
+  const root = arg?.root
+  const rama = arg?.rama
+  if (!root || !rama) return { ok: false, error: 'faltan datos' }
+  try {
+    await execFileP('git', ['-C', root, 'checkout', rama], { timeout: 20000 })
+    return { ok: true }
+  } catch (err) {
+    // el stderr de git ya explica el motivo mejor que cualquier mensaje propio
+    return { ok: false, error: err?.message || String(err) }
+  }
+})
+
 // Diff de los cambios pendientes para la vista del agente.
 //
 // El diff se pide donde están los cambios, NO en la raíz del proyecto: cuando el
@@ -2344,15 +2518,7 @@ ipcMain.handle('git:diff', async (_e, arg) => {
   if (!roots.length) add(await repoRoot(cwd))
   // 3) carpeta padre sin repo: los repos de primer nivel que tengan cambios
   if (!roots.length) {
-    let hijos = []
-    try {
-      hijos = fs
-        .readdirSync(cwd, { withFileTypes: true })
-        .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
-        .map((d) => path.join(cwd, d.name))
-    } catch {}
-    for (const h of hijos.slice(0, 40)) {
-      if (!fs.existsSync(path.join(h, '.git'))) continue
+    for (const h of reposDeDentro(cwd)) {
       const r = await repoRoot(h)
       if (!r) continue
       try {

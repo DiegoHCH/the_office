@@ -194,6 +194,32 @@ function tocaBuscarUpdate(ahora, ultima, { ya = false, forzado = false, espera =
   return desde < 0 || desde >= espera
 }
 
+// ── Qué repo se está trabajando ──────────────────────────────────────────────
+// El proyecto elegido suele ser la carpeta PADRE —la raíz del workspace, para
+// que los agentes carguen el contexto compartido— y no está versionada: el repo
+// de verdad está un nivel más abajo, y puede haber varios.
+//
+// Gana el repo con la señal MÁS RECIENTE, y hay dos que cuentan:
+//   · `head`   — fecha de su `.git/HEAD`, que git reescribe en cada checkout y
+//                cada commit: delata «acabo de crear/cambiar de rama aquí».
+//   · `tocado` — fecha del último archivo que el agente escribió dentro: delata
+//                «estoy editando aquí», que `HEAD` no ve.
+//
+// Ninguna de las dos basta sola, y —esto es lo que costó— tampoco basta
+// preferir una a la otra. Con prioridad fija para los archivos editados, crear
+// una rama en un repo no se veía si antes se había tocado un archivo de otro; y
+// con prioridad fija para `HEAD`, una tarde entera editando no movía nada
+// porque editar no toca `HEAD`. Comparadas por fecha, cada una gana cuando de
+// verdad es lo último que pasó.
+//
+// Milisegundos, y 0 = sin señal (un repo recién clonado, o un `HEAD` ilegible).
+function eligeRepoDeDentro(candidatos) {
+  const lista = (Array.isArray(candidatos) ? candidatos : []).filter((c) => c?.dir)
+  if (!lista.length) return null
+  const cuando = (c) => Math.max(Number(c.head || 0), Number(c.tocado || 0))
+  return lista.reduce((mejor, c) => (cuando(c) > cuando(mejor) ? c : mejor)).dir
+}
+
 // ── Subagentes ───────────────────────────────────────────────────────────────
 // Un agente puede delegar con la herramienta `Agent`, y cada subagente trabaja
 // con su PROPIO contexto: es la forma de repartir un encargo grande sin saturar
@@ -959,6 +985,7 @@ module.exports = {
   CACHE_MAX,
   tocaBuscarUpdate,
   ESPERA_UPDATE,
+  eligeRepoDeDentro,
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,

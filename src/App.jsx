@@ -31,7 +31,7 @@ import {
   IconAgents, IconBook, IconSkills, IconMcp, IconStats, IconDiag, IconTour,
   IconTerminal, IconExport, IconImport, IconTune, IconChevron,
   IconWork, IconPrivate, IconPerson, IconFolder, IconPin, IconAdd,
-  IconClose, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
+  IconClose, IconMinimize, IconBranch, IconTrash, IconRefresh, IconReveal, IconZip, IconDownload, IconEdit, IconPerson3D,
   IconCheck, IconWarn, IconSpinner, IconClip, IconBulb, IconLink, IconSearchSmall, IconArrowUp, IconArrowDown, IconFile, IconImage,
   IconCopy, IconRetry, IconShare, IconDiff, IconChat, IconBoard, IconBell, IconBellOff, IconRestore, IconClock,
   IconBolt, IconRestartApp, IconStopSquare, IconPlay,
@@ -196,7 +196,10 @@ export default function App() {
   // si es la que se está mirando, o a su snapshot si es otra.
   const enTab = (role, fn) => {
     const suya = tabDeRolRef.current[role]
-    if (!suya || suya === activeTabRef.current) return setMessages(fn)
+    if (!suya || suya === activeTabRef.current) {
+      if (chatMinRef.current) setChatMinNuevo(true) // aparcada: avisa de que hay algo dentro
+      return setMessages(fn)
+    }
     const st = tabStateRef.current[suya]
     if (st) st.messages = fn(st.messages || [])
   }
@@ -204,7 +207,10 @@ export default function App() {
   // Igual que enTab pero con la pestaña ya resuelta: los subagentes no tienen
   // rol propio —el personaje es prestado— así que se enrutan por su pestaña.
   const enTabId = (tabId, fn) => {
-    if (!tabId || tabId === activeTabRef.current) return setMessages(fn)
+    if (!tabId || tabId === activeTabRef.current) {
+      if (chatMinRef.current) setChatMinNuevo(true)
+      return setMessages(fn)
+    }
     const st = tabStateRef.current[tabId]
     if (st) st.messages = fn(st.messages || [])
   }
@@ -1452,6 +1458,7 @@ export default function App() {
   // handoffs a medias no deben dispararse dentro de la conversación siguiente.
   const clearConversation = () => {
     setMessages([])
+    desaparca() // una conversación nueva se ve; heredar el aparcado la escondería
     setChatFilter(null)
     setConvTokens({ in: 0, out: 0, cache: 0 })
     setCtxUsado(0)
@@ -1505,6 +1512,29 @@ export default function App() {
   useEffect(() => {
     activeTabRef.current = activeTab
   }, [activeTab])
+
+  // Conversación aparcada: el hilo sigue vivo y en «Chats activos», pero deja de
+  // tapar la escena. Hasta ahora la única forma de quitarlo de la vista era abrir
+  // una conversación nueva, que es otra cosa — deja la oficina llena de pestañas
+  // vacías para no leer lo que ya leíste.
+  //
+  // Es estado de la VISTA y no de cada pestaña: solo se puede aparcar la que
+  // estás mirando, y volver a cualquier pestaña la trae de vuelta. Guardarlo por
+  // pestaña permitiría dejarlas todas aparcadas y no habría nada que mirar.
+  const [chatMin, setChatMin] = useState(false)
+  // Llegó algo mientras estaba aparcada. El chip de «X respondió» dura 3,5 s: si
+  // no estabas delante, sin esto la respuesta queda escondida sin ninguna señal.
+  const [chatMinNuevo, setChatMinNuevo] = useState(false)
+  const chatMinRef = useRef(false)
+  useEffect(() => {
+    chatMinRef.current = chatMin
+  }, [chatMin])
+  // Traerla de vuelta. Se llama desde todo lo que significa «quiero verla»:
+  // pinchar una pestaña, abrir una nueva o vaciar la conversación.
+  const desaparca = () => {
+    setChatMin(false)
+    setChatMinNuevo(false)
+  }
 
   // La primera pestaña existe desde el arranque y nunca pasaba por `addTab`, así
   // que se quedaba sin entrada hasta el primer cambio de pestaña.
@@ -1576,6 +1606,9 @@ export default function App() {
     })
   }
   const switchTab = async (id) => {
+    // Pinchar una pestaña es pedir verla, así que la desaparca — y vale también
+    // para la activa, que si no sería la única sin forma de volver.
+    desaparca()
     if (id === activeTab) return
     snapshotTab()
     setActiveTab(id)
@@ -1733,6 +1766,7 @@ export default function App() {
       setActiveTab(suyo.activeTab)
       const st = (suyo.estados || {})[suyo.activeTab] || {}
       setMessages(st.messages || [])
+      desaparca() // el aparcado es de la vista, no viaja con la cuenta
       setChatFilter(null)
       setConvTokens(st.tokens || { in: 0, out: 0, cache: 0 })
       convIdRef.current = st.convId || null
@@ -2782,6 +2816,103 @@ export default function App() {
     setDevicesView((v) => (v ? { ...v, lanzando: null, aviso: t('dev.slowBoot') } : v))
   }
 
+  // ── La rama en la que estás ───────────────────────────────────────────────
+  //
+  // El proyecto que se elige aquí suele ser la carpeta PADRE —la raíz del
+  // workspace, para que los agentes carguen el contexto de ai-context— y el repo
+  // de verdad está dentro. Así que la rama no se puede leer del proyecto: la
+  // resuelve el main, que sabe elegir el repo (ver `repoEnJuego`).
+  const [rama, setRama] = useState(null)
+  // Cuál de los dos desplegables está abierto: 'repo', 'rama' o ninguno. Uno
+  // solo, no dos banderas: abiertos a la vez se taparían entre ellos.
+  const [gitOpen, setGitOpen] = useState(null)
+  // Las ramas del repo, pedidas al abrir y no antes: son un `for-each-ref` por
+  // repo y en el arranque no las mira nadie.
+  const [ramas, setRamas] = useState(null)
+  // Cuál de los repos de dentro elegiste para este proyecto. Por proyecto y por
+  // cuenta, como el modelo o el permiso de edición: en un workspace trabajas
+  // siempre en el mismo repo, y volver a elegirlo cada vez sería absurdo.
+  const repoPrefKey = (p = project) => prefKey('oficina-repo', profile, p)
+  const refrescaRama = async (cwd = project) => {
+    if (!cwd) return setRama(null)
+    const r = await window.oficina?.gitBranch?.({
+      cwd,
+      paths: editedPathsRef.current,
+      // se lee directo y no con `leerPref`: la herencia del perfil traería la
+      // ruta del repo de OTRO proyecto, que aquí no significa nada
+      preferido: localStorage.getItem(repoPrefKey(cwd)) || '',
+    })
+    setRama(r?.ok ? r : null)
+  }
+  const eligeRepo = (dir) => {
+    try {
+      localStorage.setItem(repoPrefKey(), dir)
+    } catch {}
+    setGitOpen(null)
+    setRamas(null) // son las del repo anterior
+    refrescaRama(project)
+  }
+  // Filtro de la lista de ramas. Hace falta de verdad: en el repo del usuario hay
+  // 131 ramas locales, y una lista de 131 nombres «feature/AWC-…» no se lee, se
+  // busca. Se filtra aquí y no en git para que escribir no lance un proceso por
+  // tecla.
+  const [ramaQuery, setRamaQuery] = useState('')
+  const abreRamas = async () => {
+    if (gitOpen === 'rama') return setGitOpen(null)
+    setGitOpen('rama')
+    setRamaQuery('')
+    setRamas({ cargando: true })
+    const r = await window.oficina?.gitBranches?.({ root: rama?.root })
+    setRamas(r?.ok ? r : { error: r?.error || t('git.noBranches') })
+  }
+  // Cuántas ramas se pintan de una vez. Con el filtro delante, más que esto no
+  // aporta: si lo que buscas no está en las primeras, se escribe.
+  const RAMAS_VISIBLES = 40
+  const ramasFiltradas = (() => {
+    const todas = ramas?.ramas || []
+    const q = ramaQuery.trim().toLowerCase()
+    const hay = q ? todas.filter((n) => n.toLowerCase().includes(q)) : todas
+    return { visibles: hay.slice(0, RAMAS_VISIBLES), resto: Math.max(0, hay.length - RAMAS_VISIBLES), total: hay.length }
+  })()
+  // Cambiar de rama es un checkout de verdad: toca los archivos del disco.
+  //
+  // Con agentes trabajando NO se hace. Están leyendo y escribiendo en ese árbol,
+  // y cambiarlo debajo de ellos rompe el turno sin dejar rastro de por qué.
+  // Preferible negarse y decirlo.
+  const cambiaRama = async (nombre) => {
+    if (busy) return showToast(t('git.busy'), 5000)
+    const r = await window.oficina?.gitCheckout?.({ root: rama?.root, rama: nombre })
+    if (!r?.ok) {
+      // el motivo viene de git: «local changes would be overwritten», etc. Se
+      // muestra tal cual y con tiempo de leerlo, porque dice qué hacer.
+      showToast(`⚠️ ${r?.error || t('git.switchFailed')}`, 9000)
+      return
+    }
+    setGitOpen(null)
+    setRamas(null)
+    showToast(t('git.switched', { rama: nombre }))
+    refrescaRama(project)
+  }
+  // Cuándo se vuelve a mirar. Una rama cambia por FUERA de esta app —haces
+  // checkout en la terminal, o lo hace un agente en modo edición—, así que si
+  // solo se leyera al elegir proyecto el HUD acabaría mintiendo:
+  // al cambiar de proyecto o pestaña, al volver a la ventana, y al terminar un
+  // turno (que es cuando un agente pudo haber cambiado de rama).
+  useEffect(() => {
+    refrescaRama(project)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project, activeTab])
+  useEffect(() => {
+    if (!busy) refrescaRama(project)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy])
+  useEffect(() => {
+    const alVolver = () => refrescaRama(project)
+    window.addEventListener('focus', alVolver)
+    return () => window.removeEventListener('focus', alVolver)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project])
+
   // ── Vista de diff: cambios pendientes del proyecto (git diff HEAD) ───────
   const openDiff = async () => {
     setDiffView({ loading: true })
@@ -3449,6 +3580,107 @@ export default function App() {
             </>
           )}
         </div>
+        {/* La rama, al lado del proyecto porque es el mismo dato: dónde estás
+            trabajando. El nombre del repo solo se muestra si NO es el proyecto
+            elegido —el caso de la raíz del workspace con el repo dentro—; cuando
+            coinciden, repetirlo sería ruido. */}
+        {rama && (
+          <div className="gitwrap">
+            {/* Selector de REPO. Solo cuando el proyecto es una carpeta con
+                varios repos dentro: si el proyecto ES el repo no hay nada que
+                elegir, y un desplegable de una sola opción es un botón que
+                miente. */}
+            {(rama.dentro?.length || 0) > 1 && (
+              <button
+                type="button"
+                className={gitOpen === 'repo' ? 'gitsel on' : 'gitsel'}
+                onClick={() => setGitOpen((o) => (o === 'repo' ? null : 'repo'))}
+                title={t('git.repoSelTitle')}
+              >
+                <span className="gitsel-txt">{rama.repo}</span>
+                <span className="ctx-caret">▾</span>
+              </button>
+            )}
+            {/* Selector de RAMA. Siempre: aunque el repo sea único, cambiar de
+                rama sigue teniendo sentido. */}
+            <button
+              type="button"
+              className={[gitOpen === 'rama' ? 'gitsel on' : 'gitsel', rama.suelta ? 'suelta' : ''].filter(Boolean).join(' ')}
+              onClick={abreRamas}
+              title={rama.suelta ? t('git.detachedTitle', { repo: rama.repo, sha: rama.rama }) : t('git.branchSelTitle', { repo: rama.repo, rama: rama.rama })}
+            >
+              <IconBranch size={12} />
+              <span className="gitsel-txt">{rama.rama}</span>
+              <span className="ctx-caret">▾</span>
+            </button>
+            {gitOpen && (
+              <>
+                <div className="ctx-backdrop" onClick={() => setGitOpen(null)} />
+                <div className={gitOpen === 'repo' ? 'git-pop' : 'git-pop derecha'}>
+                  {gitOpen === 'repo' ? (
+                    <>
+                      <div className="git-pop-head">{t('git.pickHead')}</div>
+                      {rama.dentro.map((r) => (
+                        <button
+                          key={r.dir}
+                          type="button"
+                          className={r.dir === rama.root ? 'git-item on' : 'git-item'}
+                          onClick={() => eligeRepo(r.dir)}
+                        >
+                          <span className="git-item-repo">{r.repo}</span>
+                          <span className={r.suelta ? 'git-item-rama suelta' : 'git-item-rama'}>
+                            <IconBranch size={11} /> {r.rama}
+                          </span>
+                        </button>
+                      ))}
+                    </>
+                  ) : (
+                    <>
+                      <div className="git-pop-head">{t('git.branchesHead', { repo: rama.repo })}</div>
+                      {ramas?.cargando && <div className="git-pop-msg">{t('git.loading')}</div>}
+                      {ramas?.error && <div className="git-pop-msg err">{ramas.error}</div>}
+                      {(ramas?.ramas?.length || 0) > 8 && (
+                        <input
+                          className="git-filtro"
+                          autoFocus
+                          placeholder={t('git.filterPh', { n: ramas.ramas.length })}
+                          value={ramaQuery}
+                          onChange={(e) => setRamaQuery(e.target.value)}
+                          onKeyDown={(e) => {
+                            // Enter con un solo resultado cambia a esa rama: con el
+                            // filtro escrito, apuntar con el ratón es un paso de más.
+                            if (e.key === 'Enter' && ramasFiltradas.total === 1 && ramasFiltradas.visibles[0] !== ramas.actual) {
+                              cambiaRama(ramasFiltradas.visibles[0])
+                            }
+                            if (e.key === 'Escape') setGitOpen(null)
+                            e.stopPropagation() // que Esc no cierre además otros paneles
+                          }}
+                        />
+                      )}
+                      {ramasFiltradas.visibles.map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={n === ramas.actual ? 'git-item on' : 'git-item'}
+                          onClick={() => (n === ramas.actual ? setGitOpen(null) : cambiaRama(n))}
+                          title={n}
+                        >
+                          <span className="git-item-repo">{n}</span>
+                          {n === ramas.actual && <span className="git-item-rama">{t('git.here')}</span>}
+                        </button>
+                      ))}
+                      {/* Lo que no cabe se dice, en vez de recortar en silencio */}
+                      {ramasFiltradas.resto > 0 && <div className="git-pop-msg">{t('git.more', { n: ramasFiltradas.resto })}</div>}
+                      {!ramas?.cargando && !ramas?.error && ramasFiltradas.total === 0 && (
+                        <div className="git-pop-msg">{t('git.noMatch', { q: ramaQuery.trim() })}</div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
         <div className="hud-actions">
           {/* secundarias en ícono-solo (tooltip); la primaria es "+ Nueva" */}
           {/* solo con un proyecto Flutter delante: en un microservicio no pinta nada */}
@@ -5141,6 +5373,24 @@ export default function App() {
                     {proyectoDeTab(tb.id) && proyectoDeTab(tb.id) !== project && (
                       <span className="tab-proj">{proyectoDeTab(tb.id).split('/').pop()}</span>
                     )}
+                    {/* Aparcar: solo en la que estás mirando, que es la única que
+                        tapa la escena. Si ya está aparcada, el mismo botón la trae
+                        de vuelta y se queda visible como recordatorio de que el
+                        hilo sigue ahí. */}
+                    {tb.id === activeTab && messages.length > 0 && (
+                      <span
+                        className={chatMin ? 'tab-min on' : 'tab-min'}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (chatMin) desaparca()
+                          else setChatMin(true)
+                        }}
+                        title={chatMin ? t('chat.unmin') : t('chat.min')}
+                      >
+                        {chatMinNuevo && <span className="tab-min-dot" />}
+                        <IconMinimize size={11} />
+                      </span>
+                    )}
                     <span className="tab-x" onClick={(e) => closeTab(e, tb.id)} title={t('chat.closeTab')}>
                       <IconClose size={11} />
                     </span>
@@ -5153,7 +5403,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {messages.length > 0 && (
+        {messages.length > 0 && !chatMin && (
           <div className="chat chat-tabbed" ref={logRef} onScroll={onLogScroll} onMouseUp={onChatMouseUp}>
             {findOpen && (
               <div className="find-bar">
