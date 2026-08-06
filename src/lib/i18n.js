@@ -54,6 +54,7 @@ const ES = {
 
   // — composer —
   'composer.send': 'Enviar',
+  'composer.clear': 'Borrar lo escrito',
   'composer.attach': 'Adjuntar imágenes o archivos',
   'composer.placeholder': 'Escríbele al squad… (ej: "{name}, ayúdame con…" · ⌘1-{n})',
   'composer.placeholderSolo': 'Escríbele a tu asistente…',
@@ -774,6 +775,7 @@ const EN = {
   'toast.removeProjectFail': "Couldn't remove the project",
 
   'composer.send': 'Send',
+  'composer.clear': 'Clear what you wrote',
   'composer.attach': 'Attach images or files',
   'composer.placeholder': 'Message the squad… (e.g. "{name}, help me with…" · ⌘1-{n})',
   'composer.placeholderSolo': 'Message your assistant…',

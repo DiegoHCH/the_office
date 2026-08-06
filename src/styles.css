@@ -1291,6 +1291,28 @@ select.squad-model {
 }
 .snip-form-row .snip-save { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .snip-form-row .snip-save:disabled { opacity: 0.4; cursor: default; }
+/* La caja de escritura: lleva el flex y el ancho máximo que antes tenía el
+   textarea, para poder colocar el botón de borrar dentro del campo. */
+.composer-caja {
+  position: relative; flex: 1; max-width: 960px; display: flex; align-items: flex-end;
+}
+.composer-caja textarea { max-width: none; }
+/* Anclado abajo a la derecha: con la caja crecida a varias líneas, arriba
+   quedaría lejos del cursor. Solo existe cuando hay texto.
+   Va prefijado con `.composer` por lo mismo que `.perm-chip`: `.composer button`
+   —el estilo de Enviar— le gana en especificidad, y sin el prefijo esto salía
+   como una pastilla teal del tamaño del botón de enviar. Visto en la captura. */
+.composer .composer-borrar {
+  position: absolute; right: 12px; bottom: 12px;
+  width: 24px; height: 24px; padding: 0; flex: none;
+  display: grid; place-items: center; border-radius: 999px; cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--muted);
+  box-shadow: none; transition: color 0.15s, border-color 0.15s;
+}
+.composer .composer-borrar:hover { color: var(--ink); border-color: var(--accent); background: var(--surface-2); }
+/* Solo se reserva sitio cuando el botón está: si no, el texto arrancaría
+   descentrado siempre por un botón que no se ve. */
+.composer-caja.con-borrar textarea { padding-right: 44px; }
 .composer textarea {
   /* 960px ≈ el ancho que la caja ocupa con la ventana inicial de 1100px
      (1100 − 32 padding − 10 gap − ~98 botón); al agrandar la ventana no crece más */

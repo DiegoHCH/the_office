@@ -5873,6 +5873,10 @@ export default function App() {
         >
           <IconClip size={18} />
         </button>
+        {/* La caja envuelve el textarea para poder poner el botón de borrar
+            DENTRO del campo. Se lleva el flex y el ancho máximo que antes tenía
+            el textarea, para que la fila del composer no cambie de reparto. */}
+        <div className={input ? 'composer-caja con-borrar' : 'composer-caja'}>
         <textarea
           ref={inputRef}
           value={input}
@@ -5910,6 +5914,30 @@ export default function App() {
           }
           autoFocus
         />
+        {/* Solo cuando hay algo que borrar: un botón siempre visible que la
+            mayoría del tiempo no hace nada es ruido en el sitio donde escribes.
+            Borra el TEXTO, no los adjuntos —cada chip tiene su propia ✕— y
+            devuelve el foco a la caja, que es donde ibas a seguir. */}
+        {input && (
+          <button
+            type="button"
+            className="composer-borrar"
+            onClick={() => {
+              setInput('')
+              // la caja crece con el contenido: al vaciarla hay que devolverle su
+              // altura de una línea, o se queda abierta y vacía
+              if (inputRef.current) {
+                inputRef.current.style.height = 'auto'
+                inputRef.current.focus()
+              }
+            }}
+            title={t('composer.clear')}
+            aria-label={t('composer.clear')}
+          >
+            <IconClose size={14} />
+          </button>
+        )}
+        </div>
         <button type="submit">{t('composer.send')}</button>
       </form>
     </div>
