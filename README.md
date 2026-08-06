@@ -44,12 +44,14 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **🌐 Servidores MCP** — Playwright (el QA maneja un navegador real), Chrome DevTools, Context7, Figma o cualquier servidor propio (npx o URL), gestionados por perfil.
 
 ### El chat
-- **⌨️ Composer multilínea** — Enter envía, Shift+Enter salto de línea; la caja crece con el texto (ancho fijo centrado en pantallas grandes).
+- **⌨️ Composer multilínea** — Enter envía, Shift+Enter salto de línea; la caja crece con el texto (ancho fijo centrado en pantallas grandes) y trae un **botón para vaciarla**, que aparece solo cuando hay algo escrito.
 - **📌 Plantillas de prompts** — escribe `/` y salen tus snippets guardados por perfil; Enter/Tab inserta, y se crean/borran desde el mismo popover.
 - **✏️/🔒 Chip de permiso** junto al composer — a la vista si el squad puede editar archivos (ámbar) o solo investigar (gris); un clic lo alterna. En proyectos **sin git**, la app advierte que no hay red de seguridad.
 - **🖱 Click en un personaje** — le diriges el mensaje (igual que ⌘1–⌘6). Y click en el **nombre** de un mensaje filtra el chat a solo ese agente.
 - **🛠 Herramientas con feedback** — ves en vivo qué archivo edita o qué comando corre cada agente, con **cronómetro**, su **checklist 📝 en tiempo real** (TodoWrite) y **🪙 tokens por tarea** (acumulado en el monitor); botón ⏹ para detener; 🔘 respuesta rápida a menús de opciones.
 - **🔎 Ver qué está haciendo** — mientras alguien trabaja, un botón sobre el composer **con su nombre** («Ver qué está haciendo Luffy») abre el **rastro**: qué archivos lee, cuáles edita, qué comandos ejecuta y por qué carpetas anda, con la hora y quién lo hizo; filtrable por tipo. Sigue disponible al terminar, para revisar después qué se tocó, y **cada conversación guarda el suyo**.
+- **🔬 Cada paso se abre** — pincha una línea del rastro y ves **el comando entero y su salida**: lo que imprimió, o el error con el que falló. Varios a la vez, para comparar. El detalle se guarda de los 60 pasos más recientes; los anteriores conservan su línea y suelan su contenido, porque un `Read` grande son cientos de miles de caracteres por paso.
+- **🚫 Modo solo código** — le **quita** al squad los comandos que se llevan minutos (`make generate`, `build_runner`, `pod install`…) y, si lo pides, los conectores de Jira y Slack. No es un ruego: el CLI los deniega. Cuando el trabajo necesita algo bloqueado, el agente hace todo lo demás y **termina diciéndote el comando exacto** que lanzas tú. La lista es **por proyecto**, porque lo que tarda en un repo no es lo que tarda en otro.
 - **🔀 Vista de diff** — si la tarea editó archivos, la respuesta ofrece el `git diff` coloreado del proyecto.
 - **🔍 Buscar en la conversación** — ⌘F con n/total y navegación entre coincidencias.
 - **🧠 Traspaso de contexto** — al 85% de la ventana del modelo (y otra vez al 95% si lo ignoras), un aviso ofrece continuar en un chat nuevo **o seguir en el mismo**: pide el resumen a quien viene trabajando y lo deja en el composer sin enviarlo. Antes del tope a propósito: al llenarse, Claude resume solo y se pierde el detalle.
@@ -75,6 +77,8 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 
 ### La app
 - **🎛 Barra superior limpia** — un solo control de contexto (`💼 work / proyecto ▾` con perfiles como tabs y los proyectos del perfil), íconos para Documentos/Historial, **+ Nueva** como acción primaria —abre una pestaña nueva y deja la actual donde estaba— y ⚙️.
+- **⎇ Repo y rama, y cambiar de rama** — al lado del proyecto: en qué repo estás trabajando (aparece cuando el proyecto es una carpeta con varios repos dentro, y tu elección se recuerda) y en qué rama, con la lista de ramas locales **ordenada por fecha de commit** y filtro cuando hay muchas. Cambiar de rama es un `checkout` de verdad, así que **no se hace con agentes trabajando** y **nunca se fuerza**: si hay cambios que se perderían, git se niega y te lo dice con sus palabras. Se relee al volver a la ventana y al terminar cada turno, porque la rama cambia también por fuera de la app.
+- **➖ Aparcar la conversación** — la quita de la vista y la deja en **Chats activos**, para mirar la oficina sin perder el hilo; hasta ahora lo único que despejaba la pantalla era abrir una conversación nueva. Si mientras está aparcada llega una respuesta, la pestaña se marca con un punto.
 - **🗂 Selector de proyectos con jerarquía** — los que viven dentro de una carpeta raíz se ven **anidados** bajo ella, que es la relación que decide qué `CLAUDE.md` heredan; la flecha pliega cada raíz (recordando el estado) y la **✕** quita un proyecto de la lista sin borrar la carpeta. **➕ Agregar proyecto…** admite cualquier carpeta: si no es un repo, se listan también los proyectos de dentro.
 - **🌗 Tema claro u oscuro** — Auto sigue al sistema, o lo fijas en Preferencias; toda la interfaz, no solo la escena.
 - **🧠 Razonamiento a la vista** — cada respuesta puede desplegar lo que el agente pensó antes de contestar.
@@ -85,7 +89,8 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **📊 Monitores** — dos burbujas: Sistema (CPU/RAM reales) y Claude (modelo en uso, 🪙 tokens de la conversación + % de sesión y semana, con **aviso al pasar del 90%**). El modelo se **sincroniza con el `/model` de tu terminal**.
 - **🖥 Integración macOS** — badge del **Dock** y **Tray 🏢** en la barra de menús con el nº de agentes trabajando, atajo global **⌥Espacio** (trae la app con el composer listo desde cualquier parte), y **powerSaveBlocker**: el Mac no se duerme mientras el squad trabaja.
 - **🎬 Intro cinemática** — la app abre llegando al edificio de La Oficina: la cámara se acerca, las puertas se abren y un destello funde a tu oficina (saltable y desactivable).
-- **🖥 Splash screen**, la ventana **recuerda tamaño y posición**, la cámara 3D **recuerda su encuadre** (doble click lo restablece), **aviso de versión nueva** que **descarga el DMG directo** y abre el instalador, y la escena **ahorra batería** cuando la ventana está tapada (multi-monitor friendly: visible = 60fps).
+- **🖥 Splash screen**, la ventana **recuerda tamaño y posición**, la cámara 3D **recuerda su encuadre** (doble click lo restablece), y la escena **ahorra batería** cuando la ventana está tapada (multi-monitor friendly: visible = 60fps).
+- **⬇️ Se actualiza sola** — la app va **firmada y notarizada**, así que descarga la versión nueva en segundo plano y la instala cuando tú lo decidas (nunca se reinicia por su cuenta: sería perder el turno en curso). Comprueba al arrancar, **al despertar el Mac**, **al volver a la ventana** (como mucho una vez cada 15 min) y cada 2 horas; y **⚙️ → Buscar actualizaciones** pregunta al momento y te **contesta**. Todo lo que comprueba queda en `auto-update.log`. Si algo falla, cae al aviso de siempre y te descarga el DMG.
 - **🦊 Mascota** — zorro, shiba, husky, lobo, venado o alpaca paseando por la oficina (o ninguna).
 - **🎭 Vida ambiental** — frases por rol, música, paseos y visitas con detección de obstáculos; temas Clásico, Noche, Playa, **🌸 Sakura** (pétalos), **🍂 Otoño** (hojas secas), **❄️ Invierno** (nieve) y **🌗 Auto**.
 - **🧠 Pizarra SQUAD.md** — memoria común del squad en la raíz del proyecto.
@@ -93,6 +98,8 @@ Por debajo, la app ejecuta el binario `claude` en **modo headless** con el login
 - **💾 Exportar/importar configuración** — squad, personalidades y plantillas en un JSON para respaldar o migrar, con **respaldo automático semanal**.
 - **🎬 Intro cinemática y 🎓 tour guiado** al primer arranque, ambos saltables y desactivables.
 - **📘 CLAUDE.md del proyecto** y **presets de squad** (Equipo web / mobile / research) desde el menú.
+- **🧭 Contexto compartido del workspace** — si junto al repo hay una carpeta `ai-context/` con su `repo-map/registry.json`, la app **carga sola el `CONTEXT.md` de ese repo** y se lo pone al agente en su persona, en vez de confiar en que vaya a buscarlo (el `CLAUDE.md` del workspace no trae las reglas: trae un protocolo que manda a buscarlas, y eso se cumple a medias). El repo sale del selector de rama; con dos candidatos del mapa dentro **no adivina**, lo eliges tú. Las reglas en sí no se precargan —son cientos de miles de caracteres— y el texto inyectado se lo recuerda.
+- **📈 Estadísticas** — dos vistas con rango 7d/30d/todo: **Resumen** (chats, turnos, tokens, tiempo, días activos, racha actual y máxima, hora punta, modelo favorito, **mapa de actividad de 18 semanas** y reparto por tripulante) y **Modelos** (tokens por día apilados por modelo, con entrada, salida y porcentaje). Modelo, hora y entrada/salida se guardan **desde la v1.20**: en días anteriores esas tarjetas salen en «—», y no se rellenó el pasado porque el historial guarda una sola fecha por conversación y repartir sus tokens por días habría sido inventar el gráfico.
 - **🧹 Mantenimiento solo** — purga de adjuntos viejos y tope de 100 conversaciones al arrancar (las 📌 fijadas no cuentan).
 
 ## 🧱 Stack
@@ -182,11 +189,11 @@ La app se **actualiza sola**: comprueba al arrancar, descarga en segundo plano y
                                      · sin ANTHROPIC_API_KEY → suscripción → $0
 ```
 
-- `electron/main.js` — spawnea y gobierna los procesos `claude`, parsea el stream NDJSON a eventos, persiste sesiones/historial/bounds, monitor de recursos, splash, aviso de versión, limpieza de almacenamiento.
+- `electron/main.js` — spawnea y gobierna los procesos `claude`, parsea el stream NDJSON a eventos (incluidos el input y la salida de cada herramienta), compone la persona de cada agente —`CLAUDE.md` del árbol y `CONTEXT.md` de ai-context— y decide qué NO puede usar, persiste sesiones/historial/bounds, git (rama, checkout, diff), monitor de recursos, splash, auto-update y limpieza de almacenamiento.
 - `src/App.jsx` — chat, enrutado por rol, handoffs, cola, comandos, paneles y configuración.
 - `src/Office.jsx` — la escena 3D (sala, escritorios, personajes, temas, vida ambiental, render por visibilidad).
 - `src/scene/` — carga de personajes glTF (`Character3D`), props (`GltfProp`), miniaturas de avatares.
-- `src/lib/` — las reglas que se pueden probar sin abrir la app, cada una con sus tests: enrutado de mensajes (`routing`), despacho y colisiones (`despacho`), orquestación de subagentes (`subagentes`), historial (`historial`), rastro de actividad (`actividad`), preferencias con herencia perfil→proyecto (`prefs`), i18n.
+- `src/lib/` — las reglas que se pueden probar sin abrir la app, cada una con sus tests: enrutado de mensajes (`routing`), despacho y colisiones (`despacho`), orquestación de subagentes (`subagentes`), historial (`historial`), rastro de actividad y detalle por paso (`actividad`), agregación de estadísticas (`estadisticas`), preferencias con herencia perfil→proyecto (`prefs`), i18n.
 - `src/panels/` y `electron/ipc/` — paneles y handlers extraídos de los dos archivos grandes; cada módulo recibe lo que necesita en vez de importarlo.
 
 ## 🎨 Créditos de assets
@@ -208,10 +215,16 @@ La app se **actualiza sola**: comprueba al arrancar, descarga en segundo plano y
 - ✅ **v1.6** — usar Documentos como contexto 💬, renombrar y buscar por contenido en el historial, mascota de oficina 🦊, auto-retry en errores transitorios, standup → Slack 📤, plantillas con {{variables}}, CI en GitHub Actions (checks + smoke test + DMG automático) y refactor de App.jsx en módulos
 - ✅ **v1.7** — glow-up gráfico «loft» (ladrillo, madera, luz cálida, bloom/ACES/tilt-shift, estaciones 🌸🍂❄️), intro cinemática 🎬 sobre la ciudad, **interfaz en español o inglés** 🌐, pestañas de conversación, modo director 🎬, rediseño del menú con iconos Material, seis mascotas, citar selección, presets de squad, CLAUDE.md desde la app, respaldo automático, skills en lote, code-splitting, tests de ruteo y Electron 43 con asar
 - ✅ **v1.8** — **tema claro** 🌗 para toda la interfaz, **razonamiento del agente** visible, modelo y permiso **por proyecto**, botón de adjuntar 📎, pestañas renombrables y reordenables, borrar documentos 🗑, medidor de contexto, ruteo por nombre esté donde esté, ESLint en el CI y la guía en inglés generada del español
+- ✅ **v1.9 – v1.14** — pulido continuo (el detalle está en los tags; estas versiones no dejaron notas de release)
+- ✅ **v1.15** — el aviso de colisión dejó de avisar de colisiones imposibles
+- ✅ **v1.16** — repartir **solo si lo pides**, cada rastro en su pestaña, «Ver qué está haciendo *Luffy*» en vez de un genérico, y **firma + notarización Apple** con el actualizador dentro de verdad
+- ✅ **v1.17** — el documento abierto se actualiza solo; busca actualizaciones **con la app abierta**
+- ✅ **v1.18** — **+ Nueva** abre pestaña en vez de vaciar la actual, el aviso de conversación nueva solo cuando lo pides, y se dejó de perder memoria de GPU al ocultar la ventana
+- ✅ **v1.19** — los agentes **cumplen de verdad el `CLAUDE.md`** de cada proyecto (las reglas del proyecto ganan a las de las carpetas superiores), y se entera de la versión nueva **al volver a la app** en vez de cuando le toca
+- ✅ **v1.20** — **aparcar la conversación**, **selectores de repo y rama** (con checkout), **estadísticas** con mapa de actividad y reparto por modelo, **contexto de `ai-context` cargado sin pedirlo**, **detalle de cada paso** del rastro y **modo solo código**
 - ⏭️ **Épica v2.0** — compañero móvil **Android en Flutter**: servidor WS embebido + QR en el desktop, app con chat/estado/notificaciones, acceso remoto vía Tailscale
 - ⏭️ soporte **Windows** (portar Keychain, `vm_stat`, rutas y binario)
-- ⏸ auto-update completo (requiere Apple Developer ID; hoy la notificación descarga el DMG directo)
-- 💡 firma/notarización Apple · steering (limitado por el modo headless)
+- 💡 steering a mitad de turno (limitado por el modo headless) · partir `App.jsx` y el runner, que ya piden sesión propia
 
 ## ⚠️ Notas
 

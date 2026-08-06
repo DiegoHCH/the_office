@@ -1,5 +1,6 @@
 {
   "— al lado del proyecto, la rama del repo en el que estás trabajando. Se relee al volver a la ventana y al terminar cada turno, porque la rama cambia por fuera de la app: un checkout tuyo en la terminal, o del agente cuando le pides una rama desde el chat. Si el proyecto es una": " — next to the project, the branch of the repo you are working in. It is read again when you come back to the window and when each turn ends, because the branch changes outside the app: a checkout of yours in the terminal, or the agent’s when you ask it for a branch from the chat. If the project is a ",
+  "— borra el texto, no los adjuntos (cada chip tiene su ✕).": " — it deletes the text, not the attachments (each chip has its own ✕).",
   "— dos selectores al lado del proyecto. El primero,": " — two selectors next to the project. The first one, ",
   "— en ⚙️ → Preferencias. Le": " — in ⚙️ → Preferences. It ",
   "— en ⚙️. Dos vistas con rango": " — in ⚙️. Two views with a ",
@@ -199,6 +200,7 @@
   "Flutter": "Flutter",
   "GitHub CLI": "GitHub CLI",
   "Hablarle al squad": "Talking to the squad",
+  "hace salto de línea; la caja crece con el texto. Dentro del campo, y solo cuando hay algo escrito, aparece un botón para": " adds a line break; the box grows with the text. Inside the field, and only when there is something written, a button appears to ",
   "Haces…": "You type…",
   "Handoff:": "Handoff:",
   "Hay que pedirlo": "You have to ask for it",
@@ -291,6 +293,7 @@
   "Tus configuraciones": "Your own configurations",
   "Un proyecto por conversación 🗂": "One project per conversation 🗂",
   "Va al": "Goes to the ",
+  "vaciarla": "clear it",
   "Varios a la vez": "Several at once",
   "Verás una oficina con": "You will see an office with ",
   "Web y escritorio (npm)": "Web and desktop (npm)",
