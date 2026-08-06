@@ -194,6 +194,60 @@ function tocaBuscarUpdate(ahora, ultima, { ya = false, forzado = false, espera =
   return desde < 0 || desde >= espera
 }
 
+// ── Detalle de cada herramienta: qué pidió y qué le contestaron ──────────────
+// Del stream llegaban dos cosas y se aprovechaba media: del `tool_use` solo se
+// sacaba un resumen de una línea para el globo, y el `tool_result` se leía nada
+// más que para saber que un subagente había terminado — su contenido se tiraba.
+// Con las dos se puede abrir cada paso del rastro y ver el comando entero y su
+// salida, que es lo que hace falta para supervisar de verdad.
+//
+// Los topes no son decoración: un solo `Read` de un archivo grande puede traer
+// cientos de miles de caracteres, y esto se guarda POR PASO y por conversación.
+// Se recorta diciendo que se recortó — un texto cortado en seco parece completo.
+const TOPE_ENTRADA = 900
+const TOPE_SALIDA = 2200
+
+const recorta = (texto, tope) => {
+  const s = String(texto ?? '')
+  return s.length <= tope ? s : `${s.slice(0, tope)}\n… (recortado, ${s.length} caracteres en total)`
+}
+
+/// Lo que se le pidió a la herramienta, legible.
+///
+/// El comando de `Bash` va TAL CUAL y sin envolver en JSON: es lo que copiarías
+/// para reproducirlo, y entre comillas escapadas deja de servir para eso. Lo
+/// demás se lista campo por campo; un `JSON.stringify` de todo el input mete
+/// llaves y comillas que no aportan nada al leerlo.
+function entradaDeTool(name, input, tope = TOPE_ENTRADA) {
+  if (!input || typeof input !== 'object') return ''
+  if (name === 'Bash' && input.command) return recorta(input.command, tope)
+  const lineas = []
+  for (const [k, v] of Object.entries(input)) {
+    if (v === undefined || v === null || v === '') continue
+    // El contenido de un Write es el archivo entero: cabe en su propio campo, no
+    // en una línea de resumen, y con el tope puesto.
+    const valor = typeof v === 'object' ? JSON.stringify(v) : String(v)
+    lineas.push(`${k}: ${valor}`)
+  }
+  return recorta(lineas.join('\n'), tope)
+}
+
+/// Lo que devolvió la herramienta. El contenido de un `tool_result` puede ser una
+/// cadena o una lista de bloques —texto, imágenes—, así que se aplana; de las
+/// imágenes se deja constancia en vez de tirarlas en silencio.
+function salidaDeToolResult(content, tope = TOPE_SALIDA) {
+  if (content == null) return ''
+  if (typeof content === 'string') return recorta(content, tope)
+  if (!Array.isArray(content)) return recorta(JSON.stringify(content), tope)
+  const partes = content.map((b) => {
+    if (typeof b === 'string') return b
+    if (b?.type === 'text') return b.text || ''
+    if (b?.type === 'image') return '[imagen]'
+    return b?.text || ''
+  })
+  return recorta(partes.filter(Boolean).join('\n'), tope)
+}
+
 // ── ai-context: de qué repo es esta carpeta ──────────────────────────────────
 // Un workspace puede tener un repositorio de contexto compartido (`ai-context/`)
 // con un mapa de repos: cada uno con su id corto y su carpeta real. El nombre de
@@ -1019,6 +1073,8 @@ module.exports = {
   tocaBuscarUpdate,
   ESPERA_UPDATE,
   eligeRepoDeDentro,
+  entradaDeTool,
+  salidaDeToolResult,
   idDeRepoEnRegistry,
   unicoRepoDelRegistry,
   esProyectoFlutter,

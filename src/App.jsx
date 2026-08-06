@@ -18,7 +18,7 @@ import { claveDia } from './lib/estadisticas.js'
 import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
 import { paraElPanel } from './lib/historial.js'
 import { decideDespacho, pideReparto, quienColisiona } from './lib/despacho.js'
-import { registra, resumen as resumenActividad } from './lib/actividad.js'
+import { anotaSalida, registra, resumen as resumenActividad } from './lib/actividad.js'
 import { SKILL_CATALOG, ROLE_TAGS, MCP_CATALOG, toolInfo, seedSnippets, PETS } from './data/catalogs.js'
 import { MD_COMPONENTS, configuraTerminal } from './components/markdown.jsx'
 import SysMonitor from './components/SysMonitor.jsx'
@@ -233,6 +233,18 @@ export default function App() {
     }
     const st = tabStateRef.current[tabId]
     if (st) st.actividad = registra(st.actividad || [], paso)
+    return false
+  }
+
+  /// La salida de una herramienta, a la pestaña del paso que la pidió. Misma regla
+  /// que los pasos: va donde está su llamada, no donde estés mirando.
+  const salidaEnTab = (tabId, id, salida, isError) => {
+    if (!tabId || tabId === activeTabRef.current) {
+      actividadRef.current = anotaSalida(actividadRef.current, id, salida, isError)
+      return true
+    }
+    const st = tabStateRef.current[tabId]
+    if (st) st.actividad = anotaSalida(st.actividad || [], id, salida, isError)
     return false
   }
   // subId → { rol prestado (o null), pestaña, encargo }. Vive en un ref porque
@@ -940,7 +952,7 @@ export default function App() {
           // un personaje PRESTADO no está en ese mapa, así que sus pasos caían
           // en la pestaña que estuvieras mirando — abrías la de Nami y veías a
           // Franky trabajando dentro.
-          const paso = { t: Date.now(), role: who, name: e.name, detail: e.detail || '', path: e.path || '' }
+          const paso = { t: Date.now(), role: who, name: e.name, detail: e.detail || '', path: e.path || '', id: e.id || '', entrada: e.entrada || '' }
           const suTab = asiento ? asiento.tabId : tabDeRolRef.current[who]
           if (actividadEnTab(suTab, paso) && actOpen) setActividad(actividadRef.current)
           setTool({ role: who, name: e.name, detail: e.detail || null })
@@ -960,6 +972,11 @@ export default function App() {
           }
           marca(who, 'working')
           if (isP) setStatus(`${toolInfo(e.name)[1]}${e.detail ? ` · ${e.detail}` : ''}…`)
+        } else if (e.kind === 'tool-result') {
+          // La salida de la herramienta, colgada del paso que la pidió. No cambia
+          // nada de la escena: solo rellena el detalle que se abre en el panel.
+          const suTab = asiento ? asiento.tabId : tabDeRolRef.current[who]
+          if (salidaEnTab(suTab, e.id, e.salida, e.isError) && actOpen) setActividad(actividadRef.current)
         } else if (e.kind === 'text') {
           setTool((cur) => (cur?.role === who ? null : cur))
           setAgentTool((prev) => {

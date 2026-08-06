@@ -77,15 +77,55 @@ export function registra(lista = [], paso, tope = TOPE_PASOS) {
     path: paso.path || '',
     familia: familiaDe(paso.name),
     veces: 1,
+    // Para poder abrir el paso y ver qué se pidió y qué contestaron. El id es el
+    // del tool_use, que es como llega después su resultado.
+    id: paso.id || '',
+    entrada: paso.entrada || '',
+    salida: '',
   }
   const ultimo = lista[lista.length - 1]
   if (ultimo && ultimo.role === nuevo.role && ultimo.name === nuevo.name && ultimo.detail === nuevo.detail) {
     const copia = lista.slice(0, -1)
-    copia.push({ ...ultimo, veces: ultimo.veces + 1, t: nuevo.t || ultimo.t })
-    return copia
+    // La fila agrupada se queda con el detalle de la ÚLTIMA vez, y por eso también
+    // con su id: si conservara el primero, la salida que llegue después se
+    // colgaría de una llamada que ya no se está mirando.
+    copia.push({ ...ultimo, veces: ultimo.veces + 1, t: nuevo.t || ultimo.t, id: nuevo.id, entrada: nuevo.entrada, salida: '' })
+    return limpiaViejos(copia)
   }
   const salida = [...lista, nuevo]
-  return salida.length > tope ? salida.slice(salida.length - tope) : salida
+  return limpiaViejos(salida.length > tope ? salida.slice(salida.length - tope) : salida)
+}
+
+/// Cuántos pasos conservan su entrada y su salida completas.
+///
+/// El rastro guarda 300 pasos, pero el detalle de cada uno pesa: entre el comando
+/// y su salida, un paso puede ocupar 3 KB, y multiplicado por 300 y por pestaña ya
+/// son megas en memoria. Lo que se abre a mirar es lo reciente, así que los pasos
+/// viejos se quedan con su línea —la fila sigue ahí, el rastro no se pierde— y
+/// suelta el contenido.
+export const PASOS_CON_DETALLE = 60
+
+function limpiaViejos(lista) {
+  if (lista.length <= PASOS_CON_DETALLE) return lista
+  const corte = lista.length - PASOS_CON_DETALLE
+  return lista.map((p, i) => (i < corte && (p.entrada || p.salida) ? { ...p, entrada: '', salida: '', purgado: true } : p))
+}
+
+/// Cuelga la salida de una herramienta del paso que la pidió.
+///
+/// Se busca por el id del tool_use y del final hacia atrás: el resultado llega
+/// justo después de su llamada, así que lo normal es acertar en el primer intento.
+/// Un id que no está —el paso ya salió del tope, o era una delegación que no se
+/// registra como herramienta— se ignora sin ruido.
+export function anotaSalida(lista = [], id, salida, isError = false) {
+  if (!id || !salida) return lista
+  for (let i = lista.length - 1; i >= 0; i--) {
+    if (lista[i].id !== id) continue
+    const copia = [...lista]
+    copia[i] = { ...copia[i], salida, salidaError: !!isError }
+    return copia
+  }
+  return lista
 }
 
 /// Resumen de un rastro: cuántas lecturas, escrituras y comandos, y qué

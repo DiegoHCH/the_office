@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { carpetaDe, familiaDe, registra, resumen, rutaCorta, TOPE_PASOS } from './actividad.js'
+import { anotaSalida, carpetaDe, familiaDe, PASOS_CON_DETALLE, registra, resumen, rutaCorta, TOPE_PASOS } from './actividad.js'
 
 describe('familiaDe', () => {
   it('separa leer, escribir y ejecutar', () => {
@@ -121,5 +121,66 @@ describe('resumen', () => {
 
   it('un rastro vacío no rompe', () => {
     expect(resumen([]).pasos).toBe(0)
+  })
+})
+
+// Detalle por paso: qué se le pidió a la herramienta y qué contestó. Antes el
+// stream traía las dos cosas y se aprovechaba media — del tool_use solo una línea
+// de resumen, y el contenido del tool_result se tiraba.
+describe('detalle de cada paso', () => {
+  const paso = (extra = {}) => ({ name: 'Bash', role: 'dev', t: 1, detail: 'make generate', ...extra })
+
+  it('guarda el id y la entrada del paso', () => {
+    const l = registra([], paso({ id: 'tu_1', entrada: 'make generate' }))
+    expect(l[0].id).toBe('tu_1')
+    expect(l[0].entrada).toBe('make generate')
+    expect(l[0].salida).toBe('')
+  })
+
+  it('cuelga la salida del paso que la pidió', () => {
+    let l = registra([], paso({ id: 'tu_1' }))
+    l = registra(l, paso({ name: 'Read', detail: 'a.dart', id: 'tu_2' }))
+    l = anotaSalida(l, 'tu_1', 'Generated 12 outputs')
+    expect(l[0].salida).toBe('Generated 12 outputs')
+    expect(l[1].salida).toBe('') // la del otro paso no se toca
+  })
+
+  it('marca la salida que vino con error', () => {
+    let l = registra([], paso({ id: 'tu_1' }))
+    l = anotaSalida(l, 'tu_1', 'command not found', true)
+    expect(l[0].salidaError).toBe(true)
+  })
+
+  it('un id que no existe no revienta ni cambia la lista', () => {
+    // pasa de verdad: el paso pudo salir del tope, o era una delegación que no se
+    // registra como herramienta
+    const l = registra([], paso({ id: 'tu_1' }))
+    expect(anotaSalida(l, 'no-existe', 'algo')).toBe(l)
+    expect(anotaSalida(l, '', 'algo')).toBe(l)
+    expect(anotaSalida(l, 'tu_1', '')).toBe(l)
+  })
+
+  it('al agrupar repeticiones se queda con el id y la entrada de la ÚLTIMA', () => {
+    // si conservara el primero, la salida que llegue después se colgaría de una
+    // llamada que ya no es la que estás mirando
+    let l = registra([], paso({ id: 'tu_1', entrada: 'make generate' }))
+    l = registra(l, paso({ id: 'tu_2', entrada: 'make generate' }))
+    expect(l).toHaveLength(1)
+    expect(l[0].veces).toBe(2)
+    expect(l[0].id).toBe('tu_2')
+    l = anotaSalida(l, 'tu_2', 'ok')
+    expect(l[0].salida).toBe('ok')
+  })
+
+  it('los pasos viejos suel tan su contenido pero conservan su línea', () => {
+    let l = []
+    for (let i = 0; i < PASOS_CON_DETALLE + 5; i++) {
+      l = registra(l, paso({ id: `tu_${i}`, detail: `cmd ${i}`, entrada: `comando numero ${i}` }))
+    }
+    expect(l).toHaveLength(PASOS_CON_DETALLE + 5)
+    expect(l[0].entrada).toBe('') // el más viejo, purgado
+    expect(l[0].purgado).toBe(true)
+    expect(l[0].detail).toBe('cmd 0') // pero su línea sigue ahí
+    expect(l[l.length - 1].entrada).toBe(`comando numero ${PASOS_CON_DETALLE + 4}`)
   })
 })

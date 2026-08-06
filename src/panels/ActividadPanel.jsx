@@ -28,6 +28,16 @@ export default function ActividadPanel({ open, onClose, pasos = [], proyecto = '
   const cajaRef = useRef(null)
   const pegadoRef = useRef(true)
   const [familia, setFamilia] = useState('') // '' = todo
+  // Qué pasos están abiertos. Varios a la vez a propósito: comparar dos comandos
+  // es justo para lo que se abre esto, y un acordeón de uno solo lo impide.
+  const [abiertos, setAbiertos] = useState(() => new Set())
+  const alterna = (clave) =>
+    setAbiertos((prev) => {
+      const s = new Set(prev)
+      if (s.has(clave)) s.delete(clave)
+      else s.add(clave)
+      return s
+    })
 
   // Se sigue el final solo si el usuario ya estaba abajo. `scrollHeight` puede
   // no estar listo en el mismo frame en que llega la línea, de ahí el ref sobre
@@ -106,19 +116,53 @@ export default function ActividadPanel({ open, onClose, pasos = [], proyecto = '
       >
         {lista.map((p, i) => {
           const m = memberOf?.(p.role)
+          const clave = `${p.t}-${i}`
+          const tiene = !!(p.entrada || p.salida)
+          const abierto = abiertos.has(clave)
           return (
-            <div key={`${p.t}-${i}`} className={`act-row ${p.familia}`}>
-              <span className="act-time">{hora(p.t)}</span>
-              {m && (
-                <span className="act-who" style={{ color: m.color }}>
-                  {m.name}
-                </span>
+            <div key={clave} className={abierto ? `act-row ${p.familia} abierta` : `act-row ${p.familia}`}>
+              {/* La fila entera abre el detalle: apuntar a un chevron de 10px en
+                  una lista que se mueve es incómodo, y la fila no hacía nada. */}
+              <button
+                type="button"
+                className="act-fila"
+                onClick={() => tiene && alterna(clave)}
+                title={tiene ? t('act.seeDetail') : p.purgado ? t('act.purged') : p.detail || p.name}
+                aria-expanded={abierto}
+              >
+                <span className="act-caret">{tiene ? (abierto ? '▾' : '▸') : ''}</span>
+                <span className="act-time">{hora(p.t)}</span>
+                {m && (
+                  <span className="act-who" style={{ color: m.color }}>
+                    {m.name}
+                  </span>
+                )}
+                <span className="act-verb">{VERBO[p.familia]}</span>
+                <span className="act-what">{p.path ? rutaCorta(p.path, proyecto) : p.detail || p.name}</span>
+                {p.veces > 1 && <span className="act-veces">×{p.veces}</span>}
+              </button>
+              {abierto && (
+                <div className="act-detalle">
+                  {p.entrada && (
+                    <>
+                      <div className="act-detalle-tit">{p.name}</div>
+                      <pre className="act-pre">{p.entrada}</pre>
+                    </>
+                  )}
+                  {/* Sin salida todavía = la herramienta sigue corriendo. Decirlo,
+                      porque un hueco se lee como «no devolvió nada». */}
+                  {p.salida ? (
+                    <>
+                      <div className={p.salidaError ? 'act-detalle-tit err' : 'act-detalle-tit'}>
+                        {p.salidaError ? t('act.outputErr') : t('act.output')}
+                      </div>
+                      <pre className={p.salidaError ? 'act-pre err' : 'act-pre'}>{p.salida}</pre>
+                    </>
+                  ) : (
+                    <div className="act-detalle-tit">{t('act.waiting')}</div>
+                  )}
+                </div>
               )}
-              <span className="act-verb">{VERBO[p.familia]}</span>
-              <span className="act-what" title={p.detail || p.name}>
-                {p.path ? rutaCorta(p.path, proyecto) : p.detail || p.name}
-              </span>
-              {p.veces > 1 && <span className="act-veces">×{p.veces}</span>}
             </div>
           )
         })}

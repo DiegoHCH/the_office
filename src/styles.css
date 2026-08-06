@@ -1895,6 +1895,38 @@ select.squad-model {
 .act-row { align-items: flex-start; }
 .act-veces { flex: none; color: var(--muted); opacity: 0.7; }
 
+/* Cada paso se abre para ver el comando y su salida. La fila pasa a ser un botón
+   —apuntar a un chevron de 10px en una lista que se mueve es incómodo— pero tiene
+   que seguir leyéndose como una línea de registro, no como un control: sin fondo,
+   sin borde y con el texto alineado igual que antes.
+   El `.drawer` de este panel tiene su propio estilo de botón, así que va todo
+   prefijado; la misma trampa de especificidad que el composer. */
+.drawer .act-row { flex-direction: column; padding: 0; }
+.drawer .act-fila {
+  display: flex; align-items: flex-start; gap: 8px; width: 100%;
+  padding: 3px 0; background: none; border: none; box-shadow: none;
+  font-family: var(--mono); font-size: 11.5px; color: inherit; text-align: left;
+  cursor: default;
+}
+.drawer .act-row.abierta > .act-fila, .drawer .act-fila:has(.act-caret:not(:empty)) { cursor: pointer; }
+.drawer .act-fila:hover .act-what { color: var(--ink); }
+/* A 9px el chevron se veía como un puntito y no invitaba a pulsar: visto en la
+   captura. Con 11px y un tono menos apagado se lee como lo que es. */
+.act-caret { flex: none; width: 10px; color: var(--muted-2); font-size: 11px; line-height: 1.35; }
+.drawer .act-fila:hover .act-caret { color: var(--accent-2); }
+/* El detalle: monoespaciado, con scroll propio y sin envolver a lo loco — un
+   comando partido por la mitad deja de poder copiarse. */
+.act-detalle { width: 100%; padding: 2px 0 8px 17px; display: flex; flex-direction: column; gap: 4px; }
+.act-detalle-tit { color: var(--muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.act-detalle-tit.err { color: var(--warn); }
+.act-pre {
+  margin: 0; max-height: 220px; overflow: auto;
+  background: var(--bg-deep); border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 9px; font-family: var(--mono); font-size: 11px; line-height: 1.45;
+  color: var(--ink-3); white-space: pre-wrap; word-break: break-word;
+}
+.act-pre.err { color: var(--danger-3); border-color: color-mix(in srgb, var(--warn) 40%, var(--line)); }
+
 /* Aviso de actualización lista. Va sobre el composer, junto al de actividad:
    es donde miras, y así no depende de una notificación del sistema. */
 .upd-bar {

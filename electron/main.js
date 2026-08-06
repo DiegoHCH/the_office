@@ -48,6 +48,8 @@ const {
   CACHE_MAX,
   tocaBuscarUpdate,
   eligeRepoDeDentro,
+  entradaDeTool,
+  salidaDeToolResult,
   idDeRepoEnRegistry,
   unicoRepoDelRegistry,
   clavesDeSesion,
@@ -618,6 +620,17 @@ function makeLineHandler(role, claveSesion, displayName) {
       for (const block of msg.message.content) {
         if (block.type === 'tool_result' && block.tool_use_id) {
           emit({ kind: 'sub-done', role, subId: block.tool_use_id, isError: !!block.is_error })
+          // Y su CONTENIDO, que hasta ahora se tiraba: es la salida real de la
+          // herramienta —lo que imprimió el comando, lo que devolvió la
+          // búsqueda— y es la mitad que faltaba para poder abrir un paso del
+          // rastro y ver qué pasó de verdad.
+          emit({
+            kind: 'tool-result',
+            role,
+            id: block.tool_use_id,
+            salida: salidaDeToolResult(block.content),
+            isError: !!block.is_error,
+          })
         }
       }
       return
@@ -675,6 +688,12 @@ function makeLineHandler(role, claveSesion, displayName) {
             name: block.name,
             detail: toolDetail(block.name, block.input),
             path: rutaEditada(block.name, block.input),
+            // El id del tool_use es lo que después empareja este paso con su
+            // resultado: sin él no se sabe de quién es la salida que llega.
+            id: block.id || '',
+            // Lo que se le pidió, entero (con tope). El `detail` es una línea
+            // para el globo; esto es el comando o los parámetros de verdad.
+            entrada: entradaDeTool(block.name, block.input),
           })
           // la checklist del agente, tal cual la va actualizando
           if (block.name === 'TodoWrite' && Array.isArray(block.input?.todos)) {
