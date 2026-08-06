@@ -194,6 +194,39 @@ function tocaBuscarUpdate(ahora, ultima, { ya = false, forzado = false, espera =
   return desde < 0 || desde >= espera
 }
 
+// ── ai-context: de qué repo es esta carpeta ──────────────────────────────────
+// Un workspace puede tener un repositorio de contexto compartido (`ai-context/`)
+// con un mapa de repos: cada uno con su id corto y su carpeta real. El nombre de
+// la carpeta NO es el id —`front-mobile-b2c` es `fe-b2c`— así que hay que
+// traducirlo antes de poder cargar nada suyo.
+//
+// Se compara por el campo `repo`, que es la carpeta de verdad. Se acepta también
+// que la clave del registry sea directamente el nombre de la carpeta, porque un
+// registry escrito a mano puede no tener el campo.
+function idDeRepoEnRegistry(registry, carpeta) {
+  if (!carpeta) return null
+  const repos = registry?.repositories
+  if (!repos || typeof repos !== 'object') return null
+  for (const [id, r] of Object.entries(repos)) {
+    if (r?.repo === carpeta) return id
+  }
+  return Object.prototype.hasOwnProperty.call(repos, carpeta) ? carpeta : null
+}
+
+// Cuando el repo que se está trabajando NO está en el mapa —el caso normal aquí:
+// el proyecto es la raíz del workspace y lo que se resuelve por fecha es
+// `ai-context`, que no es un repo del registry— se mira qué hay dentro del
+// proyecto.
+//
+// Y solo vale si hay UNO. Con dos repos del mapa dentro no se puede saber de cuál
+// es la tarea, y cargar el contexto del que no es sería peor que no cargar nada:
+// el agente se pondría a seguir las reglas de otro repo con toda la confianza.
+// Ahí decide la persona con el selector.
+function unicoRepoDelRegistry(carpetas, registry) {
+  const ids = [...new Set((carpetas || []).map((c) => idDeRepoEnRegistry(registry, c)).filter(Boolean))]
+  return ids.length === 1 ? ids[0] : null
+}
+
 // ── Qué repo se está trabajando ──────────────────────────────────────────────
 // El proyecto elegido suele ser la carpeta PADRE —la raíz del workspace, para
 // que los agentes carguen el contexto compartido— y no está versionada: el repo
@@ -986,6 +1019,8 @@ module.exports = {
   tocaBuscarUpdate,
   ESPERA_UPDATE,
   eligeRepoDeDentro,
+  idDeRepoEnRegistry,
+  unicoRepoDelRegistry,
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,

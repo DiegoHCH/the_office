@@ -1338,6 +1338,68 @@ describe('tocaBuscarUpdate', () => {
 // el renderer no decía de qué perfil era el documento, el main asumía «work», y
 // a quien trabajaba en otro perfil no se le abría NADA —ni el archivo, ni la
 // carpeta, ni el zip— sin un solo error por ningún lado.
+// Traducir la carpeta de un repo a su id en ai-context. El nombre de la carpeta
+// NO es el id —`front-mobile-b2c` es `fe-b2c`— así que sin esto no se puede
+// cargar el contexto del repo en el que se está trabajando.
+describe('idDeRepoEnRegistry', () => {
+  const { idDeRepoEnRegistry } = core
+  const registry = {
+    version: '1.2',
+    repositories: {
+      'fe-b2c': { repo: 'front-mobile-b2c', tech_stack: 'flutter' },
+      'fe-b2b': { repo: 'front-b2b', tech_stack: 'vue' },
+      suelto: { tech_stack: 'vue' }, // una entrada sin campo `repo`
+    },
+  }
+
+  it('traduce la carpeta real a su id corto', () => {
+    expect(idDeRepoEnRegistry(registry, 'front-mobile-b2c')).toBe('fe-b2c')
+    expect(idDeRepoEnRegistry(registry, 'front-b2b')).toBe('fe-b2b')
+  })
+
+  it('acepta que la clave sea directamente la carpeta', () => {
+    // un registry escrito a mano puede no traer el campo `repo`
+    expect(idDeRepoEnRegistry(registry, 'suelto')).toBe('suelto')
+  })
+
+  it('un repo que no está en el mapa no se inventa', () => {
+    // devolver algo aquí cargaría el contexto de OTRO repo en el system prompt
+    expect(idDeRepoEnRegistry(registry, 'la-oficina')).toBe(null)
+  })
+
+  it('sin registry, sin carpeta o con basura devuelve null', () => {
+    expect(idDeRepoEnRegistry(null, 'front-b2b')).toBe(null)
+    expect(idDeRepoEnRegistry(registry, '')).toBe(null)
+    expect(idDeRepoEnRegistry({ repositories: 'no-es-un-objeto' }, 'x')).toBe(null)
+    expect(idDeRepoEnRegistry({}, 'x')).toBe(null)
+  })
+
+  // El caso medido en el workspace real: el proyecto es la raíz, y el repo que se
+  // resuelve por fecha es `ai-context`, que NO está en el mapa. Sin esta regla la
+  // carga del contexto no ocurría nunca, y sin decir nada.
+  describe('unicoRepoDelRegistry', () => {
+    const { unicoRepoDelRegistry } = core
+
+    it('con un solo repo del mapa dentro, ese', () => {
+      expect(unicoRepoDelRegistry(['ai-context', 'front-mobile-b2c'], registry)).toBe('fe-b2c')
+    })
+
+    it('con dos del mapa NO adivina: cargar el equivocado es peor que nada', () => {
+      expect(unicoRepoDelRegistry(['front-mobile-b2c', 'front-b2b'], registry)).toBe(null)
+    })
+
+    it('sin ninguno del mapa, null', () => {
+      expect(unicoRepoDelRegistry(['ai-context', 'notas'], registry)).toBe(null)
+      expect(unicoRepoDelRegistry([], registry)).toBe(null)
+      expect(unicoRepoDelRegistry(undefined, registry)).toBe(null)
+    })
+
+    it('la misma carpeta repetida sigue siendo un repo', () => {
+      expect(unicoRepoDelRegistry(['front-b2b', 'front-b2b'], registry)).toBe('fe-b2b')
+    })
+  })
+})
+
 // Elegir el repo cuando el proyecto es la carpeta padre. El caso real: se elige
 // ~/Workspace —que no está versionada— para que los agentes carguen ai-context,
 // y dentro hay dos repos (ai-context y front-mobile-b2c). Enseñar la rama del

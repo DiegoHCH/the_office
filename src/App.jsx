@@ -3205,6 +3205,10 @@ export default function App() {
       // Repartir solo si lo pediste: la app ya no autoriza a delegar por su
       // cuenta. Ver `pideReparto`.
       repartir: !!job.repartir,
+      // El repo que muestra el selector de rama: con él, el main carga su
+      // CONTEXT.md de ai-context en la persona en vez de confiar en que el
+      // agente vaya a buscarlo.
+      repoActivo: rama?.root || '',
     })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'Error desconocido'}` }])

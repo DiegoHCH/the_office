@@ -48,6 +48,8 @@ const {
   CACHE_MAX,
   tocaBuscarUpdate,
   eligeRepoDeDentro,
+  idDeRepoEnRegistry,
+  unicoRepoDelRegistry,
   clavesDeSesion,
   componeReglas,
   quitaProyecto,
@@ -915,8 +917,21 @@ ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd, c
 })
 
 ipcMain.handle('claude:ask', async (_e, payload) => {
-  const { prompt, profile = 'work', cwd, writeMode = false, model = '', effort = '', role = 'dev', standup = false, repartir = false } =
-    typeof payload === 'string' ? { prompt: payload } : payload
+  const {
+    prompt,
+    profile = 'work',
+    cwd,
+    writeMode = false,
+    model = '',
+    effort = '',
+    role = 'dev',
+    standup = false,
+    repartir = false,
+    // El repo en el que se está trabajando, que puede estar DENTRO del proyecto
+    // elegido (aquí se elige la raíz del workspace). Lo resuelve el renderer para
+    // el selector de rama, y sirve igual para cargar su contexto de ai-context.
+    repoActivo = '',
+  } = typeof payload === 'string' ? { prompt: payload } : payload
 
   if (children.has(role)) return { ok: false, error: `${role} ya está trabajando en algo` }
 
@@ -1040,6 +1055,26 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
       // workspace, y ese sigue valiendo. Solo pierde donde se contradiga.
       `Solo cuando dos se contradigan manda el ÚLTIMO, el más cercano al directorio de trabajo. ` +
       `Lo de arriba dice quién eres; esto dice cómo se trabaja aquí.\n\n${reglasProyecto}`
+  }
+
+  // El contexto del repo desde ai-context, si el workspace tiene uno. Va DESPUÉS
+  // de las reglas del proyecto porque es más específico todavía: dice qué es este
+  // repo concreto y qué reglas suyas aplican.
+  //
+  // `repoActivo` lo manda el renderer: es el repo que muestra el selector de rama
+  // —el que estás trabajando—, que no tiene por qué ser la carpeta del proyecto
+  // (aquí se elige la raíz del workspace y el repo está dentro). Sin él se prueba
+  // con el directorio de trabajo, que es lo mejor que se puede suponer.
+  const ctxRepo = contextoDeAiContext(repoActivo || workdir, workdir)
+  if (ctxRepo) {
+    persona +=
+      `\n\nCONTEXTO DE ESTE REPO (${ctxRepo.id}), cargado ya por ti desde ai-context — NO tienes que ir a buscarlo. ` +
+      `Es el mapa del repositorio en el que estás trabajando: qué es, cómo se organiza y QUÉ REGLAS APLICAN. ` +
+      // Lo que no se puede precargar hay que decirlo, o el agente asume que ya
+      // tiene todo lo que necesita y se salta las rules.
+      `Las reglas en sí NO están aquí (son cientos de miles de caracteres): este documento dice cuáles son y dónde, ` +
+      `y sigue siendo OBLIGATORIO leer con Read las que afecten a lo que vas a tocar, ANTES de escribir código. ` +
+      `Si delegas en un subagente, pásale las que le apliquen: no hereda nada de esto.\n\n${ctxRepo.texto}`
   }
 
   persona +=
@@ -2596,6 +2631,79 @@ ipcMain.handle('image:save', (_e, { name, data }) => {
 /// Los CLAUDE.md que aplican a un directorio, del más cercano al más lejano.
 ///
 /// Se sube hasta el home y ahí se para: por encima solo hay ruido del sistema.
+/// Presupuesto del CONTEXT.md de ai-context. Aparte del de los CLAUDE.md a
+/// propósito: si compartieran bolsa, un CONTEXT.md largo se comería las reglas
+/// del proyecto, que son las que mandan. Medido en el repositorio real del
+/// usuario, el de fe-b2c ocupa 20.876 caracteres, así que 24k deja margen sin
+/// tragarse el contexto de la conversación.
+const TOPE_AI_CONTEXT = 24000
+
+/// La carpeta `ai-context/` que aplica a un directorio, buscando hacia arriba.
+///
+/// Se exige que tenga su `repo-map/registry.json`: una carpeta llamada
+/// ai-context sin mapa no es el repositorio de contexto, y cargar de ahí a
+/// ciegas metería lo que no es en el system prompt.
+function buscaAiContext(dir) {
+  const home = app.getPath('home')
+  let actual = dir
+  for (let i = 0; i < 12; i++) {
+    const raiz = path.join(actual, 'ai-context')
+    if (fs.existsSync(path.join(raiz, 'repo-map', 'registry.json'))) return raiz
+    if (actual === home) break
+    const padre = path.dirname(actual)
+    if (!padre || padre === actual) break
+    actual = padre
+  }
+  return null
+}
+
+/// El CONTEXT.md del repo en juego, si hay un ai-context a la vista.
+///
+/// POR QUÉ LO CARGA LA APP Y NO EL AGENTE. El CLAUDE.md del workspace no
+/// contiene las reglas: contiene un protocolo que MANDA al agente a buscarlas
+/// (registry → CONTEXT.md → rules). Que las busque depende de que decida
+/// cumplirlo, y eso falla — documentado en este repo: pedirlo en una frase se
+/// cumplía una de dos veces. Cargar aquí el CONTEXT.md convierte «ve y busca tu
+/// contexto» en «tu contexto ya está puesto», que sí es una garantía.
+///
+/// Las rules NO se cargan, y no es un olvido: medidas en el repositorio real son
+/// 478 KB (~120k tokens). No caben en un system prompt ni tendría sentido
+/// pagarlas en cada turno. Se siguen leyendo a demanda, y para eso está el
+/// protocolo — este texto solo se asegura de que el agente sepa cuáles aplican.
+function contextoDeAiContext(repoDir, proyecto = '') {
+  if (!repoDir) return null
+  const raiz = buscaAiContext(repoDir)
+  if (!raiz) return null
+  let registry
+  try {
+    registry = JSON.parse(fs.readFileSync(path.join(raiz, 'repo-map', 'registry.json'), 'utf8'))
+  } catch {
+    return null
+  }
+  // El repo que se está trabajando, si está en el mapa. Y si no lo está —el caso
+  // medido: con el proyecto en la raíz del workspace, lo que se resuelve por
+  // fecha es `ai-context`, que no es un repo del registry— se mira qué hay dentro
+  // del proyecto, y solo cuenta si hay uno solo (ver `unicoRepoDelRegistry`).
+  // Sin esto la carga no se hacía NUNCA en el caso normal, y en silencio.
+  const id =
+    idDeRepoEnRegistry(registry, path.basename(repoDir)) ||
+    (proyecto ? unicoRepoDelRegistry(reposDeDentro(proyecto).map((d) => path.basename(d)), registry) : null)
+  if (!id) return null // no se sabe de qué repo es la tarea: mejor nada que el equivocado
+  try {
+    let texto = fs.readFileSync(path.join(raiz, 'repositories', id, 'CONTEXT.md'), 'utf8')
+    let recortado = false
+    if (texto.length > TOPE_AI_CONTEXT) {
+      // Se dice que está recortado y dónde seguir: un texto cortado en seco
+      // parece completo, y el agente daría por hecho que eso es todo.
+      texto = `${texto.slice(0, TOPE_AI_CONTEXT)}\n\n[…] (recortado aquí; el archivo completo está en ${path.join(raiz, 'repositories', id, 'CONTEXT.md')} — léelo con Read si necesitas el resto)`
+      recortado = true
+    }
+    return { id, raiz, texto, recortado }
+  } catch {
+    return null // el repo está en el mapa pero sin CONTEXT.md
+  }
+}
+
 /// El CLI ya los carga, pero los aplica todos sin jerarquía — ver `componeReglas`.
 function reglasDelArbol(dir) {
   const home = app.getPath('home')
