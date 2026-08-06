@@ -1346,8 +1346,11 @@ function openHelp(lang) {
     return { ok: true }
   }
   helpWin = new BrowserWindow({
-    width: 860,
-    height: 760,
+    // Ancho para que el índice de temas quepa al lado del texto sin estrecharlo
+    // (218 del índice + 780 de la página + márgenes). Por debajo de 1000 el
+    // propio CSS lo pasa arriba, así que redimensionar no lo rompe.
+    width: 1080,
+    height: 820,
     backgroundColor: '#0e1417',
     title: en ? 'La Oficina · User guide' : 'La Oficina · Guía de uso',
   })
