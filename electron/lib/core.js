@@ -871,7 +871,26 @@ function agregaProyecto({ custom = [], ocultos = [], path: ruta }) {
   }
 }
 
+/// Prepara las reglas del proyecto (su CLAUDE.md) para viajar en la persona.
+///
+/// El CLI ya carga ese archivo, pero junto con los de las carpetas superiores y
+/// sin jerarquía entre ellos: los aplica todos. Repetirlo dentro de la persona
+/// no es redundante, es lo que hace que gane cuando se contradicen — probado:
+/// pedir prioridad en una frase se cumplía la mitad de las veces; incluir el
+/// contenido al final, 3 de 3.
+///
+/// Con tope, porque esto viaja en CADA mensaje y un archivo enorme se comería
+/// el contexto de la conversación. Al recortar se avisa y se dice cómo leer el
+/// resto: cortar en seco haría creer que ahí se acaban las reglas.
+function recortaReglas(txt = '', tope = 12000) {
+  const limpio = (txt || '').trim()
+  if (!limpio) return ''
+  if (limpio.length <= tope) return limpio
+  return `${limpio.slice(0, tope)}\n\n[…] (CLAUDE.md recortado aquí; léelo entero con Read si necesitas el resto)`
+}
+
 module.exports = {
+  recortaReglas,
   clavesDeSesion,
   quitaProyecto,
   agregaProyecto,

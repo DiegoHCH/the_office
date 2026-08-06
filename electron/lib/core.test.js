@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import core from './core.js'
 
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
-const { clavesDeSesion, quitaProyecto, agregaProyecto } = core
+const { clavesDeSesion, quitaProyecto, agregaProyecto, recortaReglas } = core
 const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
 const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = core
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
@@ -1403,5 +1403,29 @@ describe('quitar y agregar proyectos de la lista', () => {
   it('ocultar dos veces no duplica la entrada', () => {
     const r = quitaProyecto({ custom: [], ocultos: ['/w/p'], path: '/w/p', detectado: true })
     expect(r.ocultos).toEqual(['/w/p'])
+  })
+})
+
+describe('recortaReglas', () => {
+  it('devuelve las reglas tal cual si caben', () => {
+    expect(recortaReglas('  # Proyecto\nUsa tabs.  ')).toBe('# Proyecto\nUsa tabs.')
+  })
+
+  it('un CLAUDE.md vacío no aporta nada', () => {
+    // Sin esto se colaría una cabecera de «REGLAS DEL PROYECTO» sin reglas
+    // debajo, que es peor que no decir nada: parece que el proyecto manda algo.
+    expect(recortaReglas('   \n  ')).toBe('')
+    expect(recortaReglas()).toBe('')
+  })
+
+  it('al recortar avisa y dice cómo leer el resto', () => {
+    // Esto viaja en CADA mensaje, así que un archivo enorme se comería el
+    // contexto de la conversación. Pero cortar en seco haría creer que ahí se
+    // acaban las reglas, y el agente daría por buenas unas instrucciones a medias.
+    const largo = 'a'.repeat(50)
+    const r = recortaReglas(largo, 20)
+    expect(r.startsWith('a'.repeat(20))).toBe(true)
+    expect(r).toContain('recortado')
+    expect(r).toContain('Read')
   })
 })

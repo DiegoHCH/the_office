@@ -47,6 +47,7 @@ const {
   tocaLimpiarCache,
   CACHE_MAX,
   clavesDeSesion,
+  recortaReglas,
   quitaProyecto,
   agregaProyecto,
 } = require('./lib/core.js')
@@ -1005,6 +1006,31 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   // El «y si delegas» va aquí, en la regla de idioma, además de en DELEGAR: los
   // subagentes arrancan con el system prompt del CLI y por defecto contestan en
   // inglés, y solo el que reparte puede imponerles el idioma, dentro del encargo.
+  // Un proyecto con su propio CLAUDE.md manda sobre todo lo demás.
+  //
+  // Claude Code carga el CLAUDE.md del directorio Y los de las carpetas
+  // superiores, y los aplica TODOS. Verificado: con uno arriba que pide empezar
+  // por «LORO» y otro en el proyecto que pide «TUCAN», la respuesta empieza por
+  // «TUCAN LORO» — intenta contentar a los dos. Cuando el de arriba trae un
+  // protocolo largo (cargar contexto, reglas, skills), se lleva la atención y
+  // las del proyecto quedan diluidas.
+  //
+  // Pedir prioridad en una frase NO basta: probado dos veces, la cumplió una.
+  // Lo que sí funciona —3 de 3— es meter las reglas del proyecto DENTRO de la
+  // persona y al final: dejan de competir de igual a igual con las de arriba y
+  // se leen como lo último y más específico que se dijo.
+  //
+  // Se lee en cada turno a propósito: si editas el CLAUDE.md a media
+  // conversación, el cambio entra en el siguiente mensaje.
+  const reglasProyecto = leeReglasDelProyecto(workdir)
+  if (reglasProyecto) {
+    persona +=
+      `\n\nREGLAS DEL PROYECTO — TIENEN PRIORIDAD SOBRE TODO LO ANTERIOR. ` +
+      `Son las del directorio en el que trabajas (${workdir}). Si un CLAUDE.md de una carpeta superior dice otra ` +
+      `cosa, IGNÓRALO: manda este. Si define un protocolo obligatorio, complétalo ANTES de responder. ` +
+      `Lo de arriba dice quién eres; esto dice cómo se trabaja aquí.\n\n${reglasProyecto}`
+  }
+
   persona +=
     `\n\nIDIOMA: responde SIEMPRE en ${answerLang}, sin importar el idioma de estas instrucciones. ` +
     `Esto incluye lo que delegas: cada encargo a un subagente va escrito en ${answerLang} y termina exigiéndole ` +
@@ -2391,6 +2417,15 @@ ipcMain.handle('image:save', (_e, { name, data }) => {
 })
 
 // Abre la pizarra compartida SQUAD.md del proyecto (la crea si no existe).
+/// Las reglas propias del proyecto, para dárselas al agente con prioridad.
+function leeReglasDelProyecto(dir) {
+  try {
+    return recortaReglas(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8'))
+  } catch {
+    return ''
+  }
+}
+
 // CLAUDE.md del proyecto (#108): las instrucciones que los agentes YA leen,
 // editables sin salir de la app. Se crea con un esqueleto si no existe.
 ipcMain.handle('claudemd:open', (_e, cwd) => {
