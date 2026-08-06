@@ -256,6 +256,7 @@ gh auth status   # check: it must show your account with the 'repo' scope</code>
 
   <h2>Updates 🔄</h2>
   <p>The app updates itself: it checks on startup, downloads the new version in the background and tells you when it is ready.<b>It does not restart on its own</b>— it is applied when you decide, because restarting mid-task would lose it. If anything fails (no network, or a release published by hand without its metadata), it falls back to the old notice: it tells you and downloads the installer.</p>
+  <p>Beyond startup, it checks <b>when the Mac wakes up and when you come back to the window</b> (at most once every 15 minutes), and every 2 hours if you leave it open. If you would rather not wait, <b>⚙️ → Check for updates</b> asks right away and tells you what it found: <span class="ok">you are up to date</span> or the download under way. Everything it checks is written down in <code>auto-update.log</code>, inside the app data folder.</p>
 
   <h2>If something looks off</h2>
   <ul>

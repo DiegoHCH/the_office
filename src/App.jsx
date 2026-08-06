@@ -3665,6 +3665,26 @@ export default function App() {
                 <span className="mi-label">{t('menu.prefs')}</span>
                 <span className="mi-chev"><IconChevron /></span>
               </button>
+              {/* Buscar a mano. Existe porque esperar a que la app pregunte sola
+                  no se distingue de que el auto-update esté roto: hasta que algo
+                  contesta, las dos situaciones se ven exactamente igual. */}
+              <button
+                type="button"
+                className="menu-item"
+                onClick={async () => {
+                  showToast(t('upd.checking'))
+                  const r = await window.oficina?.checkUpdate?.()
+                  if (r?.estado === 'descargando') return showToast(t('upd.downloading', { v: r.version }))
+                  if (r?.estado === 'lista') return showToast(t('upd.ready', { v: r.version }))
+                  if (r?.estado === 'aldia') return showToast(t('upd.uptodate', { v: r.version }))
+                  if (r?.estado === 'nodisponible') return showToast(t('upd.unavailable'), 6000)
+                  showToast(t('upd.checkFailed', { err: r?.error || '?' }), 7000)
+                }}
+              >
+                <span className="mi-icon"><IconDownload /></span>
+                <span className="mi-label">{t('menu.update')}</span>
+                <span className="mi-chev"><IconChevron /></span>
+              </button>
             </div>
 
 

@@ -20,6 +20,8 @@ contextBridge.exposeInMainWorld('oficina', {
   removeProject: (data) => ipcRenderer.invoke('projects:remove', data),
   onUpdateReady: (cb) => ipcRenderer.on('update:ready', (_e, d) => cb(d)),
   installUpdate: () => ipcRenderer.invoke('update:install'),
+  // Buscar versión nueva ahora, sin esperar a que la app pregunte sola.
+  checkUpdate: () => ipcRenderer.invoke('update:check'),
   // Badge del Dock con el nº de agentes trabajando.
   dockBadge: (n) => ipcRenderer.invoke('dock:badge', n),
   // Guarda una imagen adjunta y devuelve su ruta local.

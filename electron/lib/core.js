@@ -163,6 +163,37 @@ function rutaContenida(dir, file, sep = require('node:path').sep) {
 const CACHE_MAX = 250 * 1024 * 1024
 const tocaLimpiarCache = (bytes, max = CACHE_MAX) => Number(bytes) > max
 
+// ── Cuándo volver a buscar actualizaciones ───────────────────────────────────
+// El único despertador era un temporizador cada 2 horas faseado desde el
+// arranque. Reportado en uso: se publicó una versión a las 09:32, la app llevaba
+// encendida desde la tarde anterior, y no preguntó hasta las 10:30 — 58 minutos
+// mirando una app que ya estaba vieja, sin forma de saber si no había nada o si
+// el auto-update se había caído.
+//
+// Y el temporizador no es fiable de por sí: mientras el Mac duerme no corre, así
+// que su fase deriva sola. En el registro de una instalación real, un aviso que
+// tocaba a las 11:51 salió a las 11:37.
+//
+// Lo que arregla el caso de verdad es preguntar en los momentos en los que la
+// persona vuelve a la app —despertar del sueño, enfocar la ventana— y dejar que
+// lo pida a mano. Pero eso, sin freno, sería una petición por cada ⌥Espacio: de
+// ahí la espera mínima entre búsquedas automáticas.
+const ESPERA_UPDATE = 15 * 60 * 1000
+
+// `ya` = hay una descargada esperando: preguntar otra vez no aporta nada, el
+// aviso ya está puesto. `forzado` salta la espera —el arranque y el botón—:
+// cuando alguien pulsa, el clic ES la señal de que la quiere ahora.
+function tocaBuscarUpdate(ahora, ultima, { ya = false, forzado = false, espera = ESPERA_UPDATE } = {}) {
+  if (ya) return false
+  if (forzado) return true
+  if (!ultima) return true
+  const desde = Number(ahora) - Number(ultima)
+  // Un salto de reloj hacia atrás (cambio de zona, ajuste al despertar) dejaba
+  // la resta en negativo y la búsqueda bloqueada hasta cumplir la espera desde
+  // un futuro que ya pasó. Ante un reloj incoherente, preguntar.
+  return desde < 0 || desde >= espera
+}
+
 // ── Subagentes ───────────────────────────────────────────────────────────────
 // Un agente puede delegar con la herramienta `Agent`, y cada subagente trabaja
 // con su PROPIO contexto: es la forma de repartir un encargo grande sin saturar
@@ -926,6 +957,8 @@ module.exports = {
   rutaContenida,
   tocaLimpiarCache,
   CACHE_MAX,
+  tocaBuscarUpdate,
+  ESPERA_UPDATE,
   esProyectoFlutter,
   buscaProyectosFlutter,
   parseEmuladores,

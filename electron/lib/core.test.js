@@ -1290,6 +1290,50 @@ describe('tocaLimpiarCache', () => {
   })
 })
 
+// El caso reportado: versión publicada a las 09:32, app encendida desde la tarde
+// anterior, primer aviso a las 10:30. El temporizador de 2 horas era el único
+// despertador, así que la espera dependía de a qué hora habías abierto la app.
+describe('tocaBuscarUpdate', () => {
+  const { tocaBuscarUpdate, ESPERA_UPDATE } = core
+  const ahora = 1_000_000_000_000
+
+  it('busca si no se ha buscado nunca', () => {
+    expect(tocaBuscarUpdate(ahora, 0)).toBe(true)
+    expect(tocaBuscarUpdate(ahora, null)).toBe(true)
+  })
+
+  it('no repite la búsqueda antes de la espera mínima', () => {
+    // volver a la ventana diez veces seguidas es una sola pregunta, no diez
+    expect(tocaBuscarUpdate(ahora, ahora - 60_000)).toBe(false)
+    expect(tocaBuscarUpdate(ahora, ahora - ESPERA_UPDATE + 1)).toBe(false)
+  })
+
+  it('vuelve a buscar cumplida la espera', () => {
+    expect(tocaBuscarUpdate(ahora, ahora - ESPERA_UPDATE)).toBe(true)
+  })
+
+  it('con una descargada esperando no pregunta más: el aviso ya está puesto', () => {
+    expect(tocaBuscarUpdate(ahora, 0, { ya: true })).toBe(false)
+    expect(tocaBuscarUpdate(ahora, ahora - ESPERA_UPDATE, { ya: true })).toBe(false)
+  })
+
+  it('forzado se busca aunque la espera no se haya cumplido', () => {
+    // el arranque y el botón: el clic ES la señal de que la quieres ahora
+    expect(tocaBuscarUpdate(ahora, ahora - 1000, { forzado: true })).toBe(true)
+  })
+
+  it('ni forzado si ya hay una descargada, que sería descargarla dos veces', () => {
+    expect(tocaBuscarUpdate(ahora, ahora - 1000, { forzado: true, ya: true })).toBe(false)
+  })
+
+  it('un reloj que salta atrás no deja la búsqueda bloqueada', () => {
+    // pasa al despertar del sueño y al cambiar de zona horaria: la resta se iba
+    // en negativo y nada volvía a preguntar hasta cumplir la espera desde un
+    // futuro que ya había pasado
+    expect(tocaBuscarUpdate(ahora, ahora + 60 * 60 * 1000)).toBe(true)
+  })
+})
+
 // Contención de rutas. Esta regla estuvo rota cuatro versiones sin hacer ruido:
 // el renderer no decía de qué perfil era el documento, el main asumía «work», y
 // a quien trabajaba en otro perfil no se le abría NADA —ni el archivo, ni la

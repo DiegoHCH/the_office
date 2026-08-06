@@ -46,6 +46,7 @@ const {
   subDeMensaje,
   tocaLimpiarCache,
   CACHE_MAX,
+  tocaBuscarUpdate,
   clavesDeSesion,
   componeReglas,
   quitaProyecto,
@@ -472,6 +473,11 @@ function createWindow() {
   }
   win.on('resize', persistBounds)
   win.on('move', persistBounds)
+
+  // Volver a la app es el momento en que la miras, así que es el momento de
+  // saber si está vieja. La espera mínima vive en `tocaBuscarUpdate`: sin ella
+  // esto sería una petición por cada ⌥Espacio y cada cambio de aplicación.
+  win.on('focus', () => buscaUpdate('volver a la app'))
 
   win.once('ready-to-show', () => {
     win.show()
@@ -2662,16 +2668,21 @@ function downloadUpdate(dmgUrl, version) {
 // Si algo falla —sin red, sin metadatos en el release, una versión publicada a
 // mano sin `latest-mac.yml`— se cae al aviso de siempre, que descarga el DMG y
 // abre el instalador. Preferible a no enterarse de que hay versión nueva.
-// Por qué se cayó el auto-update, en un archivo.
+// Qué ha pasado con el auto-update, en un archivo.
 //
 // Antes solo iba a la consola, así que en una app instalada —donde nadie mira
 // la consola— el síntoma era este: sale el aviso de siempre ofreciendo el DMG y
 // parece que la actualización automática «no existe». Sin el motivo no se puede
 // distinguir «no hay versión nueva» de «la hay y falló», que es justo lo que
 // hay que saber.
-function anotaFalloUpdate(err) {
+//
+// Y por eso ahora se anota TODA búsqueda con su resultado, no solo los fallos:
+// con solo fallos y descargas en el registro, «lleva media hora sin avisar»
+// seguía siendo indistinguible de «preguntó y no había nada», que es
+// exactamente la duda que trae a mirar este archivo.
+function anotaUpdate(err) {
   const msg = err?.stack || err?.message || String(err)
-  console.log('[oficina] auto-update no disponible:', msg)
+  console.log('[oficina] auto-update:', msg)
   try {
     fs.appendFileSync(
       path.join(app.getPath('userData'), 'auto-update.log'),
@@ -2680,16 +2691,65 @@ function anotaFalloUpdate(err) {
   } catch {}
 }
 
-/// Cada cuánto se vuelve a mirar si hay versión nueva.
+/// Cada cuánto se vuelve a mirar si hay versión nueva, sin que nadie lo pida.
 ///
 /// Dos horas es una petición diminuta y cubre el caso de una versión publicada
-/// mientras trabajas. Más a menudo no aporta: aplicarla siempre la decides tú,
-/// así que enterarse dos horas antes no cambia nada.
+/// mientras trabajas. Ya no es el único despertador —también se pregunta al
+/// despertar del sueño y al volver a la ventana—, que era el problema: faseado
+/// desde el arranque, con la app encendida desde el día anterior, una versión
+/// publicada a las 09:32 no se veía hasta las 10:30.
 const CADA_CUANTO = 2 * 60 * 60 * 1000
 
+// El actualizador, una vez arrancado. Vive aquí y no dentro de la función que lo
+// crea porque ahora hay más de un sitio que necesita preguntar: el temporizador,
+// el despertar del sueño, el foco de la ventana y el botón.
+let updater = null
+// Cuándo se preguntó por última vez, para no preguntar en cada ⌥Espacio.
+let ultimaBusqueda = 0
 // El actualizador con la descarga ya lista, para poder aplicarla desde la app.
 let updaterListo = null
 let versionListaRef = ''
+
+// Buscar versión nueva. `motivo` es para el registro —«al arrancar», «volver de
+// dormir»…—: sin él, un registro de búsquedas no dice por qué se preguntó ni
+// cuál de los despertadores está funcionando.
+//
+// Devuelve siempre un estado para quien pulsó el botón: al no haber respuesta,
+// un botón de «buscar actualizaciones» no se distingue de uno roto.
+async function buscaUpdate(motivo, { forzado = false } = {}) {
+  if (!tocaBuscarUpdate(Date.now(), ultimaBusqueda, { ya: !!updaterListo, forzado })) {
+    // ya hay una descargada esperando, o se preguntó hace un momento
+    return updaterListo ? { ok: true, estado: 'lista', version: versionListaRef } : { ok: true, estado: 'reciente' }
+  }
+  if (!updater) {
+    // Los despertadores automáticos callan: el foco de la ventana llega ANTES
+    // de que el actualizador exista —se arranca unos segundos después, para no
+    // estorbar el inicio—, y anotarlo dejaría esa línea en cada arranque como
+    // si fuera un fallo. Si alguien está esperando respuesta, sí se anota.
+    if (forzado) anotaUpdate(`sin buscar (${motivo}): el auto-update no está disponible`)
+    return { ok: false, estado: 'nodisponible' }
+  }
+  ultimaBusqueda = Date.now()
+  try {
+    const res = await updater.checkForUpdates()
+    // null = actualizador inactivo (app sin empaquetar): en desarrollo es lo
+    // normal y no es un fallo que merezca la ruta de error
+    if (!res) {
+      anotaUpdate(`sin buscar (${motivo}): actualizador inactivo`)
+      return { ok: false, estado: 'nodisponible' }
+    }
+    const version = res.updateInfo?.version || ''
+    const hay = res.isUpdateAvailable ?? (version && isNewerVersion(version, app.getVersion()))
+    anotaUpdate(`buscada (${motivo}): ${hay ? `hay v${version}, descargando` : 'al día'}`)
+    // con autoDownload la descarga ya arrancó; el aviso llega en update-downloaded
+    return hay ? { ok: true, estado: 'descargando', version } : { ok: true, estado: 'aldia', version: app.getVersion() }
+  } catch (err) {
+    // sin anotar: checkForUpdates emite 'error' antes de propagar, y ese
+    // manejador ya escribe el motivo y cae al aviso por GitHub. Anotarlo aquí
+    // también dejaría cada fallo dos veces en el registro.
+    return { ok: false, estado: 'error', error: err?.message || String(err) }
+  }
+}
 
 // Aplicar la actualización descargada. Devuelve el motivo si no pudo.
 //
@@ -2698,12 +2758,12 @@ let versionListaRef = ''
 function aplicaUpdate(desde) {
   if (!updaterListo) return 'no hay ninguna actualización descargada'
   try {
-    anotaFalloUpdate(`aplicando v${versionListaRef} desde ${desde}`)
+    anotaUpdate(`aplicando v${versionListaRef} desde ${desde}`)
     // isSilent false: si la instalación pide algo, que se vea
     updaterListo.quitAndInstall(false, true)
     return null
   } catch (err) {
-    anotaFalloUpdate(err)
+    anotaUpdate(err)
     return err?.message || String(err)
   }
 }
@@ -2713,9 +2773,13 @@ ipcMain.handle('update:install', () => {
   return error ? { ok: false, error } : { ok: true }
 })
 
+// Buscar a mano, desde el menú. Es la salida al caso que no arreglan los
+// despertadores: acabas de publicar una versión y la quieres YA, sin esperar a
+// que la app decida preguntar.
+ipcMain.handle('update:check', () => buscaUpdate('a mano', { forzado: true }))
+
 function iniciaAutoUpdate() {
   if (isDev) return false // el dev comparte userData con la app instalada
-  let updater
   try {
     updater = require('electron-updater').autoUpdater
   } catch {
@@ -2729,7 +2793,7 @@ function iniciaAutoUpdate() {
     const v = info?.version || ''
     updaterListo = updater
     versionListaRef = v
-    anotaFalloUpdate(`descargada v${v}, lista para instalar`)
+    anotaUpdate(`descargada v${v}, lista para instalar`)
     // Dentro de la app, y no solo en una notificación del sistema: si el clic
     // en la notificación no llega —se descarta, expira, o macOS no lo entrega—
     // no había NINGUNA otra forma de aplicarla, y la actualización se quedaba
@@ -2744,23 +2808,14 @@ function iniciaAutoUpdate() {
     n.show()
   })
   updater.on('error', (err) => {
-    anotaFalloUpdate(err)
+    anotaUpdate(err)
     checkForUpdates() // el camino de siempre
   })
-  updater.checkForUpdates().catch((err) => {
-    anotaFalloUpdate(err)
-    checkForUpdates()
-  })
+  buscaUpdate('al arrancar', { forzado: true }) // sin espera: es la primera
   // Y cada tanto, no solo al arrancar. Quien deja la app abierta días no se
   // enteraba de ninguna versión hasta que la cerraba y la volvía a abrir — que
   // es justo el patrón de uso de esta app: se queda abierta trabajando.
-  //
-  // Si ya hay una descargada esperando, no se vuelve a preguntar: ya está el
-  // aviso puesto y descargarla otra vez no aporta nada.
-  setInterval(() => {
-    if (updaterListo) return
-    updater.checkForUpdates().catch((err) => anotaFalloUpdate(err))
-  }, CADA_CUANTO)
+  setInterval(() => buscaUpdate('cada 2 horas'), CADA_CUANTO)
   return true
 }
 
@@ -2859,6 +2914,10 @@ app.whenReady().then(() => {
     try {
       win?.webContents.send('claude:event', { kind: 'system-resumed' })
     } catch {}
+    // Dormido, el temporizador de 2 horas no corre: al despertar puede quedar
+    // hasta 2 horas de silencio con una versión nueva publicada durante la
+    // noche. Este es el despertador que cubre justo esa ventana.
+    buscaUpdate('volver de dormir')
   })
   // Atajo global ⌥Espacio: trae la app al frente con el composer enfocado,
   // listo para lanzar un prompt desde cualquier otra app.
