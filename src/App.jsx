@@ -14,6 +14,7 @@ import { ROLE_META, metaOf, MAX_ACTIVE, canDelete, AVATARS, prettyArtifact, avat
 import { routeMessage, detectHandoff } from './lib/routing.js'
 import { t, plural, locale, getLang, setLang, langName, LANGS } from './lib/i18n.js'
 import { prefKey, leerPref } from './lib/prefs.js'
+import { claveDia } from './lib/estadisticas.js'
 import { estadoInicial, abrir as abreOrq, cerrar as cierraOrq, subsDe } from './lib/subagentes.js'
 import { paraElPanel } from './lib/historial.js'
 import { decideDespacho, pideReparto, quienColisiona } from './lib/despacho.js'
@@ -1099,7 +1100,7 @@ export default function App() {
           window.oficina?.refreshUsage?.() // el % de uso quedó desactualizado tras el turno
           // chip transitorio anunciando la respuesta final (con duración si fue larga)
           const doneName = squadRef.current.find((m) => m.id === who)?.name || who
-          recordStat(who, usage, dur) // acumulado diario para 📈 Estadísticas
+          recordStat(who, usage, dur, memberModel(who), convIdRef.current) // acumulado diario para 📈 Estadísticas
           setDoneChip(
             respondio
               ? `✅ ${doneName} respondió${dur >= 5000 ? ` · ${fmtElapsed(dur)}` : ''}${usage ? ` · 🪙 ${fmtTokens(usageTotal(usage))}` : ''}`
@@ -3238,19 +3239,44 @@ export default function App() {
   }, [pendingRestore])
 
   // ── Estadísticas: acumulado diario por agente (tareas, tokens, tiempo) ───
-  const recordStat = (who, usage, ms) => {
+  // Lo que se apunta de cada turno. Los cuatro últimos —entrada/salida, modelo,
+  // hora y conversación— se añadieron con el panel nuevo, así que los días
+  // anteriores no los tienen y todo lo que los lee trata su ausencia como normal
+  // (ver lib/estadisticas.js). No se pudieron rellenar hacia atrás: el historial
+  // guarda UNA fecha por conversación, y repartir sus tokens por días con eso
+  // habría sido dibujar un gráfico inventado.
+  const recordStat = (who, usage, ms, modelo, convId) => {
     try {
       const all = JSON.parse(localStorage.getItem('oficina-stats')) || {}
-      const day = new Date().toISOString().slice(0, 10)
+      // Fecha LOCAL, no UTC: con toISOString, a partir de las 19:00 en Bogotá el
+      // trabajo de hoy se apuntaba al día siguiente.
+      const day = claveDia(new Date())
       const d = (all[day] ||= { tasks: 0, tokens: 0, ms: 0, agents: {} })
       const a = (d.agents[who] ||= { tasks: 0, tokens: 0, ms: 0 })
+      const entrada = usage ? (usage.input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.cache_read_input_tokens || 0) : 0
+      const salida = usage ? usage.output_tokens || 0 : 0
       const tok = usage ? usageTotal(usage) : 0
       d.tasks += 1
       d.tokens += tok
       d.ms += ms
+      d.in = (d.in || 0) + entrada
+      d.out = (d.out || 0) + salida
       a.tasks += 1
       a.tokens += tok
       a.ms += ms
+      // El modelo del turno, no el que esté seleccionado ahora: un tripulante
+      // puede tener el suyo propio.
+      if (modelo) {
+        const m = ((d.modelos ||= {})[modelo] ||= { in: 0, out: 0, tasks: 0 })
+        m.in += entrada
+        m.out += salida
+        m.tasks += 1
+      }
+      d.horas ||= {}
+      d.horas[new Date().getHours()] = (d.horas[new Date().getHours()] || 0) + 1
+      // Las conversaciones se guardan como conjunto y se cuentan al leer: un
+      // contador se pasaría de largo con varios turnos del mismo hilo.
+      if (convId) (d.convs ||= {})[convId] = 1
       const days = Object.keys(all).sort()
       while (days.length > 60) delete all[days.shift()] // 60 días de historia
       localStorage.setItem('oficina-stats', JSON.stringify(all))

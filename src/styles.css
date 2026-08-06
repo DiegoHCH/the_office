@@ -49,6 +49,25 @@
      burbujas de los agentes salían en blanco y los valores del monitor no se
      leían. */
   --chat-w: min(460px, 46%);
+  /* Paleta de series para los gráficos (📈 Estadísticas). Orden FIJO: el color
+     va con el modelo, no con su puesto en el ranking, o al cambiar de rango los
+     colores se reasignarían. Validada con el script de la guía de visualización
+     contra esta superficie (#131c21): banda de luminosidad, suelo de croma,
+     separación para daltonismo (peor par ΔE 8.4 protan) y contraste, todo PASS.
+     La cola se junta en «otros» con un gris, no con un quinto tono: más de
+     cuatro series dejan de distinguirse. */
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-otros: #6b7f79;
+  /* Rampa secuencial del mapa de actividad: un solo tono, luminosidad creciente
+     (nunca un arcoíris — el dato es magnitud, no identidad). */
+  --heat-0: #16222a;
+  --heat-1: #164e47;
+  --heat-2: #1a7d70;
+  --heat-3: #23b3a0;
+  --heat-4: #2dd4bf;
   --scene-surface: rgba(14, 20, 23, 0.94);
   --scene-surface-soft: rgba(14, 20, 23, 0.86);
   --scene-line: #2c3d45;
@@ -107,6 +126,20 @@
     --syn-fn: #1f5fa8;
     --syn-type: #7038a8;
     --syn-attr: #a84a30;
+  /* Mismas series, escalonadas para superficie clara (validadas contra #ffffff:
+     peor par ΔE 9.1 protan). Dos slots quedan por debajo de 3:1 de contraste, y
+     por eso la leyenda SIEMPRE lleva su valor escrito: la regla de relieve pide
+     etiqueta visible o tabla, y aquí van las dos. */
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-otros: #7a908a;
+  --heat-0: #e6efec;
+  --heat-1: #cfeae4;
+  --heat-2: #7fc9bd;
+  --heat-3: #2f9e8c;
+  --heat-4: #0d8577;
   }
 }
 /* elección explícita del usuario — gana sobre el sistema en ambos sentidos */
@@ -148,6 +181,20 @@
   --syn-fn: #1f5fa8;
   --syn-type: #7038a8;
   --syn-attr: #a84a30;
+  /* Mismas series, escalonadas para superficie clara (validadas contra #ffffff:
+     peor par ΔE 9.1 protan). Dos slots quedan por debajo de 3:1 de contraste, y
+     por eso la leyenda SIEMPRE lleva su valor escrito: la regla de relieve pide
+     etiqueta visible o tabla, y aquí van las dos. */
+  --serie-1: #2a78d6;
+  --serie-2: #eb6834;
+  --serie-3: #1baf7a;
+  --serie-4: #eda100;
+  --serie-otros: #7a908a;
+  --heat-0: #e6efec;
+  --heat-1: #cfeae4;
+  --heat-2: #7fc9bd;
+  --heat-3: #2f9e8c;
+  --heat-4: #0d8577;
 }
 :root[data-theme='dark'] {
   --bg: #0e1417;
@@ -187,6 +234,25 @@
   --syn-fn: #86bdf2;
   --syn-type: #d8b4f0;
   --syn-attr: #f0b8a8;
+  /* Paleta de series para los gráficos (📈 Estadísticas). Orden FIJO: el color
+     va con el modelo, no con su puesto en el ranking, o al cambiar de rango los
+     colores se reasignarían. Validada con el script de la guía de visualización
+     contra esta superficie (#131c21): banda de luminosidad, suelo de croma,
+     separación para daltonismo (peor par ΔE 8.4 protan) y contraste, todo PASS.
+     La cola se junta en «otros» con un gris, no con un quinto tono: más de
+     cuatro series dejan de distinguirse. */
+  --serie-1: #3987e5;
+  --serie-2: #d95926;
+  --serie-3: #199e70;
+  --serie-4: #c98500;
+  --serie-otros: #6b7f79;
+  /* Rampa secuencial del mapa de actividad: un solo tono, luminosidad creciente
+     (nunca un arcoíris — el dato es magnitud, no identidad). */
+  --heat-0: #16222a;
+  --heat-1: #164e47;
+  --heat-2: #1a7d70;
+  --heat-3: #23b3a0;
+  --heat-4: #2dd4bf;
 }
 
 * { box-sizing: border-box; margin: 0; }
@@ -489,19 +555,54 @@ body {
 .tour-actions .tour-next { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
 .tour-actions .tour-next:hover { filter: brightness(1.08); }
 
-/* estadísticas 📈: barras de tokens por día */
-.stats-bars {
-  display: flex; align-items: flex-end; gap: 8px; height: 130px;
-  padding: 8px 12px 4px; margin-bottom: 6px;
+/* ── estadísticas 📈 ─────────────────────────────────────────────────────────
+   Los filtros van en UNA fila sobre los gráficos: primero qué se mira, luego de
+   cuándo. */
+.stats-tools { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px 2px; }
+.stats-tabs { display: inline-flex; gap: 4px; background: var(--surface-2); border-radius: 999px; padding: 3px; }
+.stats-tab {
+  background: none; border: none; border-radius: 999px; padding: 5px 11px;
+  color: var(--muted); font-size: 11px; font-family: inherit; cursor: pointer;
 }
-.stats-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; height: 100%; justify-content: flex-end; }
-.stats-bar {
-  width: 100%; max-width: 34px; border-radius: 6px 6px 2px 2px;
-  background: linear-gradient(180deg, var(--accent), rgba(45, 212, 191, 0.35));
-  min-height: 2px;
-}
-.stats-val { font-size: 9px; color: var(--accent-2); font-family: ui-monospace, Menlo, monospace; }
-.stats-day { font-size: 9.5px; color: var(--muted); text-transform: capitalize; }
+.stats-tab:hover { color: var(--ink-3); }
+.stats-tab.on { background: var(--surface-4); color: var(--ink); }
+
+/* Mapa de actividad. Rampa SECUENCIAL de un solo tono: el dato es magnitud, y un
+   arcoíris obligaría a consultar la leyenda para ordenar dos días. */
+.heat { display: flex; gap: 3px; padding: 8px 12px 6px; overflow-x: auto; }
+.heat-col { display: flex; flex-direction: column; gap: 3px; }
+.heat-cell { width: 11px; height: 11px; border-radius: 3px; background: var(--heat-0); flex: none; }
+.heat-cell.n0 { background: var(--heat-0); }
+.heat-cell.n1 { background: var(--heat-1); }
+.heat-cell.n2 { background: var(--heat-2); }
+.heat-cell.n3 { background: var(--heat-3); }
+.heat-cell.n4 { background: var(--heat-4); }
+/* Un día que aún no ha llegado no es un día sin trabajo: se marca vacío. */
+.heat-cell.futuro { background: transparent; border: 1px dashed var(--line); }
+.heat-cell:hover { outline: 2px solid var(--surface); outline-offset: -1px; filter: brightness(1.25); }
+.heat-leyenda { display: flex; align-items: center; gap: 4px; padding: 0 12px 8px; color: var(--muted); font-size: 10px; }
+
+/* Barras apiladas por día. Marcas finas, extremo superior redondeado y ancladas
+   a la base; 2px de hueco del color de la superficie entre segmentos, que es lo
+   que los separa sin añadir bordes. */
+.mstack { display: flex; align-items: flex-end; gap: 6px; height: 150px; padding: 10px 12px 4px; overflow-x: auto; }
+.mstack-col { display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; justify-content: flex-end; flex: none; }
+.mstack-bar { width: 14px; height: 100%; display: flex; flex-direction: column-reverse; justify-content: flex-start; }
+.mstack-seg { width: 100%; min-height: 2px; border-radius: 2px; }
+.mstack-seg + .mstack-seg { margin-bottom: 2px; }
+.mstack-bar .mstack-seg:last-child { border-radius: 4px 4px 2px 2px; }
+.mstack-seg:hover { filter: brightness(1.15); }
+.mstack-day { font-size: 9px; color: var(--muted); white-space: nowrap; }
+
+/* Leyenda-tabla: nombre, entrada/salida y porcentaje. Los números van SIEMPRE
+   escritos — así la identidad no depende del color, y se cumple la regla de
+   relieve del tema claro, donde dos series bajan de 3:1 de contraste. */
+.mleg { padding: 2px 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.mleg-row { display: flex; align-items: center; gap: 8px; font-size: 11.5px; padding: 4px 0; }
+.mleg-dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.mleg-name { color: var(--ink-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.mleg-io { color: var(--muted); font-size: 10.5px; font-family: ui-monospace, Menlo, monospace; flex: none; }
+.mleg-pct { color: var(--ink); font-size: 11px; font-family: ui-monospace, Menlo, monospace; min-width: 46px; text-align: right; flex: none; }
 
 /* miniaturas de imágenes adjuntas + visor */
 .att-thumb {
@@ -1292,15 +1393,24 @@ select.squad-model {
 .preset-chip:hover { color: var(--accent-2); border-color: var(--accent-2); background: rgba(45, 212, 191, 0.07); }
 
 /* estadísticas con gráficas (#80 mejorado) */
-.stat-cards { display: flex; gap: 8px; padding: 4px 8px 12px; }
+/* Rejilla y no fila: eran tres tarjetas y ahora son ocho. En fila, la cuarta se
+   salía del panel y las demás no se veían — visto en la captura del banco de
+   pruebas, no en producción. Cuatro columnas de ancho igual, y las filas que
+   hagan falta. */
+.stat-cards { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 4px 8px 12px; }
 .stat-card {
-  flex: 1; background: var(--surface-3); border: 1px solid var(--line); border-radius: 14px;
-  padding: 10px 8px; text-align: center; display: flex; flex-direction: column; gap: 2px;
+  min-width: 0; background: var(--surface-3); border: 1px solid var(--line); border-radius: 14px;
+  padding: 10px 6px; text-align: center; display: flex; flex-direction: column; gap: 2px;
+  justify-content: flex-end;
 }
 .stat-ico { font-size: 14px; }
-.stat-card b { color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
-.stat-k { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.stat-spark { width: 100%; height: 74px; padding: 0 8px 6px; display: block; }
+/* El número manda, pero un nombre de modelo largo no debe romper la tarjeta:
+   se encoge un poco y parte por palabras. */
+.stat-card b { color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat-card b:only-child, .stat-card b { line-height: 1.15; }
+/* `overflow-wrap` porque una etiqueta de una sola palabra larga
+   («CONVERSACIONES») no tiene dónde partir y salía recortada. */
+.stat-k { font-size: 9.5px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; line-height: 1.2; overflow-wrap: anywhere; }
 .stat-agent { padding: 8px 12px; }
 .stat-agent-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12.5px; }
 .stat-agent-num { color: var(--accent-2); font-family: ui-monospace, Menlo, monospace; font-size: 11px; }
