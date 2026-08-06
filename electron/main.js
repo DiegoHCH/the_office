@@ -47,7 +47,7 @@ const {
   tocaLimpiarCache,
   CACHE_MAX,
   clavesDeSesion,
-  recortaReglas,
+  componeReglas,
   quitaProyecto,
   agregaProyecto,
 } = require('./lib/core.js')
@@ -1022,12 +1022,16 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   //
   // Se lee en cada turno a propósito: si editas el CLAUDE.md a media
   // conversación, el cambio entra en el siguiente mensaje.
-  const reglasProyecto = leeReglasDelProyecto(workdir)
+  const reglasProyecto = reglasDelArbol(workdir)
   if (reglasProyecto) {
     persona +=
       `\n\nREGLAS DEL PROYECTO — TIENEN PRIORIDAD SOBRE TODO LO ANTERIOR. ` +
-      `Son las del directorio en el que trabajas (${workdir}). Si un CLAUDE.md de una carpeta superior dice otra ` +
-      `cosa, IGNÓRALO: manda este. Si define un protocolo obligatorio, complétalo ANTES de responder. ` +
+      `Estos son los CLAUDE.md que aplican en ${workdir}, del más general al más específico. ` +
+      `CÚMPLELOS TODOS: si alguno define un protocolo obligatorio —cargar contexto, reglas o skills— complétalo ` +
+      `ANTES de responder, aunque venga de una carpeta superior. ` +
+      // Prioridad no es exclusividad: el de arriba suele traer el protocolo del
+      // workspace, y ese sigue valiendo. Solo pierde donde se contradiga.
+      `Solo cuando dos se contradigan manda el ÚLTIMO, el más cercano al directorio de trabajo. ` +
       `Lo de arriba dice quién eres; esto dice cómo se trabaja aquí.\n\n${reglasProyecto}`
   }
 
@@ -2417,13 +2421,25 @@ ipcMain.handle('image:save', (_e, { name, data }) => {
 })
 
 // Abre la pizarra compartida SQUAD.md del proyecto (la crea si no existe).
-/// Las reglas propias del proyecto, para dárselas al agente con prioridad.
-function leeReglasDelProyecto(dir) {
-  try {
-    return recortaReglas(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8'))
-  } catch {
-    return ''
+/// Los CLAUDE.md que aplican a un directorio, del más cercano al más lejano.
+///
+/// Se sube hasta el home y ahí se para: por encima solo hay ruido del sistema.
+/// El CLI ya los carga, pero los aplica todos sin jerarquía — ver `componeReglas`.
+function reglasDelArbol(dir) {
+  const home = app.getPath('home')
+  const out = []
+  let actual = dir
+  for (let i = 0; i < 12; i++) {
+    try {
+      const f = path.join(actual, 'CLAUDE.md')
+      if (fs.existsSync(f)) out.push({ ruta: f, texto: fs.readFileSync(f, 'utf8') })
+    } catch {}
+    if (actual === home) break
+    const padre = path.dirname(actual)
+    if (!padre || padre === actual) break
+    actual = padre
   }
+  return componeReglas(out)
 }
 
 // CLAUDE.md del proyecto (#108): las instrucciones que los agentes YA leen,

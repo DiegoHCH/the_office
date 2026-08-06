@@ -871,26 +871,45 @@ function agregaProyecto({ custom = [], ocultos = [], path: ruta }) {
   }
 }
 
-/// Prepara las reglas del proyecto (su CLAUDE.md) para viajar en la persona.
+/// Compone la cadena de CLAUDE.md que aplica a un directorio.
 ///
-/// El CLI ya carga ese archivo, pero junto con los de las carpetas superiores y
-/// sin jerarquía entre ellos: los aplica todos. Repetirlo dentro de la persona
-/// no es redundante, es lo que hace que gane cuando se contradicen — probado:
-/// pedir prioridad en una frase se cumplía la mitad de las veces; incluir el
-/// contenido al final, 3 de 3.
+/// Claude Code ya carga el del directorio Y los de las carpetas superiores,
+/// pero los aplica TODOS sin jerarquía: con uno arriba que pide empezar por
+/// «LORO» y otro en el proyecto que pide «TUCAN», la respuesta sale «TUCAN
+/// LORO» — intenta contentar a los dos. Y pedir la prioridad en una frase no
+/// basta: probado, se cumplía la mitad de las veces.
 ///
-/// Con tope, porque esto viaja en CADA mensaje y un archivo enorme se comería
-/// el contexto de la conversación. Al recortar se avisa y se dice cómo leer el
-/// resto: cortar en seco haría creer que ahí se acaban las reglas.
-function recortaReglas(txt = '', tope = 12000) {
-  const limpio = (txt || '').trim()
-  if (!limpio) return ''
-  if (limpio.length <= tope) return limpio
-  return `${limpio.slice(0, tope)}\n\n[…] (CLAUDE.md recortado aquí; léelo entero con Read si necesitas el resto)`
+/// Lo que sí funciona es repetir el contenido DENTRO de la persona y en orden:
+/// primero los de arriba (el protocolo del workspace, sus reglas) y **al final
+/// el del proyecto**, que por ser lo último leído es lo que pesa. Así se aplican
+/// los dos y, donde se contradigan, gana el de cerca.
+///
+/// `archivos` viene ordenado de MÁS CERCANO a más lejano. El presupuesto se
+/// reparte empezando por el cercano: si no cabe todo, lo que se cae es lo de
+/// arriba, que es lo menos específico.
+function componeReglas(archivos = [], tope = 12000) {
+  const puestos = []
+  let gastado = 0
+  for (const a of archivos) {
+    const txt = (a?.texto || '').trim()
+    if (!txt) continue
+    const queda = tope - gastado
+    if (queda <= 200) break // lo que quepa ahí no aporta nada legible
+    const recortado = txt.length <= queda
+      ? txt
+      : `${txt.slice(0, queda)}\n[…] (recortado; léelo entero con Read si lo necesitas)`
+    puestos.push({ ruta: a.ruta, texto: recortado })
+    gastado += recortado.length
+  }
+  // se emiten al revés: lo de arriba primero, el del proyecto al final
+  return puestos
+    .reverse()
+    .map((a) => `--- ${a.ruta} ---\n${a.texto}`)
+    .join('\n\n')
 }
 
 module.exports = {
-  recortaReglas,
+  componeReglas,
   clavesDeSesion,
   quitaProyecto,
   agregaProyecto,

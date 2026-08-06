@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import core from './core.js'
 
 const { sanitizeEnv, sessionKey, pickSafeMcp, parseUsage, gitignoreConSquad, buildClaudeArgs } = core
-const { clavesDeSesion, quitaProyecto, agregaProyecto, recortaReglas } = core
+const { clavesDeSesion, quitaProyecto, agregaProyecto, componeReglas } = core
 const { esProyectoFlutter, buscaProyectosFlutter, parseEmuladores, ordenaDispositivos } = core
 const { resultadoLanzarEmulador, idsEmuladorAdb, marcaEmuladoresCorriendo } = core
 const { parseLineaDaemon, mensajeDaemon, peticionRecarga, comoCancelar } = core
@@ -1406,25 +1406,45 @@ describe('quitar y agregar proyectos de la lista', () => {
   })
 })
 
-describe('recortaReglas', () => {
-  it('devuelve las reglas tal cual si caben', () => {
-    expect(recortaReglas('  # Proyecto\nUsa tabs.  ')).toBe('# Proyecto\nUsa tabs.')
+
+describe('componeReglas', () => {
+  const cerca = { ruta: '/w/proy/CLAUDE.md', texto: 'reglas del proyecto' }
+  const lejos = { ruta: '/w/CLAUDE.md', texto: 'protocolo del workspace' }
+
+  it('emite de lo general a lo específico: el del proyecto va al FINAL', () => {
+    // El orden es el arreglo entero. Claude Code carga los dos archivos pero los
+    // aplica sin jerarquía —con uno pidiendo «LORO» y otro «TUCAN» la respuesta
+    // sale «TUCAN LORO»— y pedir la prioridad en una frase se cumplía la mitad
+    // de las veces. Repetirlos en orden, con el cercano al final, funcionó 3/3.
+    const r = componeReglas([cerca, lejos])
+    expect(r.indexOf('protocolo del workspace')).toBeLessThan(r.indexOf('reglas del proyecto'))
   })
 
-  it('un CLAUDE.md vacío no aporta nada', () => {
-    // Sin esto se colaría una cabecera de «REGLAS DEL PROYECTO» sin reglas
-    // debajo, que es peor que no decir nada: parece que el proyecto manda algo.
-    expect(recortaReglas('   \n  ')).toBe('')
-    expect(recortaReglas()).toBe('')
+  it('cada bloque dice de qué archivo viene', () => {
+    // Sin la ruta, dos reglas que se contradicen son indistinguibles: no se
+    // puede saber cuál es la del proyecto y cuál la heredada.
+    expect(componeReglas([cerca])).toContain('/w/proy/CLAUDE.md')
   })
 
-  it('al recortar avisa y dice cómo leer el resto', () => {
-    // Esto viaja en CADA mensaje, así que un archivo enorme se comería el
-    // contexto de la conversación. Pero cortar en seco haría creer que ahí se
-    // acaban las reglas, y el agente daría por buenas unas instrucciones a medias.
-    const largo = 'a'.repeat(50)
-    const r = recortaReglas(largo, 20)
-    expect(r.startsWith('a'.repeat(20))).toBe(true)
+  it('sin CLAUDE.md en ninguna carpeta no aporta nada', () => {
+    // Si no, se colaría una cabecera de «REGLAS DEL PROYECTO» sin reglas debajo,
+    // que es peor que no decir nada: parece que el proyecto manda algo.
+    expect(componeReglas([])).toBe('')
+    expect(componeReglas([{ ruta: '/w/CLAUDE.md', texto: '   \n ' }])).toBe('')
+  })
+
+  it('al no caber todo, lo que se cae es lo de ARRIBA', () => {
+    // Esto viaja en cada mensaje. Si hay que recortar, se sacrifica lo menos
+    // específico: las reglas del proyecto son las que no pueden faltar.
+    const r = componeReglas([{ ruta: '/w/p/CLAUDE.md', texto: 'P'.repeat(900) }, { ruta: '/w/CLAUDE.md', texto: 'W'.repeat(900) }], 1000)
+    expect(r).toContain('P'.repeat(900))
+    expect(r).not.toContain('W'.repeat(900))
+  })
+
+  it('lo recortado avisa y dice cómo leer el resto', () => {
+    // Cortar en seco haría creer que ahí se acaban las reglas, y el agente
+    // daría por buenas unas instrucciones a medias.
+    const r = componeReglas([{ ruta: '/w/p/CLAUDE.md', texto: 'x'.repeat(5000) }], 1000)
     expect(r).toContain('recortado')
     expect(r).toContain('Read')
   })
