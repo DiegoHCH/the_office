@@ -62,6 +62,8 @@ export default function App() {
   // vista de diff: qué roles editaron archivos en su tarea actual
   const editedRef = useRef({})
   const editedPathsRef = useRef([]) // rutas tocadas en la conversación → en qué repos pedir el diff
+  // El último fallo del vault ya avisado, para no repetir el toast en cada guardado.
+  const vaultAvisoRef = useRef('')
   const ultimoRef = useRef(null) // último rol que respondió → afinidad de los seguimientos
   const turnoPathsRef = useRef({}) // role → rutas tocadas EN ESTE turno (para decidir la recarga)
   const autoTimerRef = useRef(null)
@@ -2361,6 +2363,15 @@ export default function App() {
         dur,
       })),
     })
+      // Si hay vault y la nota no se pudo escribir, se dice UNA vez: la
+      // conversación ya está guardada, pero callarlo dejaría al usuario creyendo
+      // que su vault está al día cuando la carpeta ya no existe.
+      ?.then((r) => {
+        if (r?.vault && r.vault !== vaultAvisoRef.current) {
+          vaultAvisoRef.current = r.vault
+          showToast(`⚠️ Obsidian: ${r.vault}`, 8000)
+        }
+      })
   }, [busy, messages, profile, project, model])
 
   const toggleHist = async () => {
@@ -2409,7 +2420,9 @@ export default function App() {
   const loadConvo = async (id) => {
     if (busy) return
     const c = await window.oficina?.history?.get(id)
-    if (!c) return
+    // La nota está en el vault pero su dato ya no: se dice, en vez de que el clic
+    // no haga nada y parezca que la app se colgó.
+    if (!c) return showToast(t('toast.convSoloNota'), 7000)
     convIdRef.current = c.id
     if (c.profile && cfg?.profiles?.includes(c.profile)) {
       setProfile(c.profile)
@@ -2420,10 +2433,19 @@ export default function App() {
     const saved = c.sessions || (c.sessionId ? { dev: c.sessionId } : {})
     sessionsRef.current = { ...saved }
     setMessages(c.messages || [])
-    await window.oficina?.setSession?.({ sessions: saved, profile: c.profile, cwd: c.project })
+    // El main comprueba si la transcripción de cada rol sigue en disco: con que
+    // exista el id no basta —se purga, o la conversación se guardó con un
+    // proyecto distinto del que usó el agente— y anunciar memoria que no está es
+    // peor que decir que se perdió.
+    const r = await window.oficina?.setSession?.({ sessions: saved, profile: c.profile, cwd: c.project })
     setHistOpen(false)
     tabStateRef.current[activeTab] = null // el hilo de esta pestaña se reemplaza
-    showToast(Object.keys(saved).length ? t('toast.resumed') : t('toast.loaded'))
+    const vivas = r?.vivas?.length || 0
+    const perdidas = r?.perdidas?.length || 0
+    if (vivas && !perdidas) showToast(t('toast.resumed'))
+    else if (vivas && perdidas) showToast(t('toast.resumedPartial', { n: vivas, p: perdidas }), 7000)
+    else if (perdidas) showToast(t('toast.resumedLost'), 8000)
+    else showToast(t('toast.loaded'))
   }
 
   const deleteConvo = async (e, id) => {
@@ -2993,6 +3015,46 @@ export default function App() {
     try {
       localStorage.setItem(prefKey('oficina-bloqueos', profile, project), v)
     } catch {}
+  }
+
+  // ── Vault de Obsidian ────────────────────────────────────────────────────
+  //
+  // Es OPT-IN y no necesita Obsidian para nada: lo que se elige es una carpeta y
+  // lo que se escribe son .md normales. Sin carpeta, esto no existe y el
+  // historial funciona igual que siempre.
+  const [vaultDir, setVaultDir] = useState('')
+  useEffect(() => {
+    window.oficina?.obsidian?.getDir?.().then((r) => setVaultDir(r?.dir || ''))
+  }, [])
+  const eligeVault = async () => {
+    const r = await window.oficina?.obsidian?.pickDir?.()
+    if (r?.canceled) return
+    if (!r?.ok) return showToast(`⚠️ ${r?.error || '—'}`, 6000)
+    setVaultDir(r.dir)
+    // Al conectar, lo de antes no aparece solo: se ofrece llevarlo de una vez.
+    const s = await window.oficina?.obsidian?.syncAll?.()
+    if (s?.ok) showToast(t('toast.vaultSynced', { n: s.hechas, total: s.total }), 6000)
+    else if (s?.error) showToast(`⚠️ ${s.error}`, 6000)
+  }
+  const quitaVault = async () => {
+    await window.oficina?.obsidian?.clearDir?.()
+    setVaultDir('')
+    // Las notas ya escritas NO se borran: son suyas y pueden llevar anotaciones.
+    showToast(t('toast.vaultOff'), 5000)
+  }
+
+  // ¿Hay memoria escrita para este proyecto? Se dice en ⚙️ para no tener que
+  // adivinar si se está enviando algo en cada turno.
+  const [memInfo, setMemInfo] = useState(null)
+  useEffect(() => {
+    if (!vaultDir || !profile) return setMemInfo(null)
+    window.oficina?.obsidian?.memoriaInfo?.({ profile, project }).then(setMemInfo)
+  }, [vaultDir, profile, project])
+  const abreMemoria = async () => {
+    const r = await window.oficina?.obsidian?.openMemoria?.({ profile, project })
+    if (!r?.ok) return showToast(`⚠️ ${r?.error || '—'}`, 6000)
+    // se recuenta al volver a la app, que es cuando ya la editaste
+    setTimeout(() => window.oficina?.obsidian?.memoriaInfo?.({ profile, project }).then(setMemInfo), 1500)
   }
 
   const [slackChannel, setSlackChannel] = useState(() => localStorage.getItem('oficina-slack-channel') || '')
@@ -4110,6 +4172,54 @@ export default function App() {
                 ))}
               </select>
             </div>
+            {/* Vault de Obsidian. Opt-in y sin dependencias: es una carpeta, y lo
+                que se escribe son .md normales. */}
+            <div className="pref-row" title={t('pref.vaultTitle')}>
+              <span className="pref-label">{t('pref.vault')}</span>
+              <div className="pref-acciones">
+                {vaultDir ? (
+                  <>
+                    <button type="button" className="sel pref-sel" onClick={() => window.oficina?.obsidian?.reveal?.()} title={vaultDir}>
+                      <IconFolder size={13} /> …{vaultDir.slice(-26)}
+                    </button>
+                    <button type="button" className="sel pref-mini" onClick={eligeVault} title={t('pref.vaultChange')}>
+                      <IconEdit size={13} />
+                    </button>
+                    <button type="button" className="sel pref-mini" onClick={quitaVault} title={t('pref.vaultOff')}>
+                      <IconClose size={13} />
+                    </button>
+                  </>
+                ) : (
+                  <button type="button" className="sel pref-sel" onClick={eligeVault}>
+                    {t('pref.vaultPick')}
+                  </button>
+                )}
+              </div>
+            </div>
+            {vaultDir && (
+              <div className="pref-row" title={t('pref.memTitle')}>
+                <span className="pref-label">{t('pref.mem', { proyecto: project.split('/').pop() || '—' })}</span>
+                <div className="pref-acciones">
+                  <button type="button" className="sel pref-sel" onClick={abreMemoria}>
+                    {memInfo?.hay ? t('pref.memEdit', { n: memInfo.chars }) : t('pref.memCreate')}
+                  </button>
+                  {/* Cada proyecto es su propio vault: esto lo abre en Obsidian. */}
+                  <button
+                    type="button"
+                    className="sel pref-mini"
+                    title={t('pref.vaultOpen')}
+                    onClick={async () => {
+                      const r = await window.oficina?.obsidian?.openVault?.({ profile, project })
+                      if (!r?.ok) showToast(`⚠️ ${r?.error || '—'}`, 5000)
+                      else if (r.finder) showToast(t('toast.vaultFinder'), 5000)
+                    }}
+                  >
+                    <IconLink size={13} />
+                  </button>
+                </div>
+              </div>
+            )}
+            {vaultDir && <div className="skills-note">{t('pref.vaultNote')}</div>}
             {/* Modo «solo código». Va con la lista justo debajo y no en otro
                 panel: encenderlo sin ver QUÉ bloquea sería firmar en blanco. */}
             <div className="pref-row" title={t('pref.onlyCodeTitle')}>

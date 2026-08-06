@@ -1701,3 +1701,39 @@ describe('buildClaudeArgs con bloqueos', () => {
     expect(args[args.indexOf('--permission-mode') + 1]).toBe('bypassPermissions')
   })
 })
+
+// Retomar una conversación no restaura nada por sí solo: lo hace `--resume`, y
+// eso necesita que la transcripción del CLI siga en disco. La app cantaba
+// «recordamos todo» con que existiera el id — medido en una instalación real, 1
+// de 18 conversaciones prometía memoria que ya no estaba.
+describe('memoriaDisponible', () => {
+  const { memoriaDisponible, carpetaDeProyecto } = core
+  const base = { profile: 'work', cwd: '/Users/diego.hoyos/Workspace', configDir: '/c' }
+
+  it('la carpeta del proyecto cambia / . y _ por guiones', () => {
+    // deducido de las carpetas reales del CLI, no de la documentación: el punto
+    // de «diego.hoyos» y el guion bajo de «directory_ipuc» también se convierten
+    expect(carpetaDeProyecto('/Users/diego.hoyos/personal/directory_ipuc')).toBe('-Users-diego-hoyos-personal-directory-ipuc')
+  })
+
+  it('separa los roles con memoria de los que la perdieron', () => {
+    const r = memoriaDisponible({
+      ...base,
+      sessions: { dev: 'aaa', research: 'bbb' },
+      existe: (ruta) => ruta.endsWith('aaa.jsonl'),
+    })
+    expect(r.vivas).toEqual(['dev'])
+    expect(r.perdidas).toEqual(['research'])
+  })
+
+  it('busca en la carpeta del proyecto de ESA conversación', () => {
+    const vistas = []
+    memoriaDisponible({ ...base, sessions: { dev: 'x' }, existe: (r) => (vistas.push(r), false) })
+    expect(vistas[0]).toBe('/c/projects/-Users-diego-hoyos-Workspace/x.jsonl')
+  })
+
+  it('sin sesiones no hay nada que prometer', () => {
+    expect(memoriaDisponible({ ...base, sessions: {} })).toEqual({ vivas: [], perdidas: [] })
+    expect(memoriaDisponible({ ...base, sessions: { dev: '' } })).toEqual({ vivas: [], perdidas: [] })
+  })
+})

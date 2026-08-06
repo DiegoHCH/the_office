@@ -317,6 +317,37 @@ function unicoRepoDelRegistry(carpetas, registry) {
   return ids.length === 1 ? ids[0] : null
 }
 
+// ── ¿La memoria de una conversación sigue estando? ───────────────────────────
+// Retomar una conversación no restaura nada por sí solo: lo que devuelve el
+// contexto es `--resume <id>`, y ese id apunta a una transcripción del CLI que
+// vive en `<config>/projects/<proyecto>/<id>.jsonl`. Si ese archivo no está —se
+// purgó, o la conversación se guardó con un proyecto distinto del que usó el
+// agente— el turno arranca EN BLANCO.
+//
+// Y eso pasaba sin avisar: la app cantaba «retomada, recordamos todo» con que
+// existiera el id. Medido en una instalación real, 1 de 18 conversaciones
+// prometía memoria que ya no estaba.
+//
+// El nombre de la carpeta es la ruta del proyecto con `/`, `.` y `_` cambiados
+// por `-`. Deducido de las carpetas reales del CLI, no de la documentación.
+const carpetaDeProyecto = (cwd) => String(cwd || '').replace(/[/._]/g, '-')
+
+/// Qué roles de una conversación tienen su transcripción a mano.
+///
+/// Devuelve { vivas, perdidas } con los roles, para poder decir la verdad en vez
+/// de prometer memoria a ciegas. `existe` recibe la ruta y la comprueba: así esto
+/// se prueba sin tocar disco.
+function memoriaDisponible({ sessions = {}, cwd = '', configDir = '', existe = () => false }) {
+  const vivas = []
+  const perdidas = []
+  for (const [rol, sid] of Object.entries(sessions)) {
+    if (!sid) continue
+    const ruta = `${configDir}/projects/${carpetaDeProyecto(cwd)}/${sid}.jsonl`
+    ;(existe(ruta) ? vivas : perdidas).push(rol)
+  }
+  return { vivas, perdidas }
+}
+
 // ── Qué repo se está trabajando ──────────────────────────────────────────────
 // El proyecto elegido suele ser la carpeta PADRE —la raíz del workspace, para
 // que los agentes carguen el contexto compartido— y no está versionada: el repo
@@ -1109,6 +1140,8 @@ module.exports = {
   tocaBuscarUpdate,
   ESPERA_UPDATE,
   eligeRepoDeDentro,
+  memoriaDisponible,
+  carpetaDeProyecto,
   reglasDeBloqueo,
   entradaDeTool,
   salidaDeToolResult,

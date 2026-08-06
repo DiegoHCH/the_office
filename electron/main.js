@@ -48,6 +48,7 @@ const {
   CACHE_MAX,
   tocaBuscarUpdate,
   eligeRepoDeDentro,
+  memoriaDisponible,
   reglasDeBloqueo,
   entradaDeTool,
   salidaDeToolResult,
@@ -933,7 +934,17 @@ ipcMain.handle('claude:setSession', (_e, { sessions: saved = {}, profile, cwd, c
   })) {
     sessions.set(k, v)
   }
-  return { ok: true }
+  // Y se comprueba si esa memoria EXISTE, en vez de darla por buena. El renderer
+  // lo necesita para no anunciar «recordamos todo» cuando la transcripción ya no
+  // está: prometer contexto que no hay es peor que decir que se perdió.
+  const dir = PROFILE_DIRS[profile] ? PROFILE_DIRS[profile]() : path.join(app.getPath('home'), '.claude')
+  const { vivas, perdidas } = memoriaDisponible({
+    sessions: saved,
+    cwd: cwd && fs.existsSync(cwd) ? cwd : app.getPath('home'),
+    configDir: dir,
+    existe: (r) => fs.existsSync(r),
+  })
+  return { ok: true, vivas, perdidas }
 })
 
 ipcMain.handle('claude:ask', async (_e, payload) => {
@@ -1115,6 +1126,21 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
       `Si lo que falta invalida lo que has hecho, dilo claramente en vez de dar por bueno un trabajo a medias.`
   }
 
+  // La memoria del proyecto, escrita por la persona en su vault de Obsidian.
+  //
+  // Va la ÚLTIMA de los bloques de contexto —después del CLAUDE.md y del
+  // CONTEXT.md— porque es lo más específico que hay: lo que ESTA persona quiere
+  // que se sepa siempre en ESTE repo. Y va inyectada, no como «ve y lee tu
+  // memoria»: pedirlo se cumple a medias, esto no hay que buscarlo.
+  const memoria = vault.leeMemoria(profile, workdir)
+  if (memoria) {
+    persona +=
+      `\n\nMEMORIA DE ESTE PROYECTO, escrita a mano por la persona con la que trabajas. ` +
+      `Es lo que quiere que sepas SIEMPRE aquí: decisiones tomadas, cosas ya intentadas, vocabulario propio. ` +
+      `Dale más peso que a cualquier suposición tuya, y si vas a hacer algo que la contradice, dilo antes de hacerlo.` +
+      `\n\n${memoria}`
+  }
+
   persona +=
     `\n\nIDIOMA: responde SIEMPRE en ${answerLang}, sin importar el idioma de estas instrucciones. ` +
     `Esto incluye lo que delegas: cada encargo a un subagente va escrito en ${answerLang} y termina exigiéndole ` +
@@ -1188,7 +1214,20 @@ const HIST_DIR = path.join(app.getPath('userData'), 'history')
 // Los handlers del historial viven en su propio archivo: mismo grupo, misma
 // responsabilidad. Se le pasa dónde está y cómo pedir la ventana, en vez de que
 // se lo importe él.
-require('./ipc/historial.js').registra({ HIST_DIR, ventana: () => win })
+// El vault se registra ANTES del historial porque este le pasa su `escribeNota`:
+// guardar una conversación y dejarla en el vault son el mismo momento, y así no
+// hay un segundo camino que se pueda olvidar de llamar.
+const vault = require('./ipc/obsidian.js').registra({
+  HIST_DIR,
+  userData: () => app.getPath('userData'),
+  ventana: () => win,
+})
+require('./ipc/historial.js').registra({
+  HIST_DIR,
+  ventana: () => win,
+  escribeNota: vault.escribeNota,
+  listaDesdeVault: vault.listaDesdeVault,
+})
 
 // ── Monitor de recursos + uso de Claude ──────────────────────────────────────
 let lastCpus = os.cpus()
