@@ -1630,3 +1630,74 @@ describe('componeReglas', () => {
     expect(r).toContain('Read')
   })
 })
+
+// Lo que no se le deja hacer. Existe porque pedirlo por prompt no basta —está
+// medido en este proyecto— y el CLI sí tiene un bloqueo real. La sintaxis con dos
+// puntos está verificada contra el binario: el comando denegado devuelve
+// «Permission to use Bash with command … has been denied».
+describe('reglasDeBloqueo', () => {
+  const { reglasDeBloqueo } = core
+
+  it('un comando suelto se convierte en regla con sus argumentos', () => {
+    // el `:*` es lo que hace que caiga también `make generate --foo`: sin él
+    // bastaría un argumento para colarse
+    expect(reglasDeBloqueo('make generate')).toEqual(['Bash(make generate:*)'])
+  })
+
+  it('varias líneas, una regla por línea', () => {
+    expect(reglasDeBloqueo('make generate\ndart run build_runner build\npod install')).toEqual([
+      'Bash(make generate:*)',
+      'Bash(dart run build_runner build:*)',
+      'Bash(pod install:*)',
+    ])
+  })
+
+  it('lo que ya es una regla se respeta tal cual', () => {
+    expect(reglasDeBloqueo('mcp__claude_ai_Atlassian_Rovo\nWebFetch\nBash(git push:*)')).toEqual([
+      'mcp__claude_ai_Atlassian_Rovo',
+      'WebFetch',
+      'Bash(git push:*)',
+    ])
+  })
+
+  it('ignora líneas vacías y comentarios, para poder anotar la lista', () => {
+    expect(reglasDeBloqueo('# lo que tarda mucho\n\nmake generate\n   \n')).toEqual(['Bash(make generate:*)'])
+  })
+
+  it('no repite reglas', () => {
+    expect(reglasDeBloqueo('make generate\nmake generate')).toEqual(['Bash(make generate:*)'])
+  })
+
+  it('descarta una línea con paréntesis que no sea una regla', () => {
+    // envolverla daría `Bash(echo (hola):*)`, que rompe el patrón entero y en
+    // silencio: se cae la lista completa y el usuario cree que está bloqueado
+    expect(reglasDeBloqueo('echo (hola)\nmake generate')).toEqual(['Bash(make generate:*)'])
+  })
+
+  it('sin texto no hay reglas, y no se manda el flag vacío', () => {
+    expect(reglasDeBloqueo('')).toEqual([])
+    expect(reglasDeBloqueo(null)).toEqual([])
+  })
+})
+
+describe('buildClaudeArgs con bloqueos', () => {
+  const base = { prompt: 'hola', allowed: 'Read,Bash', persona: 'p', writeMode: true }
+
+  it('manda --disallowedTools con la lista separada por comas', () => {
+    const args = buildClaudeArgs({ ...base, disallowed: ['Bash(make generate:*)', 'mcp__x'] })
+    const i = args.indexOf('--disallowedTools')
+    expect(i).toBeGreaterThan(-1)
+    expect(args[i + 1]).toBe('Bash(make generate:*),mcp__x')
+  })
+
+  it('sin bloqueos NO manda el flag', () => {
+    expect(buildClaudeArgs({ ...base }).includes('--disallowedTools')).toBe(false)
+    expect(buildClaudeArgs({ ...base, disallowed: [] }).includes('--disallowedTools')).toBe(false)
+  })
+
+  it('el bloqueo convive con el modo de permisos del rol PR', () => {
+    const args = buildClaudeArgs({ ...base, isPR: true, disallowed: ['mcp__x'] })
+    expect(args).toContain('--disallowedTools')
+    expect(args[args.indexOf('--permission-mode') + 1]).toBe('bypassPermissions')
+  })
+})

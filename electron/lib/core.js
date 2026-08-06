@@ -106,9 +106,40 @@ const agentesDeEquipo = (idioma) =>
     },
   })
 
+// ── Lo que NO se le deja hacer ───────────────────────────────────────────────
+// Hay trabajo que no quieres que un agente haga aunque pueda: `make generate`,
+// `build_runner` o un `pod install` se llevan minutos, y tocar Jira desde una
+// tarea de código no viene a cuento. Pedirlo por prompt no basta —eso ya está
+// medido en este proyecto— pero el CLI acepta `--disallowedTools`, que es un
+// bloqueo de verdad: verificado, el comando denegado devuelve «Permission to use
+// Bash with command … has been denied» y el turno sigue sin él.
+//
+// Cada línea de la lista del usuario se convierte en una regla:
+//   · `make generate`            → `Bash(make generate:*)`  (y sus argumentos)
+//   · `Bash(...)` o `mcp__x`     → se respeta tal cual, ya es una regla
+//   · líneas vacías y `#`        → se ignoran (así se pueden comentar)
+//
+// El `:*` es lo que hace que también caiga `make generate --foo`: sin él solo
+// coincidiría el comando exacto, y bastaría un argumento para colarse.
+function reglasDeBloqueo(texto) {
+  const lineas = String(texto || '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l && !l.startsWith('#'))
+  const reglas = lineas.map((l) => {
+    // ya viene como regla: una herramienta con paréntesis, o una tool MCP/nativa
+    if (/^[A-Za-z_][\w]*\(.*\)$/.test(l) || /^(mcp__|[A-Z][A-Za-z]*$)/.test(l)) return l
+    // el patrón no admite paréntesis dentro: se caería la regla entera y en
+    // silencio, así que se descarta la línea
+    if (l.includes('(') || l.includes(')')) return null
+    return `Bash(${l}:*)`
+  })
+  return [...new Set(reglas.filter(Boolean))]
+}
+
 // El Revisor PR corre con bypassPermissions: sus skills llaman conectores MCP
 // que en headless no tienen prompt de aprobación. El resto va en acceptEdits.
-function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid, effort, idioma }) {
+function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid, effort, idioma, disallowed }) {
   const args = [
     '-p',
     prompt,
@@ -125,6 +156,11 @@ function buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, sid
     '--forward-subagent-text',
   ]
   if (idioma) args.push('--agents', agentesDeEquipo(idioma))
+  // El bloqueo va DESPUÉS del allowlist a propósito: en el PR el modo es
+  // bypassPermissions, y aun así `--disallowedTools` sigue mandando —verificado
+  // con acceptEdits: el comando denegado no se ejecuta—. Si no, «modo solo
+  // código» no serviría justo para el rol que más recados hace.
+  if (disallowed?.length) args.push('--disallowedTools', disallowed.join(','))
   if (writeMode) args.push('--permission-mode', isPR ? 'bypassPermissions' : 'acceptEdits')
   if (model) args.push('--model', model)
   if (effortValido(effort)) args.push('--effort', effort)
@@ -1073,6 +1109,7 @@ module.exports = {
   tocaBuscarUpdate,
   ESPERA_UPDATE,
   eligeRepoDeDentro,
+  reglasDeBloqueo,
   entradaDeTool,
   salidaDeToolResult,
   idDeRepoEnRegistry,

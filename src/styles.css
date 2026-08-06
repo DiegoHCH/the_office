@@ -1941,3 +1941,15 @@ select.squad-model {
 .upd-bar > button:hover { filter: brightness(1.08); }
 .upd-bar .upd-x { background: transparent; color: inherit; opacity: 0.6; padding: 4px 6px; display: flex; }
 .upd-bar .upd-x:hover { opacity: 1; }
+
+/* Preferencia que necesita explicarse con su lista debajo (modo solo código): en
+   una fila de etiqueta + control no cabe, y encenderla sin ver QUÉ bloquea sería
+   firmar en blanco. */
+.pref-col { display: flex; flex-direction: column; gap: 6px; padding: 8px 14px 10px; }
+.pref-area {
+  width: 100%; min-height: 120px; resize: vertical;
+  background: var(--bg-deep); color: var(--ink-3);
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px;
+  font-family: var(--mono); font-size: 11.5px; line-height: 1.5; outline: none;
+}
+.pref-area:focus { border-color: var(--accent); }

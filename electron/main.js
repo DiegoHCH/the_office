@@ -48,6 +48,7 @@ const {
   CACHE_MAX,
   tocaBuscarUpdate,
   eligeRepoDeDentro,
+  reglasDeBloqueo,
   entradaDeTool,
   salidaDeToolResult,
   idDeRepoEnRegistry,
@@ -950,6 +951,9 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
     // elegido (aquí se elige la raíz del workspace). Lo resuelve el renderer para
     // el selector de rama, y sirve igual para cargar su contexto de ai-context.
     repoActivo = '',
+    // Lista de comandos y herramientas que este turno NO puede usar (una por
+    // línea, como la escribe el usuario en sus preferencias).
+    bloqueos = '',
   } = typeof payload === 'string' ? { prompt: payload } : payload
 
   if (children.has(role)) return { ok: false, error: `${role} ya está trabajando en algo` }
@@ -1096,6 +1100,21 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
       `Si delegas en un subagente, pásale las que le apliquen: no hereda nada de esto.\n\n${ctxRepo.texto}`
   }
 
+  // Lo que este turno no puede hacer. El bloqueo es real (`--disallowedTools`),
+  // pero hay que DECÍRSELO además: si solo se le quita la herramienta, choca con
+  // la denegación a mitad del trabajo y se pone a buscar rodeos —o se calla— en
+  // vez de decirte qué te toca lanzar. El bloqueo garantiza que no lo haga; esta
+  // línea garantiza que te enteres de qué falta.
+  const reglasBloqueo = reglasDeBloqueo(bloqueos)
+  if (reglasBloqueo.length) {
+    persona +=
+      `\n\nEN ESTE TURNO NO PUEDES USAR: ${reglasBloqueo.join(', ')}. ` +
+      `Está bloqueado de verdad, así que no lo intentes por otra vía ni busques un comando equivalente que haga lo mismo. ` +
+      `Si el trabajo necesita algo de eso —una generación de código, un ticket, un install—, NO te bloquees: haz todo lo demás, ` +
+      `y al final escribe en tu respuesta el comando o el paso EXACTO que la persona tiene que lanzar a mano, en un bloque aparte. ` +
+      `Si lo que falta invalida lo que has hecho, dilo claramente en vez de dar por bueno un trabajo a medias.`
+  }
+
   persona +=
     `\n\nIDIOMA: responde SIEMPRE en ${answerLang}, sin importar el idioma de estas instrucciones. ` +
     `Esto incluye lo que delegas: cada encargo a un subagente va escrito en ${answerLang} y termina exigiéndole ` +
@@ -1111,7 +1130,7 @@ ipcMain.handle('claude:ask', async (_e, payload) => {
   const isPR = role === 'pr'
   const allowed = !writeMode ? READ_TOOLS : isPR ? PR_TOOLS : WRITE_TOOLS
 
-  const args = buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, effort, sid, idioma: answerLang })
+  const args = buildClaudeArgs({ prompt, allowed, persona, writeMode, isPR, model, effort, sid, idioma: answerLang, disallowed: reglasBloqueo })
 
   // Sin API key en el entorno → usa el login de la suscripción ($0 por token).
   const env = sanitizeEnv(process.env, {

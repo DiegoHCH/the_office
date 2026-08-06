@@ -2952,6 +2952,49 @@ export default function App() {
               : 'dl'
 
   // ── Compartir el resumen del standup a Slack (vía conector MCP de la cuenta)
+  // ── Modo «solo código»: lo que el squad NO puede lanzar ──────────────────
+  //
+  // Los comandos de generación se llevan minutos y los recados a Jira no vienen a
+  // cuento en una tarea de código. Se bloquean de verdad en el CLI
+  // (`--disallowedTools`), no se piden por prompt.
+  //
+  // La lista es POR PROYECTO: `make generate` es de este repo, y en otro el que
+  // tarda es otro. Por eso se guarda con la misma clave que el modelo o el
+  // permiso de edición, y no como una preferencia global.
+  const BLOQUEOS_DEFAULT = [
+    '# Un comando por línea. Se bloquea el comando y sus argumentos.',
+    '# Con # al principio, la línea se ignora.',
+    'make generate',
+    'dart run build_runner build',
+    'flutter pub get',
+    'pod install',
+    '# Conectores (Jira, Slack): descoméntalos para trabajar sin recados',
+    '# mcp__claude_ai_Atlassian_Rovo',
+    '# mcp__claude_ai_Slack',
+  ].join('\n')
+  const [soloCodigo, setSoloCodigo] = useState(false)
+  const [bloqueos, setBloqueos] = useState('')
+  // Se releen al cambiar de proyecto o de cuenta, como el resto de las prefs con
+  // dos ámbitos: si no, arrastrarías la lista de un repo al siguiente.
+  useEffect(() => {
+    if (!profile) return
+    setSoloCodigo(leerPref('oficina-solocodigo', profile, project) === '1')
+    setBloqueos(leerPref('oficina-bloqueos', profile, project) ?? BLOQUEOS_DEFAULT)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile, project])
+  const guardaSoloCodigo = (v) => {
+    setSoloCodigo(v)
+    try {
+      localStorage.setItem(prefKey('oficina-solocodigo', profile, project), v ? '1' : '0')
+    } catch {}
+  }
+  const guardaBloqueos = (v) => {
+    setBloqueos(v)
+    try {
+      localStorage.setItem(prefKey('oficina-bloqueos', profile, project), v)
+    } catch {}
+  }
+
   const [slackChannel, setSlackChannel] = useState(() => localStorage.getItem('oficina-slack-channel') || '')
   const saveSlackChannel = (v) => {
     setSlackChannel(v)
@@ -3226,6 +3269,9 @@ export default function App() {
       // CONTEXT.md de ai-context en la persona en vez de confiar en que el
       // agente vaya a buscarlo.
       repoActivo: rama?.root || '',
+      // Solo si el modo está encendido: apagarlo tiene que devolverle las
+      // herramientas de verdad, no dejar el bloqueo puesto por olvido.
+      bloqueos: soloCodigo ? bloqueos : '',
     })
     if (!res?.ok) {
       setMessages((ms) => [...ms, { role: 'assistant', who: job.target, text: `⚠️ ${res?.error || 'Error desconocido'}` }])
@@ -4064,6 +4110,29 @@ export default function App() {
                 ))}
               </select>
             </div>
+            {/* Modo «solo código». Va con la lista justo debajo y no en otro
+                panel: encenderlo sin ver QUÉ bloquea sería firmar en blanco. */}
+            <div className="pref-row" title={t('pref.onlyCodeTitle')}>
+              <span className="pref-label">{t('pref.onlyCode')}</span>
+              <select className="sel pref-sel" value={soloCodigo ? '1' : '0'} onChange={(e) => guardaSoloCodigo(e.target.value === '1')}>
+                <option value="0">{t('pref.onlyCodeOff')}</option>
+                <option value="1">{t('pref.onlyCodeOn')}</option>
+              </select>
+            </div>
+            {soloCodigo && (
+              <div className="pref-col">
+                <span className="pref-label">{t('pref.blocked', { proyecto: project.split('/').pop() || '—' })}</span>
+                <textarea
+                  className="pref-area"
+                  rows={8}
+                  spellCheck={false}
+                  value={bloqueos}
+                  onChange={(e) => guardaBloqueos(e.target.value)}
+                  placeholder={t('pref.blockedPh')}
+                />
+                <span className="skills-note">{t('pref.blockedNote')}</span>
+              </div>
+            )}
             <div className="pref-row">
               <span className="pref-label">{t('pref.slack')}</span>
               <input
