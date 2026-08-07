@@ -1958,3 +1958,27 @@ select.squad-model {
 .pref-acciones { display: inline-flex; align-items: center; gap: 6px; }
 .pref-acciones .pref-sel { display: inline-flex; align-items: center; gap: 6px; }
 .sel.pref-mini { padding: 6px 8px; display: inline-flex; align-items: center; }
+
+/* Modal centrado para una DECISIÓN (no para un aviso): fondo que atenúa la
+   escena y dos salidas claras. Se cierra pinchando fuera, y quien lo cierra no
+   vuelve a verlo — un modal que reaparece por algo opcional es una molestia. */
+.modal-fondo {
+  position: fixed; inset: 0; z-index: 30; display: grid; place-items: center;
+  background: rgba(6, 12, 15, 0.66); backdrop-filter: blur(3px);
+}
+.modal {
+  width: min(460px, 88vw); background: var(--surface); color: var(--ink);
+  border: 1px solid var(--line); border-radius: 20px; padding: 22px 24px;
+  box-shadow: 0 24px 60px rgba(4, 10, 13, 0.6);
+}
+.modal h3 { margin: 0 0 10px; font-size: 17px; }
+.modal p { margin: 0 0 10px; font-size: 13.5px; line-height: 1.5; color: var(--ink-3); }
+.modal-nota { color: var(--muted) !important; font-size: 12px !important; }
+.modal-acciones { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.modal-no, .modal-si {
+  border-radius: 999px; padding: 9px 18px; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.modal-no { background: none; border: 1px solid var(--line-2); color: var(--muted); }
+.modal-no:hover { color: var(--ink); border-color: var(--line-3); }
+.modal-si { background: var(--accent); border: none; color: var(--accent-ink); font-weight: 700; }
+.modal-si:hover { filter: brightness(1.08); }

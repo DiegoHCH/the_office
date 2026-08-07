@@ -62,6 +62,8 @@ contextBridge.exposeInMainWorld('oficina', {
     memoriaInfo: (arg) => ipcRenderer.invoke('obsidian:memoriaInfo', arg),
     // Abre el vault de este proyecto en Obsidian (cada proyecto es un vault).
     openVault: (arg) => ipcRenderer.invoke('obsidian:openVault', arg),
+    // Crea el vault del proyecto (carpeta + .obsidian + _memoria.md) si no existía.
+    ensureVault: (arg) => ipcRenderer.invoke('obsidian:ensureVault', arg),
   },
   // ¿hay un proyecto Flutter a la vista? (instantáneo, solo disco)
   flutterProject: (cwd) => ipcRenderer.invoke('flutter:project', cwd),

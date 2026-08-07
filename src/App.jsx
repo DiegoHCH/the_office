@@ -151,6 +151,11 @@ export default function App() {
       localStorage.setItem('oficina-tour-done', '1')
     } catch {}
     setTourOpen(false)
+    // El ofrecimiento del vault va DESPUÉS del tour: encima de él taparía lo que
+    // el tour está señalando, y antes no se entendería. (Su estado se declara
+    // más abajo, junto a `vaultDir`: aquí arriba, el array de dependencias de su
+    // efecto leería `vaultDir` antes de existir y eso es un TDZ en el render.)
+    setVaultAsk(true)
   }
   const [status, setStatus] = useState(t('status.waiting'))
   const [roleStates, setRoleStates] = useState({})
@@ -3026,6 +3031,24 @@ export default function App() {
   useEffect(() => {
     window.oficina?.obsidian?.getDir?.().then((r) => setVaultDir(r?.dir || ''))
   }, [])
+  // Pedir la carpeta donde vivirá la memoria.
+  //
+  // Se pide en CADA arranque hasta que haya una, y no una sola vez: desde que el
+  // historial se lee del vault y la memoria de cada proyecto vive ahí, sin
+  // carpeta la app funciona a medias —guarda, pero no recuerda nada que tú
+  // puedas leer ni escribir—. «Ahora no» sigue existiendo porque bloquear la app
+  // por esto sería peor: se puede trabajar, y se vuelve a preguntar mañana.
+  const [vaultAsk, setVaultAsk] = useState(false)
+  useEffect(() => {
+    if (vaultDir) return setVaultAsk(false)
+    if (!tourOpen && localStorage.getItem('oficina-tour-done')) {
+      const t2 = setTimeout(() => setVaultAsk(true), 2500)
+      return () => clearTimeout(t2)
+    }
+  }, [vaultDir, tourOpen])
+  // Se cierra para esta sesión, no para siempre.
+  const cierraVaultAsk = () => setVaultAsk(false)
+
   const eligeVault = async () => {
     const r = await window.oficina?.obsidian?.pickDir?.()
     if (r?.canceled) return
@@ -3322,6 +3345,10 @@ export default function App() {
     setRS(job.target, 'listening')
     popSound()
     if (job.target === principal) setStatus(t('status.thinking'))
+    // El vault de ESTE proyecto, creado al empezar a trabajar en él y no al
+    // guardar: así su `_memoria.md` existe desde el primer mensaje —y se puede
+    // inyectar— en vez de aparecer a partir del segundo. Si ya estaba, no toca nada.
+    window.oficina?.obsidian?.ensureVault?.({ profile, project })
     const res = await window.oficina.ask({
       prompt: job.prompt,
       profile,
@@ -5866,6 +5893,34 @@ export default function App() {
         </button>
       )}
       {tourOpen && <Tour onDone={endTour} />}
+      {/* Ofrecimiento de guardar las conversaciones fuera de la app. Va en el
+          centro porque es una decisión, no un aviso — pero se puede decir que no
+          y no vuelve a preguntar. */}
+      {vaultAsk && !vaultDir && (
+        <div className="modal-fondo" onClick={cierraVaultAsk}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('vaultAsk.title')}</h3>
+            <p>{t('vaultAsk.body')}</p>
+            {/* Lo que evita la pregunta obvia: no, no necesitas Obsidian. */}
+            <p className="modal-nota">{t('vaultAsk.note')}</p>
+            <div className="modal-acciones">
+              <button type="button" className="modal-no" onClick={cierraVaultAsk}>
+                {t('vaultAsk.later')}
+              </button>
+              <button
+                type="button"
+                className="modal-si"
+                onClick={async () => {
+                  cierraVaultAsk()
+                  await eligeVault()
+                }}
+              >
+                {t('vaultAsk.go')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {(attachments.length > 0 || refs.length > 0) && (
         <div className="attachbar">

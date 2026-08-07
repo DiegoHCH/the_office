@@ -161,6 +161,28 @@ function registra({ HIST_DIR, userData, ventana }) {
     return out.length ? out : null
   }
 
+  /// Crea el vault de un proyecto si no existía: su carpeta, su `.obsidian` —que
+  /// es lo que hace que Obsidian la abra como vault propio— y su `_memoria.md`
+  /// con la plantilla.
+  ///
+  /// Se llama al EMPEZAR una conversación y no al guardarla, que era cuando se
+  /// creaba antes: así la memoria del proyecto existe desde el primer mensaje y
+  /// no a partir del segundo. Si ya estaba, no toca nada.
+  ipcMain.handle('obsidian:ensureVault', (_e, { profile, project } = {}) => {
+    const vault = leeDir()
+    if (!vault) return { ok: true, off: true }
+    try {
+      const carpeta = obs.carpetaDeNota({ vault, perfil: profile, proyecto: project }, path.join)
+      const nuevo = !fs.existsSync(carpeta)
+      fs.mkdirSync(path.join(carpeta, '.obsidian'), { recursive: true })
+      const mem = path.join(carpeta, obs.nombreMemoria())
+      if (!fs.existsSync(mem)) fs.writeFileSync(mem, obs.PLANTILLA_MEMORIA)
+      return { ok: true, nuevo, path: carpeta }
+    } catch (err) {
+      return { ok: false, error: err.message }
+    }
+  })
+
   ipcMain.handle('obsidian:getDir', () => ({ dir: leeDir() }))
 
   ipcMain.handle('obsidian:pickDir', async () => {
